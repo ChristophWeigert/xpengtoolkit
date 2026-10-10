@@ -234,8 +234,13 @@ def renew() -> dict:
             return {"ok": False, "error": detail, "ms": int((time.time() - started) * 1000)}
 
         pair_dir = _publish_pair()
+        # ?return_response is mandatory, not a nicety: the integration registers
+        # this service with SupportsResponse.ONLY, and Home Assistant refuses a
+        # call that does not ask for the response with HTTP 400 "Service call
+        # requires responses but caller did not ask for responses". The response
+        # is also the import result - entry id, VIN, device id, client id.
         status, body = _call_service(
-            "/services/xpeng/import_credentials",
+            "/services/xpeng/import_credentials?return_response",
             {
                 "tokens_path": os.path.join(pair_dir, "xpeng_tokens.json"),
                 "tenant_path": os.path.join(pair_dir, "xpeng_tenant.json"),

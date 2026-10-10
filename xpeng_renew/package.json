@@ -1,6 +1,6 @@
 {
   "name": "xpeng-renew",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "private": true,
   "description": "Guardian token helper dependency for the XPENG credential renewal add-on",
   "dependencies": {
