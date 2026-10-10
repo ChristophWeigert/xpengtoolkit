@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from typing import Any, Final
 
 import voluptuous as vol
@@ -74,6 +75,12 @@ _LOGGER = logging.getLogger(__name__)
 #: rather than imported because xpeng_api pulls in cryptography/paho, and this
 #: module has to stay importable where the integration's requirements are not
 #: installed (the repo's stubbed test harness does exactly that).
+#: Where the renewal app writes its pair by default - its own `pair_dir` option.
+#: Named here only so the import form can offer the paths as defaults when the
+#: pair is already on this host; if the app's `pair_dir` was changed, the two
+#: files simply will not be found and the fields stay blank.
+_DEFAULT_PAIR_DIR: Final = "/config/xpeng-secrets"
+
 _CAPTCHA_GATE_CODES: Final = frozenset({12040101, 12040106})
 
 #: Substrings that identify the gate when it arrives as an exception message
@@ -532,6 +539,20 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
                     tokens, tenant, vin, mqtt, account_email
                 )
 
+        # The renewal app writes the pair to a fixed directory. When it is already
+        # sitting there, offer those paths as the defaults, so the documented
+        # bootstrap is "accept the form" rather than "type two container paths
+        # correctly". Filled in only when BOTH files are present, and only on the
+        # first show, so an install whose pair is elsewhere - or on a desktop, to
+        # be pasted - still gets blank fields.
+        default_tokens_path = ""
+        default_tenant_path = ""
+        if user_input is None:
+            pair_tokens = os.path.join(_DEFAULT_PAIR_DIR, "xpeng_tokens.json")
+            pair_tenant = os.path.join(_DEFAULT_PAIR_DIR, "xpeng_tenant.json")
+            if os.path.isfile(pair_tokens) and os.path.isfile(pair_tenant):
+                default_tokens_path, default_tenant_path = pair_tokens, pair_tenant
+
         return self.async_show_form(
             step_id="import_tokens",
             data_schema=vol.Schema(
@@ -539,11 +560,11 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
                     vol.Optional("tokens_json", default=""): TextSelector(
                         TextSelectorConfig(multiline=True)
                     ),
-                    vol.Optional("tokens_path", default=""): str,
+                    vol.Optional("tokens_path", default=default_tokens_path): str,
                     vol.Optional("tenant_json", default=""): TextSelector(
                         TextSelectorConfig(multiline=True)
                     ),
-                    vol.Optional("tenant_path", default=""): str,
+                    vol.Optional("tenant_path", default=default_tenant_path): str,
                     vol.Optional(CONF_VIN, default=self._vin): str,
                     # Which account the pair belongs to. Normally the onboarding
                     # tool already recorded this in the token file and this can

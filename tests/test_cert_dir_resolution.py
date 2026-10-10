@@ -45,6 +45,8 @@ except ImportError as exc:  # cryptography is the module's only third-party impo
 
 HA_CERTS = "/config/custom_components/xpeng/certs"
 BESIDE_MODULE = str(pathlib.Path(_MODULE_PATH).resolve().parent / "certs")
+#: The location the README recommends, because it survives an integration update.
+RECOMMENDED = "/config/xpeng-certs"
 
 
 class _FakeCaChain:
@@ -97,6 +99,26 @@ class TestCertificateDirectory(unittest.TestCase):
 
     def test_the_module_default_comes_from_the_resolver(self):
         self.assertEqual(api.DEFAULT_CERT_DIR, api._default_cert_dir())
+
+    def test_the_update_safe_directory_needs_no_option(self):
+        """Certs kept outside the integration resolve without setting cert_dir.
+
+        That is the layout the README recommends: an integration update reinstalls
+        ``custom_components/xpeng/`` and takes anything stored inside it with it,
+        so keys there are one HACS update away from vanishing.
+        """
+        with _FakeCaChain(RECOMMENDED):
+            self.assertEqual(api._default_cert_dir(), RECOMMENDED)
+
+    def test_an_existing_default_still_wins_over_the_new_candidate(self):
+        """The new location is tried last, so it cannot move a working install.
+
+        Anything already resolving to the directory inside the integration must
+        keep resolving to exactly that, or upgrading would change which keys an
+        install uses.
+        """
+        with _FakeCaChain(HA_CERTS, RECOMMENDED):
+            self.assertEqual(api._default_cert_dir(), HA_CERTS)
 
 
 class TestRenewAddonReportsStderr(unittest.TestCase):

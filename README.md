@@ -19,7 +19,7 @@ the server ends the session. Two apps take the human out of the loop:
   credentials, exactly as the Repairs card does.
 
 [Steps 4-5](#step-4---install-the-two-apps) install the apps and mint the first
-pair with the solver, and [step 8](#step-8---add-the-renewal-automation) adds the
+pair with the solver, and [step 7](#step-7---add-the-renewal-automation) adds the
 automation that calls them. Three things are easy to miss:
 
 - **The first renewal is expected to fail** when the integration has no config
@@ -90,16 +90,17 @@ official app signed in as that account**, for the reason given just above.
 | **4** | [Install the two apps](#step-4---install-the-two-apps) (slider solver + credential renewal) and set their tokens | Home Assistant | 5 min |
 | **5** | [Mint the first pair](#step-5---mint-the-first-pair) - the renewal app does the login, the solver clears the slider | Home Assistant | 2 min |
 | **6** | [Add the integration](#step-6---import-them-into-home-assistant) and choose **Import tokens**, pointing it at the pair from step 5 | Home Assistant | 1 min |
-| **7** | Set the **Certificate directory** option to the folder from step 3 | Home Assistant | 30 s |
-| **8** | [Add the renewal automation](#step-8---add-the-renewal-automation) | Home Assistant | 5 min |
+| **7** | [Add the renewal automation](#step-7---add-the-renewal-automation) | Home Assistant | 5 min |
 
 **Only step 2 happens outside Home Assistant**, because extracting the certificates
 needs the APK. Nothing else does - including the captcha-gated login, which the
 solver app clears.
 
-**Steps 4-5 are what make the install self-renewing.** Without them it still works,
-but only until XPENG retires the session about two hours later, and then a fresh
-pair has to be pasted in by hand. If you would rather not run the apps at all, or
+**Steps 4-5 are what make the install self-renewing**, and step 7 is what makes it
+repeat: the automation calls the app, so without it you would be triggering renewals
+yourself. Without 4-5 it still works, but only until XPENG retires the session about
+two hours later, and then a fresh pair has to be pasted in by hand. If you would
+rather not run the apps at all, or
 not hand them the account password before you have seen the integration work,
 [the alternative](#alternative-to-steps-4-5-mint-the-first-pair-yourself) mints the
 pair on a desktop instead and replaces steps 4-5 - it needs Chrome, Node and one
@@ -314,7 +315,7 @@ remove the entry and add it again with the dedicated one.
 
 ## Installation
 
-This is step 1 of [the process above](#the-steps). The other seven steps are
+This is step 1 of [the process above](#the-steps). The other six steps are
 under [Setup](#setup).
 
 ### HACS (custom repository)
@@ -332,7 +333,7 @@ Then: **Settings -> Devices & Services -> Add Integration -> Xpengtk**.
 
 ## Setup
 
-This section covers **steps 2 to 8** of the summary above; step 1 is
+This section covers **steps 2 to 7** of the summary above; step 1 is
 [Installation](#installation).
 
 **Sign in with your dedicated account, never your primary one** (see above).
@@ -403,6 +404,14 @@ ls -l /config/xpeng-certs      # three files
 
 These are live credentials, so set the directory to `700` and the files to `600`,
 and do not leave the folder exposed in a share.
+
+**Nothing needs configuring for either location.** The integration looks for
+`ca-chain.crt` in `/config/xpeng-certs`, then in its own `certs/` directory, and
+uses the first one that has it. Only if you keep the three files somewhere else do
+you need to say so: *Settings -> Devices & Services -> XPENG -> Configure ->
+**Certificate directory***. That form validates the directory, and refuses to save
+unless all three files are in it.
+
 
 ### Alternative to steps 4-5: mint the first pair yourself
 
@@ -530,7 +539,8 @@ covers this bootstrap in full. From step 6 on, renewals complete on their own.
 **Import tokens**.
 
 The pair is already on your Home Assistant host, in the renewal app's `pair_dir`, so
-give the **paths**:
+use the **paths** - and on the app route they come already filled in, because the form
+looks in that directory and offers what it finds there:
 
 | Field | What goes in it |
 |---|---|
@@ -548,13 +558,7 @@ integration **adopts the device id from the imported tenant** rather than mintin
 a new one - so if you ever see it mint a fresh id instead, the tenant did not
 come through and the credentials will be rejected.
 
-### Step 7 - point the integration at the certificates
-
-*Settings -> Devices & Services -> XPENG -> Configure*, and set the
-**Certificate directory** to the folder from step 3. The form validates it: if
-any of the three files is missing, saving is refused rather than failing later.
-
-### Step 8 - add the renewal automation
+### Step 7 - add the renewal automation
 
 The app only acts when it is called, so something has to call it: ahead of the cap
 on a schedule, and immediately when the credentials are already invalid. That takes

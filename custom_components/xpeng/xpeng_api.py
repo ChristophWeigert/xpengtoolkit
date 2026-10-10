@@ -72,6 +72,12 @@ def _default_cert_dir() -> str:
     # A copy that carries no certs of its own (the renewal add-on) reads the
     # installed integration's, which is where Home Assistant keeps them.
     candidates.append("/config/custom_components/xpeng/certs")
+    # The update-safe location the README recommends, outside the integration
+    # directory: a HACS update reinstalls custom_components/xpeng/, so keys kept
+    # inside it can go with it. Tried LAST, so an install already resolving to the
+    # directory above keeps resolving to it - this only ever adds somewhere to
+    # look, which is what lets the recommended layout need no option set.
+    candidates.append("/config/xpeng-certs")
     for candidate in candidates:
         if candidate and os.path.isfile(os.path.join(candidate, "ca-chain.crt")):
             return candidate
