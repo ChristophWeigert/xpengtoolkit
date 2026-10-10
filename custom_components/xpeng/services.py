@@ -231,7 +231,6 @@ def _build_snapshot(coordinator: Any, reason: str) -> dict[str, Any]:
         "hvac_schedules": coordinator.hvac_schedules,
         "hvac_next_start_time": coordinator.hvac_next_start_time,
         "left_comfort_preon_seconds": coordinator.left_comfort_preon_seconds,
-        "appstore_catalogue": coordinator.appstore_catalogue,
         "beta_popup": coordinator.beta_popup,
         "xcombos": coordinator.xcombos,
         "vehicle_image_url": coordinator.vehicle_image_url,

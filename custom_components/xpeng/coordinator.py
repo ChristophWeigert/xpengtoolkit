@@ -141,8 +141,6 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # HVAC scheduled appointments (from /v5/appointments/aircondition/list)
         self.hvac_schedules: list[dict[str, Any]] = []
         self.hvac_next_start_time: str | None = None
-        # In-car AppStore catalogue (xmart-eu host, app-store/v1/app/groups)
-        self.appstore_catalogue: dict[str, Any] | None = None
         # CDU identity (from vehicleCdu in v2/myVehicles response)
         self.cdu_id: str | None = None
         self.cdu_a_or_b_flag: int | None = None
@@ -595,8 +593,6 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.hvac_schedules = data["hvac_schedules"]
         if "hvac_next_start_time" in data:
             self.hvac_next_start_time = data["hvac_next_start_time"]
-        if "appstore_catalogue" in data:
-            self.appstore_catalogue = data["appstore_catalogue"]
         if "cdu_id" in data:
             self.cdu_id = data["cdu_id"]
         if "cdu_a_or_b_flag" in data:

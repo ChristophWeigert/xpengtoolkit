@@ -1535,7 +1535,6 @@ def _fetch_rest_data_sync(
         get_beta_popup, get_vehicle_extension,
         get_left_comfort_preon_time,
         list_aircondition_appointments,
-        get_appstore_groups,
     )
 
     tokens, tenant = _load_api_context(entry)
@@ -1804,31 +1803,6 @@ def _fetch_rest_data_sync(
                               len(items), result["hvac_next_start_time"])
     except Exception as err:
         _LOGGER.debug("list_aircondition_appointments failed: %s", err)
-
-    # 15. AppStore catalogue (xmart-eu host) — refreshed less often than vehicle data
-    try:
-        vtc = result.get("vehicle_type_code")
-        groups = get_appstore_groups(None, tenant, tokens, vin=vin, vehicle_type_code=vtc)
-        if isinstance(groups, dict):
-            # If it's the error envelope {code, msg} only, store + log it
-            if set(groups.keys()) <= {"code", "msg", "desc"}:
-                result["appstore_catalogue"] = {
-                    "_error": True,
-                    "code": groups.get("code"),
-                    "msg": groups.get("msg") or groups.get("desc"),
-                }
-                _LOGGER.warning("AppStore call rejected: code=%s msg=%s",
-                                groups.get("code"), groups.get("msg") or groups.get("desc"))
-            else:
-                result["appstore_catalogue"] = groups
-                _LOGGER.info("AppStore catalogue fetched: keys=%s",
-                             list(groups.keys())[:8])
-        elif isinstance(groups, list):
-            result["appstore_catalogue"] = {"groups": groups}
-            _LOGGER.info("AppStore catalogue fetched: %d top-level items",
-                         len(groups))
-    except Exception as err:
-        _LOGGER.warning("get_appstore_groups failed: %s", err)
 
     return result if result else None
 

@@ -2647,52 +2647,6 @@ def delete_aircondition_appointment(
     )
 
 
-APPSTORE_BASE_URL = "https://xmart-eu.xiaopeng.com"
-
-
-def get_appstore_groups(
-    config: dict[str, str] | None,
-    tenant: dict[str, Any],
-    tokens: dict[str, Any],
-    vin: str | None = None,
-    vehicle_type_code: str | None = None,
-) -> Any:
-    """Fetch the in-car AppStore catalogue (category groups + apps).
-
-    The server requires (car_model, region) context. Try VIN + vehicleTypeCode
-    so the server can resolve car_model server-side; head-unit-side calls embed
-    these in the XP-Client `mo=` segment which we cannot mint with app-tier auth.
-    """
-    body: dict[str, Any] = {}
-    if vin:
-        body["vin"] = vin
-    if vehicle_type_code:
-        body["vehicleTypeCode"] = vehicle_type_code
-        body["carType"] = vehicle_type_code
-    # Inject head-unit-style car model into the XP-Client `mo=` segment so the
-    # catalogue lookup can resolve (carType, region). The SDK uses `EU` as the
-    # international bucket regardless of specific country (AU, EU, NO, etc.).
-    return get_authenticated_data(
-        config, tenant, tokens,
-        "/app-store/v1/app/groups", "POST", compact_json(body),
-        base_url=APPSTORE_BASE_URL,
-        client_mo_override="F30EU",
-    )
-
-
-def get_appstore_homepage(
-    config: dict[str, str] | None,
-    tenant: dict[str, Any],
-    tokens: dict[str, Any],
-) -> Any:
-    """Fetch the AppStore homepage layout."""
-    return get_authenticated_data(
-        config, tenant, tokens,
-        "/app-store/v1/item/homePage", "POST", compact_json({}),
-        base_url=APPSTORE_BASE_URL,
-    )
-
-
 def list_aircondition_appointments(
     config: dict[str, str] | None,
     tenant: dict[str, Any],

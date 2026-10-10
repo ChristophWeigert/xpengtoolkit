@@ -66,7 +66,6 @@ async def async_setup_entry(
     entities.append(XPengVehicleExtensionSensor(coordinator))
     entities.append(XPengLeftComfortPreonSensor(coordinator))
     entities.append(XPengHvacSchedulesSensor(coordinator))
-    entities.append(XPengAppStoreCatalogueSensor(coordinator))
     entities.append(XPengCduIdSensor(coordinator))
     entities.append(XPengCduPartitionSensor(coordinator))
     entities.append(XPengWeatherSensor(coordinator))
@@ -1135,92 +1134,6 @@ class XPengHvacSchedulesSensor(XPengEntity, SensorEntity):
         return {
             "schedules": decoded,
             "next_start_time": self.coordinator.hvac_next_start_time,
-        }
-
-
-class XPengAppStoreCatalogueSensor(XPengEntity, SensorEntity):
-    """Catalogue browser for the in-car AppStore (xmart-eu)."""
-
-    _attr_has_entity_name = True
-    _attr_translation_key = "appstore_catalogue"
-    _attr_icon = "mdi:store"
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-
-    def __init__(self, coordinator: XPengDataCoordinator) -> None:
-        super().__init__(coordinator)
-        self._attr_unique_id = f"xpeng_{self._vin}_appstore_catalogue"
-
-    def _flatten_apps(self) -> list[dict[str, Any]]:
-        cat = self.coordinator.appstore_catalogue
-        if not isinstance(cat, dict):
-            return []
-        groups = cat.get("groups") or cat.get("list") or []
-        if not isinstance(groups, list):
-            return []
-        flat: list[dict[str, Any]] = []
-        seen_ids: set[str] = set()
-        for grp in groups:
-            if not isinstance(grp, dict):
-                continue
-            apps = grp.get("apps") or grp.get("appList") or grp.get("items") or []
-            if not isinstance(apps, list):
-                continue
-            for app in apps:
-                if not isinstance(app, dict):
-                    continue
-                aid = str(app.get("app_id") or app.get("appId") or app.get("package_name") or "")
-                if aid in seen_ids:
-                    continue
-                seen_ids.add(aid)
-                flat.append({
-                    "app_id": app.get("app_id") or app.get("appId"),
-                    "package_name": app.get("package_name") or app.get("packageName"),
-                    "app_name": app.get("app_name") or app.get("appName"),
-                    "version_name": app.get("version_name") or app.get("versionName"),
-                    "version_code": app.get("version_code") or app.get("versionCode"),
-                    "size": app.get("size"),
-                    "download_url": app.get("download_url") or app.get("downloadUrl"),
-                    "md5": app.get("md5"),
-                    "group": grp.get("name") or grp.get("group_name") or grp.get("title"),
-                })
-        return flat
-
-    @property
-    def native_value(self) -> int | None:
-        cat = self.coordinator.appstore_catalogue
-        if cat is None:
-            return None
-        if isinstance(cat, dict) and cat.get("_error"):
-            return None
-        return len(self._flatten_apps())
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        cat = self.coordinator.appstore_catalogue
-        if not isinstance(cat, dict):
-            return {"available": False}
-        if cat.get("_error"):
-            return {
-                "available": False,
-                "error_code": cat.get("code"),
-                "error_msg": cat.get("msg"),
-            }
-        groups = cat.get("groups") or cat.get("list") or []
-        group_names = [
-            g.get("name") or g.get("group_name") or g.get("title")
-            for g in groups
-            if isinstance(g, dict)
-        ]
-        apps = self._flatten_apps()
-        # Cap apps attribute to avoid bloating HA state DB
-        apps_capped = apps[:200]
-        return {
-            "available": True,
-            "group_count": len(groups),
-            "groups": group_names,
-            "app_count": len(apps),
-            "apps": apps_capped,
-            "apps_truncated": len(apps) > len(apps_capped),
         }
 
 

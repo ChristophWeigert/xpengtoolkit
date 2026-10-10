@@ -337,9 +337,6 @@
       "hvac_schedules": {
         "name": "HVAC schedules"
       },
-      "appstore_catalogue": {
-        "name": "AppStore catalogue"
-      },
       "cdu_id": {
         "name": "CDU ID"
       },
