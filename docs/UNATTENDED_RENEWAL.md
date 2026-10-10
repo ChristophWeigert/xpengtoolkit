@@ -238,34 +238,32 @@ so it is the *account's* registration state, not the id string. A single refusal
 can still appear now and then after seeding, as the credential rotation races; it
 recovers on its own and `last_data_update` keeps advancing.
 
-### The app has to stay signed in
+### What the app login actually does — and the session collision
 
-This was measured, and it is the awkward part: signing the app out puts the
-install straight back to where it started. Within a few minutes of the sign-out
-the same host went from 19/124 unknown and live data to 97/124 unknown,
-`last_data_update = No data`, `polling_status = Reconnecting`, and the
-`Not authorized` refusals resumed.
+Measured on a fresh account, three readings:
 
-So the authorization tracks an **active app session for the account**, not a
-one-off registration. That collides with the one-session-per-account rule, because
-an unattended renewal logs in again every cycle:
+| | before the app login | right after it | ~4 min later, **app still signed in** |
+|---|---|---|---|
+| entities unknown | 97 / 124 | 19 / 124 | 97 / 124 |
+| `last_data_update` | `No data` | live | `No data` |
+| `polling_status` | `Reconnecting` | `Parked` | `Reconnecting` |
+| `Not authorized` | ongoing | stopped | resumed |
 
-* on a **dedicated second account** — the recommended setup — you get unattended
-  renewal but the account's app is signed out, so expect **no live vehicle data**:
-  the partial REST snapshot only. Plan for it rather than debugging it;
-* on an account whose **app stays signed in** you get live data, but each renewal
-  signs that app session out, and how quickly the app re-signs itself in (evicting
-  the install in turn) has not been watched across cycles.
+The app login authorises the account and data flows **immediately** — and then it
+stops again within minutes, *while the app is still signed in*. The likely reason
+is the one-session-per-account rule: the app's login evicts the install's session,
+so the install's MQTT credentials die and the refusals resume. The phone effectively
+takes the session.
 
-If live data matters on a given host, treat "which account, and is its app signed
-in" as a first-class part of the setup, and watch `mqtt_listener` and
-`last_data_update` after a renewal rather than assuming they stay healthy.
+So "sign the app in once" is **not** a stable fix, and it is not simply a one-off
+seeding step. An earlier revision of this section blamed the app being *signed out*;
+that was wrong — the regression was observed before the sign-out happened.
 
-This is the same underlying cause as [the device identity](#4-the-device-identity)
-above: XPENG treats an account and device it has seen through the app differently
-from one that only ever logged in headlessly. Because a renewal mints a *new*
-login every cycle, an install whose account was never seeded will renew happily
-forever while showing almost no data.
+**Still open:** whether an account stays MQTT-authorised once the app is signed out
+for good, and whether a headless renewal re-establishes it. Until that is measured,
+assume the two are in tension: on one account you get either live data (app signed
+in) or unattended headless renewal, unless a renewal turns out to restore MQTT on
+its own.
 
 ## 6. When it goes wrong
 
