@@ -202,92 +202,71 @@ brand-new identity. Practical consequences:
 * Whatever you do, do not let it change on every renewal — that is what the app's
   remembered id in `/data/device_id.txt` prevents.
 
-## 5. Seed the account in the app first
+## 5. Most entities `unknown`: a stale MQTT client
 
-Symptoms: renewal works, credentials are valid, the car is plainly bound to the
-account (the API lists it), and yet **most entities sit at `unknown`** — often 90
-of ~124 — with a few odd ones populated. The log repeats:
+Symptoms: credentials are valid, renewal works, the car is plainly bound to the
+account (the API lists it) — and most entities sit at `unknown`, flapping between
+roughly 20 and all 124, with the log showing a steady trickle of
 
 ```
 XPENG MQTT connection refused: rc=Not authorized (rc_str=Not authorized)
-sensor.<car>_mqtt_listener      = No messages
-sensor.<car>_last_data_update   = No data
-sensor.<car>_polling_status     = Reconnecting
 ```
 
-The full vehicle state arrives over **MQTT**; the REST path alone yields a partial
-snapshot, so without MQTT most entities never get a value. The broker is not
-rejecting bad credentials — it is refusing to authorize an account that has only
-ever logged in *headlessly*.
+**Cause: two MQTT clients for the same account, competing.** Each carries a
+different `clientId`, so the broker authorises one and refuses the other; each
+refusal triggers a credential refresh and a client rebuild, and every rebuild
+resets the entities — so the counts flap and data never accumulates. Confirmed on a
+live install:
 
-**Fix: sign the account into the official XPENG app once.** It is authorized
-immediately afterwards. Measured on a fresh test account, within a minute of the
-app login:
+```
+19x  xmart:app:10225403:4dc51b29c3dee8b8ea6f7648ce407ffa   <- current
+ 4x  xmart:app:10225403:e45f264d72d0b022a94e664fbc2615b4   <- stale
+live paho clients: 2
+```
+
+The usual way to end up here is **changing the device id on an install that already
+had one** (e.g. setting `device_id` after it was already minted, which changes the
+`clientId`): the integration does not tear the old client down when the clientId
+changes. The code already guards against stacking clients with the *same* id; a
+changed id slips past it.
+
+**Fix: restart Home Assistant.** A config-entry reload is **not** enough — the stale
+client survives it. Measured, before and after a restart:
 
 | | before | after |
 |---|---|---|
-| entities unknown | 97 / 124 | 19 / 124 |
-| `last_data_update` | `No data` | fresh |
+| live paho clients | 2 | **1** |
+| entities unknown | 97 / 124 | **20 / 124** |
+| `last_data_update` | `No data` | live |
 | `polling_status` | `Reconnecting` | `Parked` |
 
-This is not a user or session limit. Two freed MQTT sessions (another Home
-Assistant for the same car switched off entirely, and a phone signed out) changed
-nothing; the refusal only stopped when the account was seeded. It is also not the
-device id — the refusal persisted while the install presented the phone's own id,
-so it is the *account's* registration state, not the id string. A single refusal
-can still appear now and then after seeding, as the credential rotation races; it
-recovers on its own and `last_data_update` keeps advancing.
+Once it has settled it stays healthy — headless, with the app signed out, which is
+the point: this has nothing to do with the app.
 
-### What the app login actually does — and the session collision
+**Keep one device id per install.** If you must change it, expect to restart Home
+Assistant afterwards.
 
-Measured on a fresh account, three readings:
+### What this is not
 
-| | before the app login | right after it | ~4 min later, **app still signed in** |
-|---|---|---|---|
-| entities unknown | 97 / 124 | 19 / 124 | 97 / 124 |
-| `last_data_update` | `No data` | live | `No data` |
-| `polling_status` | `Reconnecting` | `Parked` | `Reconnecting` |
-| `Not authorized` | ongoing | stopped | resumed |
+Ruled out by measurement, so it is not worth re-treading:
 
-The app login authorises the account and data flows **immediately** — and then it
-stops again within minutes, *while the app is still signed in*. The likely reason
-is the one-session-per-account rule: the app's login evicts the install's session,
-so the install's MQTT credentials die and the refusals resume. The phone effectively
-takes the session.
+* **not a user or session cap** — switching another Home Assistant for the same car
+  off entirely, and signing a phone out of the app, both changed nothing;
+* **not the app needing to be signed in** — the healthy state above was measured
+  *with the app signed out*. An earlier revision of this section claimed the account
+  had to be signed into the app; that was wrong, and a coincidence: a churning
+  install produces intermittent good windows (19/124, 34/124, 84/124 observed both
+  before and after an app login), and the app login happened to land in one;
+* **not the credentials or the vehicle binding** — `myVehicles` returns the car for
+  the account (`vehicleTypeCode FA`, `vehicleTypeName F30`).
 
-So "sign the app in once" is **not** a stable fix, and it is not simply a one-off
-seeding step. An earlier revision of this section blamed the app being *signed out*;
-that was wrong — the regression was observed before the sign-out happened.
+### Two measurement traps in this area
 
-**Measured: a headless renewal does not restore it.** With the app signed out, a
-complete headless renewal — fresh login, new pair minted and imported,
-`createMqttAccount` OK (`[+] LOGIN OK uid=10225403`) — left the install exactly
-where it was:
-
-```
-entities unknown = 97 / 124
-mqtt_listener    = No messages
-last_data_update = No data
-Not authorized   = still arriving
-```
-
-So the two measurements together are:
-
-| state | MQTT | vehicle data |
-|---|---|---|
-| app signed in | authorised | flows immediately, then stops within minutes |
-| app signed out + fresh headless renewal | refused | none |
-
-Live vehicle data and unattended headless renewal are therefore in **tension** on
-one account: the app's presence is what gets the broker to authorise the account,
-and the app and the install evict each other under the one-session-per-account
-rule. On a dedicated second account, expect renewal to work and data not to — plan
-for it rather than debugging it.
-
-The reference to compare against is the production install that *does* show live
-data: same integration, same car, zero `Not authorized` events. Its account
-presumably has the app signed in and no competing headless login, which is worth
-confirming before concluding anything further.
+* **`sensor.<car>_mqtt_listener = No messages` is not a data indicator.** A healthy
+  install with live data reports exactly that, because the data arrives over REST.
+* **Log levels differ per host**, so counting INFO/DEBUG lines across two installs
+  proves nothing unless both are set to the same level. Counts like "0 MQTT accounts
+  obtained" are an artifact of a `warning` level, not evidence.
 
 ## 6. When it goes wrong
 
@@ -302,8 +281,10 @@ Read these in order:
 3. **The HA log**, for `homeassistant.components.rest_command` errors: they name
    the status the worker answered with.
 4. **Most entities `unknown` while the credentials are healthy** — that is the
-   MQTT authorization case in [section 5](#5-seed-the-account-in-the-app-first),
-   not a credential problem. Look for `MQTT connection refused: rc=Not authorized`.
+   competing-MQTT-client case in
+   [section 5](#5-most-entities-unknown-a-stale-mqtt-client), not a credential
+   problem. Look for `MQTT connection refused: rc=Not authorized`, then count the
+   distinct `clientId`s.
 
 The worker raises a persistent notification after **two consecutive failures**.
 Note that Home Assistant 2026.10 no longer exposes persistent notifications as
