@@ -1,5 +1,5 @@
 name: XPENG credential renewal
-version: "0.1.8"
+version: "0.1.9"
 slug: xpeng_renew
 description: >-
   Renews XPENG credentials unattended. Solves the login slider through the solver
@@ -12,6 +12,12 @@ arch:
 startup: application
 boot: auto
 init: false
+# The run ends by importing the fresh pair through the Supervisor's Core proxy
+# (POST /core/api/services/xpeng/import_credentials), and it reports failures the
+# same way. Without this grant the Supervisor answers every such call with
+# 401 Unauthorized - after a renewal that otherwise succeeded, which makes it
+# look like a credential problem rather than a permissions one.
+homeassistant_api: true
 map:
   - config:rw
 ports:
