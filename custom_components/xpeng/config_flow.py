@@ -144,6 +144,17 @@ def _parse_json_object(text: str, *, key: str, what: str) -> dict[str, Any]:
     return parsed
 
 
+def _pair_on_host() -> bool:
+    """Whether the renewal app's pair is already sitting on this host.
+
+    True means the import has nothing to ask: the paths are known, the VIN comes out
+    of the pair, and no sign-in method needs choosing.
+    """
+    return os.path.isfile(
+        os.path.join(_DEFAULT_PAIR_DIR, "xpeng_tokens.json")
+    ) and os.path.isfile(os.path.join(_DEFAULT_PAIR_DIR, "xpeng_tenant.json"))
+
+
 def _tokens_from_text(text: str) -> dict[str, Any]:
     """The token object inside pasted token-file contents.
 
@@ -348,19 +359,31 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Entry point: pick an auth method and give the VIN.
 
-        XPENG gates most accounts' sign-in behind its own slider captcha, and
-        that challenge can only be cleared by a human dragging it in a real
-        browser — so the import path (a token pair produced outside HA by
-        tools/onboard_email_login.py) is the one that reliably completes here.
-        The Google and email paths are kept for accounts XPENG does not gate.
+        Nothing is asked when a pair is already on this host. The renewal app puts one
+        in pair_dir, and there is then nothing to decide - importing it is the only
+        thing this flow can usefully do - so it goes straight to that form with the
+        paths filled in. Asking anyway meant a required VIN box and a sign-in method
+        to choose on a screen whose answer was already on disk.
+
+        The questions are for the other case, someone holding a pair to paste. XPENG
+        gates most accounts' sign-in behind its own slider captcha, which only a human
+        dragging it in a real browser can clear - so importing a pair minted outside
+        HA is the path that reliably completes. Google and email are kept for accounts
+        XPENG does not gate.
         """
         errors: dict[str, str] = {}
+
+        if user_input is None and _pair_on_host():
+            return await self.async_step_import_tokens()
 
         if user_input is not None:
             vin = (user_input.get(CONF_VIN) or "").strip().upper()
             method = user_input.get(CONF_AUTH_METHOD, AUTH_METHOD_IMPORT)
 
-            if not vin:
+            # Only the sign-in routes need the VIN here. The import step reads it out
+            # of the pair, so asking for it on the way in duplicated a question that
+            # has an answer - and made it look required when it is not.
+            if not vin and method != AUTH_METHOD_IMPORT:
                 errors[CONF_VIN] = "required"
             else:
                 self._vin = vin
@@ -375,7 +398,7 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_VIN): str,
+                    vol.Optional(CONF_VIN, default=""): str,
                     vol.Required(
                         CONF_AUTH_METHOD, default=AUTH_METHOD_IMPORT
                     ): SelectSelector(
@@ -547,11 +570,9 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
         # be pasted - still gets blank fields.
         default_tokens_path = ""
         default_tenant_path = ""
-        if user_input is None:
-            pair_tokens = os.path.join(_DEFAULT_PAIR_DIR, "xpeng_tokens.json")
-            pair_tenant = os.path.join(_DEFAULT_PAIR_DIR, "xpeng_tenant.json")
-            if os.path.isfile(pair_tokens) and os.path.isfile(pair_tenant):
-                default_tokens_path, default_tenant_path = pair_tokens, pair_tenant
+        if user_input is None and _pair_on_host():
+            default_tokens_path = os.path.join(_DEFAULT_PAIR_DIR, "xpeng_tokens.json")
+            default_tenant_path = os.path.join(_DEFAULT_PAIR_DIR, "xpeng_tenant.json")
 
         return self.async_show_form(
             step_id="import_tokens",

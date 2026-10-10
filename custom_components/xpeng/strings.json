@@ -3,12 +3,13 @@
     "step": {
       "user": {
         "title": "Connect your XPENG vehicle",
-        "description": "Use a DEDICATED XPENG account that has been shared to your car - NOT your primary account. XPENG allows one active session per account, so signing in here logs your phone app out repeatedly.\n\nXPENG gates most accounts with a slider captcha that only a human dragging it in a real browser can clear, and this screen cannot show it. \"Import tokens from the onboarding tool\" is the method that reliably completes; the Google and email options only work if XPENG does not challenge the account.",
+        "description": "Use a DEDICATED XPENG account that has been shared to your car - NOT your primary account. XPENG allows one active session per account, so signing in here logs your phone app out repeatedly.\n\nMost accounts are gated by XPENG's slider captcha, which this screen cannot show, so \"Import tokens from the onboarding tool\" is the route that always completes.",
         "data": {
-          "vin": "Vehicle Identification Number (VIN)",
+          "vin": "Vehicle Identification Number (VIN) - optional",
           "auth_method": "Sign-in method"
         },
         "data_description": {
+          "vin": "Only needed for the Google and email routes; an imported pair carries its own.",
           "auth_method": "Import tokens is the reliable choice - see above."
         }
       },

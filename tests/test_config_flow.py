@@ -17,6 +17,7 @@ import asyncio
 import importlib.util
 import sys
 import types
+import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -376,3 +377,43 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+class FirstScreenTests(unittest.TestCase):
+    """The setup screen must not ask for what it already knows.
+
+    Seen live (2026-10-11, screenshot from the user): the first screen was a required
+    VIN box, flagged red the moment it was submitted, above a sign-in method dropdown
+    whose other two options cannot complete in Home Assistant - while the renewal app
+    had already put a token pair, VIN included, in pair_dir. The answer was on disk
+    and the form asked for it anyway.
+
+    These pin the shape of the fix. The behaviour was verified against a live install
+    by starting a flow: it now lands on `import_tokens` with both paths filled in.
+    """
+
+    CF = (PKG_DIR / "config_flow.py").read_text(encoding="utf-8")
+
+    def test_the_questions_are_skipped_when_a_pair_is_already_here(self):
+        self.assertIn("def _pair_on_host()", self.CF)
+        marker = "if user_input is None and _pair_on_host():"
+        self.assertIn(marker, self.CF)
+        start = self.CF.index(marker)
+        self.assertIn("async_step_import_tokens()", self.CF[start:start + 200])
+
+    def test_the_vin_is_optional_on_that_screen(self):
+        """A pasted or imported pair carries its own VIN; asking twice was the bug."""
+        self.assertIn('vol.Optional(CONF_VIN, default=""): str', self.CF)
+        self.assertNotIn("vol.Required(CONF_VIN): str", self.CF)
+
+    def test_a_vin_is_still_demanded_where_it_is_actually_needed(self):
+        """Signing in has no pair to read one from, so that route still asks."""
+        self.assertIn("if not vin and method != AUTH_METHOD_IMPORT:", self.CF)
+
+    def test_the_dropdown_says_which_methods_cannot_complete(self):
+        self.assertIn("usually blocked by the slider captcha", self.CF)
+
+    def test_the_import_form_offers_the_pair_that_is_already_there(self):
+        """Fallback for anyone who follows the older instructions anyway."""
+        self.assertIn("default=default_tokens_path", self.CF)
+        self.assertIn("default=default_tenant_path", self.CF)
