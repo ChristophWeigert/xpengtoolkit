@@ -207,6 +207,15 @@ def main() -> int:
         default="/tmp/xpeng_device_id.txt",
         help="where to record the device id for the HA config entry",
     )
+    ap.add_argument(
+        "--guardian-headless",
+        action="store_true",
+        help="run the Guardian helper without a browser window. Required wherever "
+             "there is no display - a server or the renewal add-on - because a "
+             "headed launch fails outright with 'launched a headed browser "
+             "without having a XServer running'. The default stays headful so an "
+             "interactive run can still drag the slider NetEase falls back to.",
+    )
     args = ap.parse_args()
 
     env = dict(os.environ)
@@ -323,10 +332,15 @@ def main() -> int:
         xid = api._extract_xid(vresp) or xid
 
         # 6. Guardian token + retry
-        gt = run_json(
-            ["node", str(guardian_js), app_id, "--headful"],
-            env, timeout=300,
-        )
+        guardian_cmd = ["node", str(guardian_js), app_id]
+        if not args.guardian_headless:
+            # Headful lets a human drag the slider when NetEase challenges the
+            # silent path, but it needs a display: on a server or in the renewal
+            # add-on the launch dies with "launched a headed browser without
+            # having a XServer running", which is what stopped every unattended
+            # renewal after the captcha had already been solved.
+            guardian_cmd.append("--headful")
+        gt = run_json(guardian_cmd, env, timeout=300)
         if not gt.get("ok"):
             # Not truncated here: the browser's own account of why it refused to
             # start is long, and cutting it at 160 characters is what hid the

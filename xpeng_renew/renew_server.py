@@ -158,6 +158,11 @@ def _mint_pair() -> tuple[bool, str]:
         # own code (see Dockerfile). The tool's default, /tmp/pwdir, has none,
         # which fails the run after the slider has already been solved.
         "--playwright-dir", ROOT,
+        # The add-on has no display: the Guardian helper's default headful
+        # launch fails outright with "launched a headed browser without having a
+        # XServer running", which is what ended every unattended renewal right
+        # after the slider had been solved.
+        "--guardian-headless",
         "--save", "--mqtt",
     ]
     device_id = _device_id()
