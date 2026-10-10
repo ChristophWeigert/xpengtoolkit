@@ -86,7 +86,9 @@ keystore. For those builds the APK alone is not enough and you need another
 route. Bundle size is **not** a signal — 3.12.0 is small and works, 3.13.0 is
 the same size and does not.
 
-Full tested matrix and the evidence: [](../../../).
+The extraction tool checks each package it is run against, and exits with code
+`2` when it finds a certificate but cannot recover the key - which is what a
+3.13.0-or-newer package looks like: [`tools/xpeng_apk_certs.py`](../../../tools/xpeng_apk_certs.py).
 
 ### Other sources
 
