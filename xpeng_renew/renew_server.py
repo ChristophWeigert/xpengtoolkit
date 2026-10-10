@@ -58,6 +58,10 @@ SOLVER_URL = _setting("solver_url")
 SOLVER_TOKEN = _setting("solver_token")
 RENEW_TOKEN = _setting("renew_token")
 PAIR_DIR = _setting("pair_dir", "/config/xpeng-secrets")
+# An override for the VIN used to create a config entry on a fresh install. The
+# onboarding tool records one in the token file when the API gave it one, so this
+# is only needed for a pair written before that, or by hand.
+VIN = _setting("vin")
 CORE_API = _setting("core_api", "http://supervisor/core/api")
 SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
 
@@ -215,6 +219,131 @@ def _call_service(path: str, payload: dict) -> tuple[int, str]:
         return 0, "%s: %s" % (type(exc).__name__, exc)
 
 
+def _core_json(path: str, payload: dict | None = None, method: str = "POST"):
+    """A Core API call whose response body has to survive intact.
+
+    _call_service() truncates to 400 characters because what it returns goes into a
+    log line. That is right for an error and useless for JSON, so this keeps the
+    whole body and parses it.
+    """
+    request = urllib.request.Request(
+        CORE_API + path,
+        data=json.dumps(payload).encode() if payload is not None else None,
+        headers={
+            "Authorization": "Bearer " + SUPERVISOR_TOKEN,
+            "Content-Type": "application/json",
+        },
+        method=method,
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=120) as response:
+            return response.status, json.loads(response.read().decode() or "null")
+    except urllib.error.HTTPError as exc:
+        return exc.code, exc.read().decode()[:400]
+    except Exception as exc:  # noqa: BLE001
+        return 0, "%s: %s" % (type(exc).__name__, exc)
+
+
+def _existing_entry() -> dict | None:
+    """This install's XPENG config entry, if it has one yet."""
+    status, body = _core_json("/config/config_entries/entry", method="GET")
+    if status != 200 or not isinstance(body, list):
+        return None
+    for entry in body:
+        if isinstance(entry, dict) and entry.get("domain") == "xpeng":
+            return entry
+    return None
+
+
+def _vin_from_pair(pair_dir: str) -> str:
+    """The VIN recorded in the token file, or "".
+
+    Same two shapes the integration accepts: the tool's ``json`` wrapper, or a bare
+    token object. Only a real VIN is returned (17 alphanumeric ASCII characters),
+    so a placeholder cannot reach the config entry.
+    """
+    if VIN:
+        return VIN.strip().upper()
+    try:
+        with open(
+            os.path.join(pair_dir, "xpeng_tokens.json"), encoding="utf-8"
+        ) as handle:
+            raw = json.load(handle)
+    except Exception:  # noqa: BLE001 - an unreadable pair is reported by the import
+        return ""
+
+    inner = raw
+    if isinstance(raw, dict):
+        for field in ("json", "jsonText"):
+            candidate = raw.get(field)
+            if isinstance(candidate, dict):
+                inner = candidate
+                break
+            if isinstance(candidate, str) and candidate.lstrip().startswith("{"):
+                try:
+                    inner = json.loads(candidate[candidate.find("{"):])
+                except Exception:  # noqa: BLE001
+                    pass
+                break
+    if not isinstance(inner, dict):
+        return ""
+
+    candidates = [inner.get("vin"), inner.get("VIN")]
+    for field in ("vehicle", "vehicleInfo", "data"):
+        nested = inner.get(field)
+        if isinstance(nested, dict):
+            candidates.extend((nested.get("vin"), nested.get("VIN")))
+    for candidate in candidates:
+        value = str(candidate or "").strip().upper()
+        if len(value) == 17 and value.isascii() and value.isalnum():
+            return value
+    return ""
+
+
+def _bootstrap_entry(pair_dir: str) -> tuple[bool, str]:
+    """Create the config entry through the config flow, without a human.
+
+    This is the step that used to be manual, and it cannot go through
+    ``xpeng.import_credentials``: on an install with no entry that service does not
+    exist yet, because the integration's component-level setup only runs once an
+    entry exists. Measured, not assumed (2026-10-11): with no entry, the xpeng
+    service domain is absent from ``/api/services``, and starting a flow does not
+    load it either. What *is* loaded on demand is the config flow, so driving it
+    here creates the entry from the pair just minted - and creating the entry is
+    what loads the component and registers the service for every renewal after it.
+    """
+    vin = _vin_from_pair(pair_dir)
+    if not vin:
+        return False, (
+            "no VIN to create the config entry with, and no entry to import into: "
+            "add the integration once by hand, or set this app's `vin` option"
+        )
+
+    status, body = _core_json("/config/config_entries/flow", {"handler": "xpeng"})
+    if status != 200 or not isinstance(body, dict) or not body.get("flow_id"):
+        return False, "could not start the config flow: %s %s" % (status, body)
+    flow_id = body["flow_id"]
+
+    status, body = _core_json(
+        "/config/config_entries/flow/%s" % flow_id, {"vin": vin, "auth_method": "import"}
+    )
+    if status != 200 or not isinstance(body, dict) or body.get("step_id") != "import_tokens":
+        return False, "the import step was not reached: %s %s" % (status, body)
+
+    status, body = _core_json(
+        "/config/config_entries/flow/%s" % flow_id,
+        {
+            "tokens_path": os.path.join(pair_dir, "xpeng_tokens.json"),
+            "tenant_path": os.path.join(pair_dir, "xpeng_tenant.json"),
+            "vin": vin,
+        },
+    )
+    if status != 200 or not isinstance(body, dict) or body.get("type") != "create_entry":
+        return False, "the entry was not created: %s %s" % (status, body)
+    _log("created the config entry from this pair (VIN %s)" % vin)
+    return True, vin
+
+
 def _notify(title: str, message: str) -> None:
     _call_service(
         "/services/persistent_notification/create",
@@ -234,6 +363,26 @@ def renew() -> dict:
             return {"ok": False, "error": detail, "ms": int((time.time() - started) * 1000)}
 
         pair_dir = _publish_pair()
+
+        # A fresh install has no entry, and with no entry `import_credentials`
+        # cannot run at all - the service is not registered until one exists. Create
+        # it from the pair that was just minted, which is also what registers the
+        # service, and treat that as the renewal: the flow stores this same pair.
+        if _existing_entry() is None:
+            bootstrapped, outcome = _bootstrap_entry(pair_dir)
+            if not bootstrapped:
+                return {
+                    "ok": False,
+                    "error": outcome,
+                    "ms": int((time.time() - started) * 1000),
+                }
+            return {
+                "ok": True,
+                "bootstrapped": outcome,
+                "onboarding": detail,
+                "ms": int((time.time() - started) * 1000),
+            }
+
         # ?return_response is mandatory, not a nicety: the integration registers
         # this service with SupportsResponse.ONLY, and Home Assistant refuses a
         # call that does not ask for the response with HTTP 400 "Service call

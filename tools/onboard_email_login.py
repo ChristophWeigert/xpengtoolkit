@@ -102,6 +102,28 @@ def load(name: str, path: Path):
     return module
 
 
+def _first_vin(payload) -> str:
+    """The first VIN in a myVehicles response, or "".
+
+    The endpoint answers either a bare list of vehicles or an object wrapping one
+    (``vehicles``/``list``), and the field is ``vin`` in both shapes - the same two
+    the integration handles when it reads this response. A VIN is only accepted in
+    the shape the rest of the code expects (17 alphanumeric ASCII characters), so a
+    placeholder or a partial record cannot end up on the config entry.
+    """
+    if isinstance(payload, dict):
+        payload = payload.get("vehicles") or payload.get("list") or []
+    if not isinstance(payload, list):
+        return ""
+    for vehicle in payload:
+        if not isinstance(vehicle, dict):
+            continue
+        vin = str(vehicle.get("vin") or "").strip().upper()
+        if len(vin) == 17 and vin.isascii() and vin.isalnum():
+            return vin
+    return ""
+
+
 def summarise_output(text: str, limit: int = 1600) -> str:
     """Head and tail of a failed helper's output.
 
@@ -376,6 +398,25 @@ def main() -> int:
         # answered by whoever wrote the file down. Carries into the entry data
         # via the import step, which passes unknown keys through unchanged.
         tokens["account_email"] = args.email
+        # Record the VIN for the same reason, and one step further: it is the one
+        # piece of identity the pair cannot carry, and without it nothing can
+        # create the config entry unattended. The import flow requires a VIN, and
+        # it asks for one only because most pairs have none - so asking the API
+        # once here means the form can leave it blank and a first renewal can
+        # create the entry with no human at all.
+        #
+        # Best effort: a login that worked is worth saving even if this call does
+        # not, in which case the form asks for the VIN as it always did.
+        try:
+            vin = _first_vin(api.get_vehicles(None, tenant, tokens))
+        except Exception as exc:  # noqa: BLE001 - never lose a good login to this
+            vin = ""
+            print(f"[7] could not read the VIN ({type(exc).__name__}: {exc})")
+        if vin:
+            tokens["vin"] = vin
+            print(f"[7] VIN {vin}")
+        else:
+            print("[7] no VIN in the vehicle list - the import form will ask for one")
         # The integration's load_login_tokens() requires a wrapper object with the
         # tokens under "json" (the capturing tools emit that shape). Writing the
         # tokens flat silently produces a file HA cannot read at all - the loader

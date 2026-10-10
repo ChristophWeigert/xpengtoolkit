@@ -63,30 +63,45 @@ those were the names people were told to use, and the shipped default, which is
 why this is worth stating plainly. The plain LAN address always works, so it is
 the safe answer when in doubt. Changing this option restarts the app.
 
-## 2. First run: there is no config entry yet
+## 2. First run: the app creates the config entry
 
-A renewal *imports* the pair it minted, and importing needs somewhere to import
-it to. On a brand-new install there is no XPENG entry yet, so the first renewal
-gets all the way through the login and then fails at the last step with
+A renewal *imports* the pair it minted, and importing needs somewhere to import it to.
+On a brand-new install there is no XPENG entry yet - so the app creates one, by driving
+the config flow with the pair it just minted. The first run finishes the install;
+nothing is pasted and nothing is typed.
 
-```
-import_credentials returned 400: No XPENG config entry to import credentials into
-```
+**It cannot be done through `xpeng.import_credentials`**, which is the obvious fix and
+does not work. Measured on an install with no config entry (2026-10-11):
 
-**That is expected, and it is not a failure of the renewal.** The pair is already
-written to `pair_dir` at that point. Finish the bootstrap once by hand:
+* the `xpeng` service domain is **absent** from `/api/services` - the integration's
+  component-level setup runs only once an entry exists, so there is no
+  `import_credentials` to call;
+* starting a config flow does not load it either.
 
-1. Check the pair exists:
-   `ls -l /config/xpeng-secrets/` → `xpeng_tokens.json` and `xpeng_tenant.json`.
-2. Settings -> Devices & Services -> **Add integration** -> *Xpengtk*.
-3. VIN: your car's VIN. Authentication method: **Import tokens from the
-   onboarding tool (recommended)**.
-4. Give the two paths below `pair_dir`:
-   `/config/xpeng-secrets/xpeng_tokens.json` and
-   `/config/xpeng-secrets/xpeng_tenant.json`.
+The config flow *is* loaded on demand, and creating the entry through it is what loads
+the component and registers the service for every renewal after the first one.
 
-From then on renewals complete on their own, and `import_credentials` swaps the
-credentials in place without a restart.
+### The VIN
+
+The flow requires one, and it decides the entity ids. The onboarding tool now records
+it in the token file - read from `/biz/v5/vehicle/v2/myVehicles` straight after the
+login - so normally there is nothing to think about. For a pair written before that, or
+by hand, set the app's **`vin`** option, or add the integration once by hand and import
+the pair with **Import tokens**.
+
+### When it does not
+
+* `no VIN to create the config entry with` - as above: set `vin`, or add the
+  integration by hand once.
+* `could not start the config flow` / `the entry was not created` - the response names
+  the step that refused. The usual cause is `pair_dir` not being under `/config`: the
+  flow reads those paths **inside the Home Assistant container**, which cannot see the
+  app's own filesystem.
+* `import_credentials returned 400: No XPENG config entry to import credentials into` -
+  the app only calls that service when an entry already exists, so this means the entry
+  disappeared between the check and the call. Run it again.
+
+The whole attempt is written to `/config/xpeng-renew-last-run.log`.
 
 The app itself needs permission to call that service; it asks for
 `homeassistant_api` in its own config, which is what makes the import (and its

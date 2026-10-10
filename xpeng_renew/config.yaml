@@ -1,5 +1,5 @@
 name: XPENG credential renewal
-version: "0.1.12"
+version: "0.1.13"
 slug: xpeng_renew
 description: >-
   Renews XPENG credentials unattended. Solves the login slider through the solver
@@ -28,6 +28,8 @@ options:
   email: ""
   password: ""
   device_id: ""
+  # Only needed if the token file has no VIN (the tool records one).
+  vin: ""
   # The solver app's container hostname, which is what actually resolves between
   # apps. The old default named the *local-folder* install
   # (local_xpeng_slider_solver); an install from the store gets a
@@ -43,6 +45,7 @@ schema:
   email: email
   password: password
   device_id: str?
+  vin: str?
   solver_url: url
   solver_token: password
   renew_token: password

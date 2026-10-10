@@ -29,7 +29,12 @@ no phone):
 5. retries `pwdLogin` and receives the real account tokens;
 6. writes `xpeng_tokens.json` **and** `xpeng_tenant.json` as a matched pair;
 7. with `--mqtt`, also mints the initial MQTT credentials and writes them into
-   the token file.
+   the token file;
+8. records the **VIN** and the account email in the token file, so nothing has to be
+   typed at import time - the VIN decides the entity ids, and it is the one piece of
+   identity the pair cannot carry. The import flow reads it from there. Best effort:
+   if the vehicle list cannot be read, the login is still saved and the form simply
+   asks for the VIN.
 
 ### Requirements
 
@@ -103,7 +108,7 @@ from the onboarding tool**, then paste the contents of:
 
 | File | Must contain |
 |---|---|
-| `xpeng_tokens.json` | `accessToken`, and an `mqttAccount` or `uid` (the tool wraps the tokens as `{"json": {...}}`; the wrapper is accepted) |
+| `xpeng_tokens.json` | `accessToken`, and an `mqttAccount` or `uid` (the tool wraps the tokens as `{"json": {...}}`; the wrapper is accepted). Also carries `vin` and `account_email` when the tool could read them |
 | `xpeng_tenant.json` | `deviceId` and a non-empty `keys` pool (base64) |
 
 Their paths can be given instead, when the files are already on the HA host.
