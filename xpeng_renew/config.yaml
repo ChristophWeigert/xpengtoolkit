@@ -1,5 +1,5 @@
 name: XPENG credential renewal
-version: "0.1.13"
+version: "0.1.14"
 slug: xpeng_renew
 description: >-
   Renews XPENG credentials unattended. Solves the login slider through the solver
@@ -30,6 +30,13 @@ options:
   device_id: ""
   # Only needed if the token file has no VIN (the tool records one).
   vin: ""
+  # Renew on this app's own timer, in seconds. 0 disables the scheduler and leaves
+  # triggering to Home Assistant (or to you). 6000s sits inside the ~2h session cap
+  # with room for a retry.
+  renew_interval: 6000
+  # How often to ask Home Assistant whether the credentials are still valid, so a
+  # session that dies early is replaced within a few minutes.
+  invalid_poll_interval: 300
   # The solver app's container hostname, which is what actually resolves between
   # apps. The old default named the *local-folder* install
   # (local_xpeng_slider_solver); an install from the store gets a
@@ -46,6 +53,8 @@ schema:
   password: password
   device_id: str?
   vin: str?
+  renew_interval: int?
+  invalid_poll_interval: int?
   solver_url: url
   solver_token: password
   renew_token: password

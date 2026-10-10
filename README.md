@@ -19,8 +19,7 @@ the server ends the session. Two apps take the human out of the loop:
   credentials, exactly as the Repairs card does.
 
 [Steps 4-5](#step-4---install-the-two-apps) install the apps and mint the first
-pair with the solver, and [step 6](#step-6---add-the-renewal-automation) adds the
-automation that calls them. Three things are easy to miss:
+pair with the solver, and it renews itself from then on. Three things are easy to miss:
 
 - **The first renewal is expected to fail** when the integration has no config
   entry yet: it mints the pair and then has nowhere to import it. The pair has
@@ -88,18 +87,16 @@ official app signed in as that account**, for the reason given just above.
 | **2** | [Download the repository ZIP](https://github.com/xpengtoolkit/xpengtoolkit) and [extract the certificates](#step-2---extract-the-certificates-outside-home-assistant) from an XPENG APK **3.7.0-3.12.0** | Any computer | 5 min |
 | **3** | [Copy the three PEM files onto the Home Assistant host](#step-3---copy-the-certificates-onto-the-home-assistant-host) | Home Assistant | 2 min |
 | **4** | [Install the two apps](#step-4---install-the-two-apps) (slider solver + credential renewal) and set their tokens | Home Assistant | 5 min |
-| **5** | [Run the first renewal](#step-5---run-the-first-renewal) - it logs in, and creates the integration entry itself | Home Assistant | 2 min |
-| **6** | [Add the renewal automation](#step-6---add-the-renewal-automation) | Home Assistant | 5 min |
+| **5** | [Watch it appear](#step-5---watch-it-appear) - the app creates the integration entry and then renews it on its own timer | Home Assistant | 1 min |
 
 **Only step 2 happens outside Home Assistant**, because extracting the certificates
 needs the APK. Nothing else does - including the captcha-gated login, which the
 solver app clears.
 
-**Steps 4-5 are what make the install self-renewing**, and step 6 is what makes it
-repeat: the automation calls the app, so without it you would be triggering renewals
-yourself. Without 4-5 it still works, but only until XPENG retires the session about
-two hours later, and then a fresh pair has to be pasted in by hand. If you would
-rather not run the apps at all, or
+**Steps 4-5 are the whole of it**: the app creates the entry, then keeps it alive on
+its own timer. Without them the integration still works, but only until XPENG retires
+the session about two hours later, and then a fresh pair has to be pasted in by hand.
+If you would rather not run the apps at all, or
 not hand them the account password before you have seen the integration work,
 [the alternative](#alternative-mint-the-first-pair-yourself) mints the
 pair on a desktop instead and replaces steps 4-5 - it needs Chrome, Node and one
@@ -314,7 +311,7 @@ remove the entry and add it again with the dedicated one.
 
 ## Installation
 
-This is step 1 of [the process above](#the-steps). The other five steps are
+This is step 1 of [the process above](#the-steps). The other four steps are
 under [Setup](#setup).
 
 ### HACS (custom repository)
@@ -332,7 +329,7 @@ Then: **Settings -> Devices & Services -> Add Integration -> Xpengtk**.
 
 ## Setup
 
-This section covers **steps 2 to 6** of the summary above; step 1 is
+This section covers **steps 2 to 5** of the summary above; step 1 is
 [Installation](#installation).
 
 **Sign in with your dedicated account, never your primary one** (see above).
@@ -417,9 +414,9 @@ unless all three files are in it.
 Take this route if you would rather not hand the account password to an app before you
 have seen the integration work - or if you cannot run the solver. It needs a desktop
 machine (Mac/Linux/Windows with Node and a Chrome install), and it replaces **steps
-4-5** with the two below. Skip step 6 as well: with no app installed there is nothing
-for that automation to call, so renewals are yours to trigger until you come back and
-do step 4.
+4-5** with the two below: you mint the pair, then create the entry from it by hand.
+With no app installed nothing renews it, so that stays yours to do until you come back
+and install the apps at step 4.
 
 Run this from the top folder of the repository you unzipped in step 2. It opens a
 browser window; **drag the slider once**. It then writes two files:
@@ -517,47 +514,31 @@ Then configure the renewal app:
 The pair directory is live credentials on disk: `chmod 700`, and keep it out of any
 share.
 
-### Step 5 - run the first renewal
+### Step 5 - watch it appear
 
-This is the whole install in one call: the app logs in, the solver clears the slider,
-it writes the pair to `pair_dir` (`/config/xpeng-secrets` by default), and - because
-there is still no config entry - it creates that entry itself out of the same pair.
-Nothing is pasted, and nothing is typed.
+There is nothing to do here. When the app starts it looks for the integration, finds
+no entry yet, mints a pair (the solver clears the slider), and creates the entry from
+that pair. Within a minute or so **Settings -> Devices & Services** shows
+`XPENG <last six of your VIN>` and the entities fill in.
+
+From then on it renews itself - every `renew_interval` (6000s by default, comfortably
+inside the two-hour cap), and sooner if Home Assistant reports the credentials are
+already invalid. There is no automation to add and no helper to create.
+
+`GET http://<your-ha-host>:8090/healthz` reports the counters, when the next renewal
+is due and the last outcome; `/config/xpeng-renew-last-run.log` has the whole of the
+last attempt. To force one now:
 
 ```bash
 curl -X POST -H "Authorization: Bearer <renew_token>" http://<your-ha-host>:8090/renew
 ```
 
-The integration then appears under **Settings -> Devices & Services** as
-`XPENG <last six of your VIN>`, and the entities fill in. The response says
-`"bootstrapped"` with the VIN it created the entry from.
+If nothing appears, the run log says why. The usual cause is a `solver_url` that does
+not resolve - see [the table](docs/UNATTENDED_RENEWAL.md#if-solver_url-does-not-resolve).
 
-If it instead reports that it has no VIN, the token file predates the onboarding tool
-recording one: either set this app's **`vin`** option to your 17-character VIN, or add
-the integration by hand once, as
-[the alternative](#alternative-mint-the-first-pair-yourself) describes.
-
-**Why the app does this and not the integration.** `xpeng.import_credentials` cannot
-create the entry, which is worth knowing before "fixing" it there: on an install with
-no entry that service does not exist yet, because the integration's component-level
-setup only runs once an entry exists. The config flow *is* loaded on demand, so that is
-what the app drives - and creating the entry is what registers the service for every
-renewal after this one. The app logs what it did to
-`/config/xpeng-renew-last-run.log`.
-
-### Step 6 - add the renewal automation
-
-The app only acts when it is called, so something has to call it: ahead of the cap
-on a schedule, and immediately when the credentials are already invalid. That takes
-a `rest_command` pointing at the app's `/renew`, a helper to record when it last
-ran, and an automation joining them.
-
-Copy all three from
-[`docs/UNATTENDED_RENEWAL.md`](docs/UNATTENDED_RENEWAL.md#3-home-assistant-side),
-which also explains why the interval is checked inside the action rather than as a
-condition, and how to test the whole thing without waiting two hours for a session
-to expire.
-
+If you would rather Home Assistant drove renewals - for a last-run helper you can put
+on a dashboard, or to trigger them yourself - set **`renew_interval: 0`** on the app and
+use the [optional automation](docs/UNATTENDED_RENEWAL.md#3-home-assistant-side).
 
 ### If you are asked to re-authenticate later
 
@@ -597,7 +578,7 @@ failure.
 ### Notes
 
 Each installation mints its **own device identity**, and the credentials issued
-are bound to it, so a token set from step 5 belongs to whichever machine and
+are bound to it, so a pair belongs to whichever machine and
 install it was produced for. That is why the pair is imported together - the
 tenant records the identity the tokens were sealed against. Do not mix tokens
 from one run with a tenant from another.

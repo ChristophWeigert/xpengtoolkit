@@ -43,6 +43,20 @@ SERVER = (ROOT / "xpeng_renew" / "renew_server.py").read_text(encoding="utf-8")
 TOOL = (ROOT / "tools" / "onboard_email_login.py").read_text(encoding="utf-8")
 
 
+def _load_module(name: str, relative: str):
+    """Import a file from the repo, skipping the test if its deps are missing."""
+    path = ROOT / relative
+    spec = importlib.util.spec_from_file_location(name, path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    try:
+        spec.loader.exec_module(module)
+    except ImportError as exc:
+        raise unittest.SkipTest(f"{relative} could not be imported: {exc}")
+    return module
+
+
 class BootstrapTests(unittest.TestCase):
     def test_the_app_bootstraps_through_the_config_flow(self):
         """Not through the service: with no entry there is no service to call."""
@@ -78,20 +92,8 @@ class BootstrapTests(unittest.TestCase):
 class VinParsingTests(unittest.TestCase):
     """The two VIN readers, since a wrong VIN silently creates the wrong entities."""
 
-    def _load(self, name, relative):
-        path = ROOT / relative
-        spec = importlib.util.spec_from_file_location(name, path)
-        assert spec and spec.loader
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[name] = module
-        try:
-            spec.loader.exec_module(module)
-        except ImportError as exc:
-            raise unittest.SkipTest(f"{relative} could not be imported: {exc}")
-        return module
-
     def test_the_tool_reads_either_vehicle_list_shape(self):
-        tool = self._load("bootstrap_tool_t", "tools/onboard_email_login.py")
+        tool = _load_module("bootstrap_tool_t", "tools/onboard_email_login.py")
         self.assertEqual(tool._first_vin([{"vin": "l1nnsgha3sb800783"}]), "L1NNSGHA3SB800783")
         self.assertEqual(
             tool._first_vin({"vehicles": [{"vin": "L1NNSGHA3SB800783"}]}),
@@ -104,7 +106,7 @@ class VinParsingTests(unittest.TestCase):
         import json
         import tempfile
 
-        app = self._load("bootstrap_app_t", "xpeng_renew/renew_server.py")
+        app = _load_module("bootstrap_app_t", "xpeng_renew/renew_server.py")
         with tempfile.TemporaryDirectory() as folder:
             path = pathlib.Path(folder) / "xpeng_tokens.json"
             path.write_text(json.dumps({"json": {"vin": "l1nnsgha3sb800783"}}))
@@ -118,3 +120,78 @@ class VinParsingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class SchedulerTests(unittest.TestCase):
+    """The app is its own clock now, so the policy has to be right on its own.
+
+    Step 7 of the README used to be three YAML blocks in configuration.yaml, because
+    something had to call the app. It calls itself instead - and the one thing the
+    Home Assistant automation did that a plain timer cannot is react to credentials
+    that have already gone, so that override is part of the policy and is tested.
+    """
+
+    def _app(self):
+        return _load_module("scheduler_app_t", "xpeng_renew/renew_server.py")
+
+    def test_the_interval_decides_when_nothing_is_wrong(self):
+        app = self._app()
+        self.assertEqual(app._renewal_due(now=100, next_run=100, credentials_invalid=False), "due")
+        self.assertEqual(app._renewal_due(now=99, next_run=100, credentials_invalid=False), "")
+
+    def test_invalid_credentials_do_not_wait_for_the_interval(self):
+        app = self._app()
+        self.assertEqual(
+            app._renewal_due(now=1, next_run=10_000, credentials_invalid=True),
+            "credentials already invalid",
+        )
+
+    def test_being_due_wins_over_the_reason(self):
+        """Both true is the ordinary case at the two-hour mark."""
+        app = self._app()
+        self.assertEqual(app._renewal_due(now=10_000, next_run=10_000, credentials_invalid=True), "due")
+
+    def test_the_scheduler_can_be_turned_off(self):
+        """An install that would rather drive renewals from HA keeps that option."""
+        options = (ROOT / "xpeng_renew" / "config.yaml").read_text(encoding="utf-8")
+        self.assertIn("renew_interval", options)
+        self.assertIn("renew_interval: int?", options)
+        self.assertIn("RENEW_INTERVAL <= 0", SERVER)
+        self.assertIn("scheduler disabled", SERVER)
+
+    def test_the_schedule_is_visible(self):
+        """The HA helper used to show when a renewal last ran; /healthz replaces it."""
+        self.assertIn('"scheduler"', SERVER)
+        self.assertIn("next_run_s", SERVER)
+
+    def test_the_app_starts_its_own_scheduler(self):
+        self.assertIn('threading.Thread(target=_scheduler', SERVER)
+        self.assertIn("daemon=True", SERVER)
+
+    def test_the_credentials_probe_reads_the_integration_sensor(self):
+        """Without this the fast path is gone and a dead session waits out the hour."""
+        self.assertIn("_credentials_valid", SERVER)
+        self.assertIn("binary_sensor.xpeng_", SERVER)
+
+    def test_a_fresh_install_bootstraps_at_startup(self):
+        """Waiting out a whole interval is what made "trigger it once" a step."""
+        app = self._app()
+        app._core_json = lambda path, payload=None, method="POST": (200, [{"domain": "hassio"}])
+        self.assertTrue(app._no_entry_yet())
+        self.assertIn("no config entry yet: renewing now to create it", SERVER)
+
+    def test_an_unreadable_api_does_not_look_like_a_fresh_install(self):
+        """_existing_entry() cannot tell "no entry" from "could not ask"; this must.
+
+        Otherwise an API that is briefly down at startup would set off a renewal.
+        """
+        app = self._app()
+        for status, body in ((502, "bad gateway"), (200, {"nope": True}), (0, "boom")):
+            app._core_json = (
+                lambda s, b: (lambda path, payload=None, method="POST": (s, b))
+            )(status, body)
+            self.assertFalse(app._no_entry_yet(), (status, body))
+
+    def test_a_working_install_is_left_alone_at_startup(self):
+        app = self._app()
+        app._core_json = lambda path, payload=None, method="POST": (200, [{"domain": "xpeng"}])
+        self.assertFalse(app._no_entry_yet())

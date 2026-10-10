@@ -36,7 +36,7 @@ Configure the worker:
 | Option | Meaning |
 |---|---|
 | `email` / `password` | the account this install renews. A second account, never the one in the app: XPENG keeps one session per account, so the app logging in evicts this one. |
-| `device_id` | optional, and worth pinning — see [the device identity](#the-device-identity) below. Leave empty and the first renewal's device id is remembered and reused, so the identity at least does not change every two hours. |
+| `device_id` | optional, and worth pinning — see [the device identity](#4-the-device-identity) below. Leave empty and the first renewal's device id is remembered and reused, so the identity at least does not change every two hours. |
 | `solver_url` | where the solver app listens. Defaults to `http://571f4c18-xpeng-slider-solver:8080`, the solver's container hostname as installed from the store. |
 | `solver_token` | the solver's `solver_token`, if you set one. |
 | `renew_token` | what the automation presents to `POST /renew`. **Set this** — the worker holds your password. |
@@ -108,7 +108,19 @@ The app itself needs permission to call that service; it asks for
 failure notifications) possible. If you ever see `401 Unauthorized` from the
 import step rather than a 400, that grant is what is missing.
 
-## 3. Home Assistant side
+## 3. Home Assistant side (optional)
+
+**The app renews on its own timer, so none of this is required.** `renew_interval`
+(6000s by default) decides when, and every `invalid_poll_interval` (300s) it asks the
+integration whether the credentials have already gone - so a session that dies early is
+replaced within a few minutes. That was the one thing an outside scheduler could do
+that a plain timer cannot, and section 2's bootstrap means the first renewal needs no
+trigger either.
+
+What an automation adds is Home Assistant-side **visibility**: a helper that shows when
+a renewal last ran, on a dashboard, and a trigger you can see and edit in the UI. If
+you want that, set **`renew_interval: 0`** on the app first, so the two are not both
+renewing.
 
 `configuration.yaml`:
 
@@ -184,13 +196,17 @@ That order is not cosmetic and it is worth keeping. Verified on a live install:
 with the worker answering `401` the helper kept its previous value, and with a
 `200` it was stamped.
 
-### Why a helper is the clock
+### Why a helper, and 6000 seconds
 
 `credentials_valid` carries `age_s`, but that is the time since the last *mint*
 (about 45 seconds while healthy), not the age of the session — useless for this.
 What matters is when the last **login** happened, and a renewal *is* a login, so
 "last successful renewal" is exactly the right clock. Stamping `input_datetime` on
-success gets that for free, and it stays correct even if XPENG moves the cap.
+success is what makes that visible in Home Assistant - the app's own answer is
+`/healthz`'s `next_run_s` and `last_reason`, which no dashboard can show.
+
+The app's `renew_interval` and this automation share the number for the same reason:
+it has to sit inside the cap with room to retry.
 
 6000 seconds is 100 minutes: 20 minutes inside the measured ~2 hours, which leaves
 room for a retry if something fails. The automation re-fires every 10 minutes while

@@ -51,6 +51,13 @@ def _setting(name: str, default: str = "") -> str:
     return str(os.environ.get(name.upper()) or OPTIONS.get(name) or default).strip()
 
 
+def _setting_int(name: str, default: int) -> int:
+    try:
+        return int(float(_setting(name, str(default)) or default))
+    except (TypeError, ValueError):
+        return default
+
+
 EMAIL = _setting("email")
 PASSWORD = _setting("password")
 DEVICE_ID = _setting("device_id")
@@ -62,6 +69,12 @@ PAIR_DIR = _setting("pair_dir", "/config/xpeng-secrets")
 # onboarding tool records one in the token file when the API gave it one, so this
 # is only needed for a pair written before that, or by hand.
 VIN = _setting("vin")
+# How often to renew, in seconds, and 0 to disable. Inside the ~2h session cap with
+# room for a retry, which is the number docs/UNATTENDED_RENEWAL.md works from.
+RENEW_INTERVAL = _setting_int("renew_interval", 6000)
+# How often to ask Home Assistant whether the credentials are still good, so a session
+# that dies early is replaced on the next check rather than at the next tick.
+INVALID_POLL_INTERVAL = _setting_int("invalid_poll_interval", 300)
 CORE_API = _setting("core_api", "http://supervisor/core/api")
 SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
 
@@ -72,8 +85,14 @@ STATE = {
     "consecutive_failures": 0,
     "running": False,
     "last": None,
+    # Reported by /healthz so the schedule is as visible as it was when an
+    # automation and its helper were the clock.
+    "next_run": 0.0,
+    "schedule_reason": "",
 }
 LOCK = threading.Lock()
+#: Resolved once by _credentials_entity(); empty until then.
+_CREDENTIALS_ENTITY: list[str] = []
 
 
 def _log(message: str) -> None:
@@ -413,6 +432,130 @@ def renew() -> dict:
         return {"ok": False, "error": "%s: %s" % (type(exc).__name__, exc)}
 
 
+def _no_entry_yet() -> bool:
+    """Whether Home Assistant answered *and* has no XPENG entry.
+
+    The distinction matters at startup: "no entry" is a fresh install that should be
+    bootstrapped now, while "could not ask" is an API hiccup that must not set off a
+    renewal - and `_existing_entry()` cannot tell them apart, because it answers None
+    for both.
+    """
+    status, body = _core_json("/config/config_entries/entry", method="GET")
+    if status != 200 or not isinstance(body, list):
+        return False
+    return not any(
+        isinstance(entry, dict) and entry.get("domain") == "xpeng" for entry in body
+    )
+
+
+def _credentials_entity() -> str:
+    """The entity id of the integration's credentials sensor, discovered once.
+
+    ``binary_sensor.xpeng_<VIN suffix>_credentials_valid`` - the same suffix the entry
+    title uses - so with a VIN in the pair it costs one small request. Without one,
+    /states is scanned once and the answer kept.
+    """
+    if _CREDENTIALS_ENTITY:
+        return _CREDENTIALS_ENTITY[0]
+    vin = _vin_from_pair(PAIR_DIR)
+    if vin:
+        _CREDENTIALS_ENTITY.append(
+            "binary_sensor.xpeng_%s_credentials_valid" % vin[-6:].lower()
+        )
+        return _CREDENTIALS_ENTITY[0]
+    status, body = _core_json("/states", method="GET")
+    if status == 200 and isinstance(body, list):
+        for state in body:
+            entity_id = str(state.get("entity_id") or "") if isinstance(state, dict) else ""
+            if entity_id.startswith("binary_sensor.xpeng_") and entity_id.endswith(
+                "_credentials_valid"
+            ):
+                _CREDENTIALS_ENTITY.append(entity_id)
+                break
+    return _CREDENTIALS_ENTITY[0] if _CREDENTIALS_ENTITY else ""
+
+
+def _credentials_invalid() -> bool:
+    """Whether Home Assistant says the credentials are already dead.
+
+    It is the only thing that knows: to this app a session retired early and one
+    simply due look identical. Polling it is what keeps the old automation's
+    "renew immediately when the credentials go invalid" behaviour without needing
+    that automation to exist.
+    """
+    entity_id = _credentials_entity()
+    if not entity_id:
+        return False
+    status, body = _core_json("/states/%s" % entity_id, method="GET")
+    if status == 200 and isinstance(body, dict):
+        return body.get("state") == "off"
+    # Stale id (renamed entity, or a different VIN): forget it and rediscover.
+    _CREDENTIALS_ENTITY.clear()
+    return False
+
+
+def _renewal_due(now: float, next_run: float, credentials_invalid: bool) -> str:
+    """Why a renewal should happen now, or "" if it should not.
+
+    Split out because it is the whole of the scheduling policy and it is worth being
+    able to test without a clock or a broker: the interval decides as before, and an
+    already-invalid credential set overrides it, which is what stops a session that
+    died early from waiting out the rest of the interval.
+    """
+    if now >= next_run:
+        return "due"
+    if credentials_invalid:
+        return "credentials already invalid"
+    return ""
+
+
+def _scheduler(tick: float | None = None) -> None:
+    """Renew on a timer, so nothing outside this app has to call it.
+
+    The tick is short and the renewal interval long, so the time between renewals is
+    spent checking whether the credentials have already gone. A session that dies
+    early is therefore replaced within one tick instead of waiting out the rest of the
+    interval - which is the one thing the Home Assistant automation did that a plain
+    timer cannot.
+
+    `renew_interval: 0` disables this, for an install that would rather trigger
+    renewals itself (a manual call, or its own automation).
+    """
+    if RENEW_INTERVAL <= 0:
+        _log("scheduler disabled (renew_interval=0): renewals must be triggered")
+        return
+
+    # A fresh install should not wait out a whole interval for its first renewal -
+    # that wait is what made "trigger it once by hand" a documented step.
+    if _no_entry_yet():
+        _log("no config entry yet: renewing now to create it")
+        _run_locked()
+
+    STATE["next_run"] = time.time() + RENEW_INTERVAL
+    # 10s floor so a misconfigured zero cannot become a hot loop. `tick` lets a test
+    # drive the loop without waiting out a real interval.
+    interval = max(10, INVALID_POLL_INTERVAL) if tick is None else tick
+    _log(
+        "scheduler: renew every %ds, credentials checked every %ds"
+        % (RENEW_INTERVAL, interval)
+    )
+    while True:
+        time.sleep(interval)
+        reason = _renewal_due(time.time(), STATE["next_run"], _credentials_invalid())
+        if not reason:
+            continue
+        result = _run_locked()
+        if result.get("error") == "a renewal is already running":
+            _log("scheduler: a renewal is already running, will retry")
+            continue
+        STATE["next_run"] = time.time() + RENEW_INTERVAL
+        STATE["schedule_reason"] = reason
+        _log(
+            "scheduler: renewed (%s) ok=%s next in %ds"
+            % (reason, result.get("ok"), RENEW_INTERVAL)
+        )
+
+
 def _run_locked() -> dict:
     if not LOCK.acquire(blocking=False):
         return {"ok": False, "error": "a renewal is already running"}
@@ -461,6 +604,13 @@ class Handler(BaseHTTPRequestHandler):
             "consecutive_failures": STATE["consecutive_failures"],
             "running": STATE["running"],
             "last": STATE["last"],
+            "scheduler": {
+                "interval_s": RENEW_INTERVAL,
+                "next_run_s": max(0, int(STATE["next_run"] - time.time()))
+                if STATE["next_run"]
+                else None,
+                "last_reason": STATE["schedule_reason"] or None,
+            },
             "configured": {
                 "email": EMAIL,
                 "solver_url": SOLVER_URL,
@@ -490,4 +640,5 @@ if __name__ == "__main__":
     _log("listening on :%d (email=%s solver=%s auth=%s)"
          % (port, EMAIL or "<unset>", SOLVER_URL or "<unset>",
             "bearer" if RENEW_TOKEN else "open"))
+    threading.Thread(target=_scheduler, name="scheduler", daemon=True).start()
     ThreadingHTTPServer(("0.0.0.0", port), Handler).serve_forever()
