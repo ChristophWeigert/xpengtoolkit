@@ -72,7 +72,10 @@ function emit(payload, code) {
 }
 
 function fail(message) {
-  emit({ ok: false, error: String(message).slice(0, 400) }, 1);
+  // Keep enough to be actionable. Playwright puts the failing line first and a
+  // boxed hint after it, and cutting at 400 characters stopped inside the box,
+  // which is why a container launch failure was unreadable for several rounds.
+  emit({ ok: false, error: String(message).slice(0, 2000) }, 1);
 }
 
 // Where browser builds can live: the Playwright base image publishes
@@ -154,11 +157,21 @@ if (USE_CHROME) {
   // below is for the other branch only.
   launchOpts.channel = 'chrome';
 } else {
-  // Only set executablePath when the lookup actually found something: on Linux
-  // it finds nothing (it looks in the macOS cache) and Playwright's own
-  // PLAYWRIGHT_BROWSERS_PATH lookup is the one that works.
+  // Only set executablePath when the lookup actually found something: if it
+  // finds nothing, Playwright's own registry lookup gets a chance instead.
   const found = resolveChrome();
   if (found) launchOpts.executablePath = found;
+}
+
+/** What the launch actually used, for the error message. */
+function launchContext() {
+  return [
+    `executablePath=${launchOpts.executablePath || '<playwright default>'}`,
+    `channel=${launchOpts.channel || '<none>'}`,
+    `PLAYWRIGHT_BROWSERS_PATH=${process.env.PLAYWRIGHT_BROWSERS_PATH || '<unset>'}`,
+    `HOME=${process.env.HOME || '<unset>'}`,
+    `roots=${JSON.stringify(BROWSER_ROOTS)}`,
+  ].join(' ');
 }
 const browser = await chromium
   .launch(launchOpts)
@@ -169,9 +182,9 @@ const browser = await chromium
       const found = resolveChrome();
       return chromium
         .launch(launchOptions(found ? { executablePath: found } : {}))
-        .catch((e2) => fail(`could not launch chromium: ${e2.message}`));
+        .catch((e2) => fail(`could not launch chromium [${launchContext()}]: ${e2.message}`));
     }
-    return fail(`could not launch chromium: ${err.message}`);
+    return fail(`could not launch chromium [${launchContext()}]: ${err.message}`);
   });
 
 if (HEADFUL) {

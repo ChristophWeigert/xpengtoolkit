@@ -102,7 +102,7 @@ def load(name: str, path: Path):
     return module
 
 
-def summarise_output(text: str, limit: int = 1200) -> str:
+def summarise_output(text: str, limit: int = 1600) -> str:
     """Head and tail of a failed helper's output.
 
     Neither end alone is enough. The exception is the first line, and the
@@ -110,11 +110,18 @@ def summarise_output(text: str, limit: int = 1200) -> str:
     install" box *after* the line naming the missing executable), so a plain
     tail kept only the box and threw away the cause - which is exactly what made
     a missing-Chromium failure unreadable inside the renewal add-on.
+
+    When even head-and-tail has to be cut, cut the MIDDLE: a helper that fails
+    this way reports one very long line, and both its ends carry information.
     """
     lines = [line.strip() for line in (text or "").splitlines() if line.strip()]
     if len(lines) > 6:
         lines = lines[:3] + ["..."] + lines[-3:]
-    return " | ".join(lines)[:limit]
+    joined = " | ".join(lines)
+    if len(joined) <= limit:
+        return joined
+    half = (limit - 5) // 2
+    return "%s ... %s" % (joined[:half], joined[-half:])
 
 
 def run_json(cmd, env, timeout=400):
