@@ -117,6 +117,11 @@ def _mint_pair() -> tuple[bool, str]:
         "--password", PASSWORD,
         "--tools-dir", os.path.join(VENDOR, "tools"),
         "--device-id-out", DEVICE_ID_FILE,
+        # guardian_token.mjs resolves playwright-core from
+        # <playwright-dir>/node_modules, and this image installs it beside our
+        # own code (see Dockerfile). The tool's default, /tmp/pwdir, has none,
+        # which fails the run after the slider has already been solved.
+        "--playwright-dir", ROOT,
         "--save", "--mqtt",
     ]
     device_id = _device_id()

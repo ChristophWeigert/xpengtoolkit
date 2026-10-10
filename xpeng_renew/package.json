@@ -1,0 +1,12 @@
+{
+  "name": "xpeng-renew",
+  "version": "0.1.2",
+  "private": true,
+  "description": "Guardian token helper dependency for the XPENG credential renewal add-on",
+  "dependencies": {
+    "playwright-core": "1.49.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
