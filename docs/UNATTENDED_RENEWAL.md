@@ -259,11 +259,35 @@ So "sign the app in once" is **not** a stable fix, and it is not simply a one-of
 seeding step. An earlier revision of this section blamed the app being *signed out*;
 that was wrong — the regression was observed before the sign-out happened.
 
-**Still open:** whether an account stays MQTT-authorised once the app is signed out
-for good, and whether a headless renewal re-establishes it. Until that is measured,
-assume the two are in tension: on one account you get either live data (app signed
-in) or unattended headless renewal, unless a renewal turns out to restore MQTT on
-its own.
+**Measured: a headless renewal does not restore it.** With the app signed out, a
+complete headless renewal — fresh login, new pair minted and imported,
+`createMqttAccount` OK (`[+] LOGIN OK uid=10225403`) — left the install exactly
+where it was:
+
+```
+entities unknown = 97 / 124
+mqtt_listener    = No messages
+last_data_update = No data
+Not authorized   = still arriving
+```
+
+So the two measurements together are:
+
+| state | MQTT | vehicle data |
+|---|---|---|
+| app signed in | authorised | flows immediately, then stops within minutes |
+| app signed out + fresh headless renewal | refused | none |
+
+Live vehicle data and unattended headless renewal are therefore in **tension** on
+one account: the app's presence is what gets the broker to authorise the account,
+and the app and the install evict each other under the one-session-per-account
+rule. On a dedicated second account, expect renewal to work and data not to — plan
+for it rather than debugging it.
+
+The reference to compare against is the production install that *does* show live
+data: same integration, same car, zero `Not authorized` events. Its account
+presumably has the app signed in and no competing headless login, which is worth
+confirming before concluding anything further.
 
 ## 6. When it goes wrong
 
