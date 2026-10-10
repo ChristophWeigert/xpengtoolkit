@@ -75,24 +75,42 @@ function fail(message) {
   emit({ ok: false, error: String(message).slice(0, 400) }, 1);
 }
 
+// Where browser builds can live: the Playwright base image publishes
+// PLAYWRIGHT_BROWSERS_PATH, a Linux box keeps them under ~/.cache, and macOS
+// under ~/Library/Caches. Searching only the macOS path (as this used to) found
+// nothing inside the renewal add-on, which left Playwright to its own lookup.
+const BROWSER_ROOTS = [
+  process.env.PLAYWRIGHT_BROWSERS_PATH,
+  process.env.HOME && join(process.env.HOME, '.cache', 'ms-playwright'),
+  process.env.HOME && join(process.env.HOME, 'Library', 'Caches', 'ms-playwright'),
+].filter(Boolean);
+
+// The `chromium-` prefix deliberately excludes the chromium_headless_shell-*
+// build: this launch wants the full browser, and naming it explicitly is what
+// the slider-solver add-on does. Letting Playwright choose on its own picks the
+// headless shell, which the image does not carry; the launch then fails with a
+// bare "browser has been closed" and a boxed "run npx playwright install" hint
+// instead of saying which executable was missing.
+const CHROME_RELATIVES = [
+  'chrome-linux/chrome',
+  'chrome-linux64/chrome',
+  'chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing',
+  'chrome-mac/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing',
+];
+
 function resolveChrome() {
   if (process.env.XPENG_CHROME) return process.env.XPENG_CHROME;
-  const root = join(process.env.HOME || '', 'Library/Caches/ms-playwright');
-  if (!existsSync(root)) return undefined;
-  const builds = readdirSync(root)
-    .filter((d) => d.startsWith('chromium-'))
-    .sort()
-    .reverse();
-  const relatives = [
-    'chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing',
-    'chrome-mac/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing',
-    'chrome-linux/chrome',
-    'chrome-linux64/chrome',
-  ];
-  for (const build of builds) {
-    for (const rel of relatives) {
-      const candidate = join(root, build, rel);
-      if (existsSync(candidate)) return candidate;
+  for (const root of BROWSER_ROOTS) {
+    if (!existsSync(root)) continue;
+    const builds = readdirSync(root)
+      .filter((d) => d.startsWith('chromium-'))
+      .sort()
+      .reverse();
+    for (const build of builds) {
+      for (const rel of CHROME_RELATIVES) {
+        const candidate = join(root, build, rel);
+        if (existsSync(candidate)) return candidate;
+      }
     }
   }
   return undefined;

@@ -102,6 +102,21 @@ def load(name: str, path: Path):
     return module
 
 
+def summarise_output(text: str, limit: int = 1200) -> str:
+    """Head and tail of a failed helper's output.
+
+    Neither end alone is enough. The exception is the first line, and the
+    explanation is often the last (Playwright prints its "run npx playwright
+    install" box *after* the line naming the missing executable), so a plain
+    tail kept only the box and threw away the cause - which is exactly what made
+    a missing-Chromium failure unreadable inside the renewal add-on.
+    """
+    lines = [line.strip() for line in (text or "").splitlines() if line.strip()]
+    if len(lines) > 6:
+        lines = lines[:3] + ["..."] + lines[-3:]
+    return " | ".join(lines)[:limit]
+
+
 def run_json(cmd, env, timeout=400):
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
     for line in reversed((proc.stdout or "").splitlines()):
@@ -111,7 +126,7 @@ def run_json(cmd, env, timeout=400):
                 return json.loads(line)
             except ValueError:
                 continue
-    return {"ok": False, "err": ((proc.stderr or "") + (proc.stdout or ""))[-400:]}
+    return {"ok": False, "err": summarise_output((proc.stderr or "") + (proc.stdout or ""))}
 
 
 def solve_via_service(url: str, token: str = "", timeout: int = 120) -> dict:
