@@ -18,9 +18,9 @@ the server ends the session. Two apps take the human out of the loop:
   `xpeng.import_credentials` service, which validates the pair by minting MQTT
   credentials, exactly as the Repairs card does.
 
-[Step 7](#step-7---install-the-two-apps) installs and configures them, and
-[step 8](#step-8---add-the-renewal-automation) adds the automation that calls
-them. Three things are easy to miss:
+[Steps 4-5](#step-4---install-the-two-apps) install the apps and mint the first
+pair with the solver, and [step 8](#step-8---add-the-renewal-automation) adds the
+automation that calls them. Three things are easy to miss:
 
 - **The first renewal is expected to fail** when the integration has no config
   entry yet: it mints the pair and then has nowhere to import it. The pair has
@@ -61,7 +61,7 @@ credentials. Three independent pieces, from three different places:
 |---|---|---|---|
 | **1. App mTLS certificate + key** | `CN=xp_app_client01`, the same for every XPENG user. Proves *the app*, not you. | Extracted from an XPENG APK | You, once (step 2) |
 | **2. Device identity** | A random 32-hex id unique to this install, bound into the signed requests and the MQTT client id | **Minted automatically** by the onboarding tool when it fetches the tenant | Nobody - it is handed to you |
-| **3. Account tokens** | Your account's access/refresh token, and the tenant key pool they are sealed with | Minted by the onboarding tool from your email + password + one slider drag | You, once (step 4) |
+| **3. Account tokens** | Your account's access/refresh token, and the tenant key pool they are sealed with | Minted once: by the renewal app (step 5), or by the onboarding tool on a desktop ([alternative](#alternative-to-steps-4-5-mint-the-first-pair-yourself)) |
 
 You never type a device id anywhere. The tool generates it, and the integration
 **adopts** it from the imported tenant rather than minting a new one - that
@@ -87,20 +87,23 @@ official app signed in as that account**, for the reason given just above.
 | **1** | [Install the integration](#installation) - add the HACS custom repository, install, restart HA | Home Assistant | 2 min |
 | **2** | [Download the repository ZIP](https://github.com/xpengtoolkit/xpengtoolkit) and [extract the certificates](#step-2---extract-the-certificates-outside-home-assistant) from an XPENG APK **3.7.0-3.12.0** | Any computer | 5 min |
 | **3** | [Copy the three PEM files onto the Home Assistant host](#step-3---copy-the-certificates-onto-the-home-assistant-host) | Home Assistant | 2 min |
-| **4** | [Get tokens](#step-4---get-tokens-with-the-onboarding-tool-outside-home-assistant) with the onboarding tool (drag one slider) | A computer with Chrome | 5 min |
-| **5** | [Add the integration](#step-5---import-them-into-home-assistant) and choose **Import tokens** | Home Assistant | 1 min |
-| **6** | Set the **Certificate directory** option to the folder from step 3 | Home Assistant | 30 s |
-| **7** | [Install the two apps](#step-7---install-the-two-apps) (slider solver + credential renewal) and set their tokens | Home Assistant | 5 min |
+| **4** | [Install the two apps](#step-4---install-the-two-apps) (slider solver + credential renewal) and set their tokens | Home Assistant | 5 min |
+| **5** | [Mint the first pair](#step-5---mint-the-first-pair) - the renewal app does the login, the solver clears the slider | Home Assistant | 2 min |
+| **6** | [Add the integration](#step-6---import-them-into-home-assistant) and choose **Import tokens**, pointing it at the pair from step 5 | Home Assistant | 1 min |
+| **7** | Set the **Certificate directory** option to the folder from step 3 | Home Assistant | 30 s |
 | **8** | [Add the renewal automation](#step-8---add-the-renewal-automation) | Home Assistant | 5 min |
 
-**Two of these happen outside Home Assistant** - that is not a limitation we can
-remove, and the reason is given under each step.
+**Only step 2 happens outside Home Assistant**, because extracting the certificates
+needs the APK. Nothing else does - including the captcha-gated login, which the
+solver app clears.
 
-Steps **1-6 are the install**; **7 and 8 are what keep it alive**. Skip them and
-the integration still works - it just stops about two hours later, when XPENG
-retires the session, and needs a fresh pair pasted by hand. There is no way to
-renew a session from inside Home Assistant without them, because the login is
-captcha-gated.
+**Steps 4-5 are what make the install self-renewing.** Without them it still works,
+but only until XPENG retires the session about two hours later, and then a fresh
+pair has to be pasted in by hand. If you would rather not run the apps at all, or
+not hand them the account password before you have seen the integration work,
+[the alternative](#alternative-to-steps-4-5-mint-the-first-pair-yourself) mints the
+pair on a desktop instead and replaces steps 4-5 - it needs Chrome, Node and one
+manual slider drag.
 
 Before you start, two things that catch people out:
 
@@ -334,10 +337,10 @@ This section covers **steps 2 to 8** of the summary above; step 1 is
 
 **Sign in with your dedicated account, never your primary one** (see above).
 
-Two of these steps happen **outside** Home Assistant, because Home Assistant
-cannot do them itself: extracting the certificates needs the APK, and **the
-captcha cannot be solved inside Home Assistant** - XPENG gates password login
-with a slider captcha that only a human dragging it in a real browser can clear.
+The **only** step that happens outside Home Assistant is extracting the
+certificates, because that needs the APK. Everything else, including the login
+that XPENG gates with its slider captcha, is done here - the solver app clears
+that challenge, which is why the app route needs no desktop.
 
 ### Step 2 - extract the certificates (outside Home Assistant)
 
@@ -401,10 +404,15 @@ ls -l /config/xpeng-certs      # three files
 These are live credentials, so set the directory to `700` and the files to `600`,
 and do not leave the folder exposed in a share.
 
-### Step 4 - get tokens with the onboarding tool (outside Home Assistant)
+### Alternative to steps 4-5: mint the first pair yourself
 
-Still in that same top folder. This runs on a desktop machine (Mac/Linux/Windows
-with Node and a Chrome install), not on your Home Assistant host. It opens a
+Take this route if you would rather not hand the account password to an app before
+you have seen the integration work - or if you cannot run the solver. It needs a
+desktop machine (Mac/Linux/Windows with Node and a Chrome install), and it replaces
+**steps 4 and 5**: you mint the pair here, skip the apps for now, and paste it in
+step 6.
+
+Run this from the top folder of the repository you unzipped in step 2. It opens a
 browser window; **drag the slider once**. It then writes two files:
 
 ```bash
@@ -457,35 +465,7 @@ Why this step exists, and cannot be folded into Home Assistant: the only
 human-only part of XPENG's login is that slider gesture. Everything else is
 plain HTTP.
 
-### Step 5 - import them into Home Assistant
-
-**Settings -> Devices & Services -> Add Integration -> Xpengtk**, then choose
-**Import tokens**.
-
-The form takes either the file *contents* or a path. **Prefer pasting the
-contents** - open each file in a text editor, copy the whole thing in. The paths
-are inside the Home Assistant container, so they only work if the files were
-written somewhere under `/config`, which is not where step 4 put them unless you
-went out of your way.
-
-| Field | What goes in it |
-|---|---|
-| `tokens_json` | the contents of `xpeng_tokens.json` |
-| `tenant_json` | the contents of `xpeng_tenant.json` |
-| `vin` | your VIN, from the XPENG app (not a "LIN") |
-
-No captcha, no password, and it works for accounts that are captcha-gated. The
-integration **adopts the device id from the imported tenant** rather than minting
-a new one - so if you ever see it mint a fresh id instead, the tenant did not
-come through and the credentials will be rejected.
-
-### Step 6 - point the integration at the certificates
-
-*Settings -> Devices & Services -> XPENG -> Configure*, and set the
-**Certificate directory** to the folder from step 3. The form validates it: if
-any of the three files is missing, saving is refused rather than failing later.
-
-### Step 7 - install the two apps
+### Step 4 - install the two apps
 
 This is the part that makes renewal unattended, and it is where the two companion
 apps come in:
@@ -515,6 +495,65 @@ Then configure the renewal app:
 The pair directory is live credentials on disk: `chmod 700`, and keep it out of any
 share.
 
+### Step 5 - mint the first pair
+
+This is the step that replaces doing it by hand: the renewal app logs in, the solver
+clears the slider, and the pair is written to `pair_dir` (`/config/xpeng-secrets` by
+default). Trigger it once:
+
+```bash
+curl -X POST -H "Authorization: Bearer <renew_token>" http://<your-ha-host>:8090/renew
+```
+
+**Expect it to fail at the last step**, with
+
+```
+import_credentials returned 400: No XPENG config entry to import credentials into
+```
+
+That is the config entry that does not exist yet, not a problem with the credentials -
+and it is why this step comes before the integration is added. The pair is on disk by
+then:
+
+```bash
+ls -l /config/xpeng-secrets/      # xpeng_tokens.json and xpeng_tenant.json
+```
+
+If it fails *earlier* than that - a failed login, or the slider never getting solved -
+the run log at `/config/xpeng-renew-last-run.log` says which step, and
+[`docs/UNATTENDED_RENEWAL.md`](docs/UNATTENDED_RENEWAL.md#2-first-run-there-is-no-config-entry-yet)
+covers this bootstrap in full. From step 6 on, renewals complete on their own.
+
+### Step 6 - import them into Home Assistant
+
+**Settings -> Devices & Services -> Add Integration -> Xpengtk**, then choose
+**Import tokens**.
+
+The pair is already on your Home Assistant host, in the renewal app's `pair_dir`, so
+give the **paths**:
+
+| Field | What goes in it |
+|---|---|
+| `tokens_path` | `/config/xpeng-secrets/xpeng_tokens.json` |
+| `tenant_path` | `/config/xpeng-secrets/xpeng_tenant.json` |
+| `vin` | your VIN, from the XPENG app (not a "LIN") |
+
+If you took [the alternative](#alternative-to-steps-4-5-mint-the-first-pair-yourself)
+and minted the pair on your own computer, paste the file **contents** instead - the
+path fields are read inside the Home Assistant container and cannot see a file
+sitting on your desktop.
+
+No captcha, no password, and it works for accounts that are captcha-gated. The
+integration **adopts the device id from the imported tenant** rather than minting
+a new one - so if you ever see it mint a fresh id instead, the tenant did not
+come through and the credentials will be rejected.
+
+### Step 7 - point the integration at the certificates
+
+*Settings -> Devices & Services -> XPENG -> Configure*, and set the
+**Certificate directory** to the folder from step 3. The form validates it: if
+any of the three files is missing, saving is refused rather than failing later.
+
 ### Step 8 - add the renewal automation
 
 The app only acts when it is called, so something has to call it: ahead of the cap
@@ -540,7 +579,7 @@ The card explains the situation and offers a **Fix** button that opens the
 import form directly, so a fresh pair can be pasted without hunting through
 settings. What it asks for:
 
-1. Re-run the onboarding tool from [step 4](#step-4---get-tokens-with-the-onboarding-tool-outside-home-assistant)
+1. Re-run the onboarding tool from [the alternative](#alternative-to-steps-4-5-mint-the-first-pair-yourself)
    and drag the slider once.
 2. Paste the new `xpeng_tokens.json` and `xpeng_tenant.json` into the card.
 
@@ -566,8 +605,8 @@ failure.
 ### Notes
 
 Each installation mints its **own device identity**, and the credentials issued
-are bound to it, so a token set from step 4 belongs to whichever machine and
-install it was produced for. That is why step 5 imports the pair together - the
+are bound to it, so a token set from step 5 belongs to whichever machine and
+install it was produced for. That is why step 6 imports the pair together - the
 tenant records the identity the tokens were sealed against. Do not mix tokens
 from one run with a tenant from another.
 
