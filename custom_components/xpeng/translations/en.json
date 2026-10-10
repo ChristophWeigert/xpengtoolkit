@@ -3,14 +3,13 @@
     "step": {
       "user": {
         "title": "Connect your XPENG vehicle",
-        "description": "Use a DEDICATED XPENG account that has been shared to your car - do NOT use your primary account. Signing in here creates a second client on the same account, and XPENG only allows one active session, so your phone app will get logged out repeatedly. Create a new XPENG account, share the car to it from your main account in the app, then sign in here with that one.\n\nXPENG also gates most accounts with its own slider captcha, and that challenge can only be cleared by a human dragging it in a real browser - which this setup screen cannot show. \"Import tokens from the onboarding tool\" is therefore the method that reliably completes: run tools/onboard_email_login.py once on a machine with a browser, then paste the two files it wrote. The Google and email options are kept for accounts XPENG does not challenge.",
+        "description": "Use a DEDICATED XPENG account that has been shared to your car - NOT your primary account. XPENG allows one active session per account, so signing in here logs your phone app out repeatedly.\n\nXPENG gates most accounts with a slider captcha that only a human dragging it in a real browser can clear, and this screen cannot show it. \"Import tokens from the onboarding tool\" is the method that reliably completes; the Google and email options only work if XPENG does not challenge the account.",
         "data": {
           "vin": "Vehicle Identification Number (VIN)",
           "auth_method": "Sign-in method"
         },
         "data_description": {
-          "vin": "The 17-character VIN of your vehicle",
-          "auth_method": "How you want to connect your XPENG account"
+          "auth_method": "Import tokens is the reliable choice - see above."
         }
       },
       "email_code": {
@@ -68,7 +67,7 @@
       },
       "import_tokens": {
         "title": "Import onboarding tokens",
-        "description": "XPENG's slider captcha cannot be solved inside Home Assistant, so the credentials have to be minted outside it by the onboarding tool.\n\nOn a machine with Node, Playwright and a real Chrome, run:\n\n`python3 tools/onboard_email_login.py --email YOU@example.com --save --mqtt`\n\nand drag the slider once when the browser window opens. The tool then writes xpeng_tokens.json and xpeng_tenant.json.\n\nPaste the contents of both files below - or, if they are already on the Home Assistant host, give their paths instead. Both files are live credentials, and both are required: the tokens and the tenant are a matched pair.",
+        "description": "Both files must come from the SAME run of the onboarding tool: the tenant carries the deviceId the tokens are sealed against, so a pair from different runs is rejected.\n\nRun `python3 tools/onboard_email_login.py --save --mqtt` on a machine with a browser, and drag the slider once when it opens - or let the renewal app mint the pair with the solver.\n\nPaste both files below, or give their paths if they are already on this host.",
         "data": {
           "tokens_json": "xpeng_tokens.json contents",
           "tokens_path": "xpeng_tokens.json path (instead of pasting)",
@@ -77,11 +76,9 @@
           "vin": "Vehicle Identification Number (VIN)"
         },
         "data_description": {
-          "tokens_json": "The whole file, including the json wrapper the onboarding tool writes",
-          "tokens_path": "Absolute path on the Home Assistant host. Used only when the contents field above is empty.",
+          "tokens_json": "The whole file, json wrapper included",
           "tenant_json": "The whole file - it carries the deviceId the tokens are sealed against",
-          "tenant_path": "Absolute path on the Home Assistant host. Used only when the contents field above is empty.",
-          "vin": "Read from the token file when it carries one; otherwise enter the 17-character VIN of the vehicle these tokens belong to"
+          "vin": "Read from the token file when it carries one, so usually leave this blank"
         }
       }
     },

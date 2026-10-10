@@ -375,8 +375,8 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
                         SelectSelectorConfig(
                             options=[
                                 {"value": AUTH_METHOD_IMPORT, "label": "Import tokens from the onboarding tool (recommended)"},
-                                {"value": AUTH_METHOD_GOOGLE, "label": "Sign in with Google"},
-                                {"value": AUTH_METHOD_EMAIL, "label": "Email + password"},
+                                {"value": AUTH_METHOD_GOOGLE, "label": "Sign in with Google (usually blocked by the slider captcha)"},
+                                {"value": AUTH_METHOD_EMAIL, "label": "Email + password (usually blocked by the slider captcha)"},
                             ],
                             mode=SelectSelectorMode.DROPDOWN,
                         )
