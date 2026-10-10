@@ -202,7 +202,60 @@ brand-new identity. Practical consequences:
 * Whatever you do, do not let it change on every renewal — that is what the app's
   remembered id in `/data/device_id.txt` prevents.
 
-## 5. When it goes wrong
+## 5. Seed the account in the app first
+
+Symptoms: renewal works, credentials are valid, the car is plainly bound to the
+account (the API lists it), and yet **most entities sit at `unknown`** — often 90
+of ~124 — with a few odd ones populated. The log repeats:
+
+```
+XPENG MQTT connection refused: rc=Not authorized (rc_str=Not authorized)
+sensor.<car>_mqtt_listener      = No messages
+sensor.<car>_last_data_update   = No data
+sensor.<car>_polling_status     = Reconnecting
+```
+
+The full vehicle state arrives over **MQTT**; the REST path alone yields a partial
+snapshot, so without MQTT most entities never get a value. The broker is not
+rejecting bad credentials — it is refusing to authorize an account that has only
+ever logged in *headlessly*.
+
+**Fix: sign the account into the official XPENG app once.** It is authorized
+immediately afterwards. Measured on a fresh test account, within a minute of the
+app login:
+
+| | before | after |
+|---|---|---|
+| entities unknown | 97 / 124 | 19 / 124 |
+| `last_data_update` | `No data` | fresh |
+| `polling_status` | `Reconnecting` | `Parked` |
+
+This is not a user or session limit. Two freed MQTT sessions (another Home
+Assistant for the same car switched off entirely, and a phone signed out) changed
+nothing; the refusal only stopped when the account was seeded. It is also not the
+device id — the refusal persisted while the install presented the phone's own id,
+so it is the *account's* registration state, not the id string. A single refusal
+can still appear now and then after seeding, as the credential rotation races; it
+recovers on its own and `last_data_update` keeps advancing.
+
+Mind the one-session-per-account rule when you do this: while the app and a
+headless install are both signed in on the same account, they will evict each
+other, and a renewal logs in again.
+
+**Not yet settled:** whether the authorization survives the app being signed out
+and the next unattended renewal. It is expected to, because seeding changes what
+XPENG knows about the *account*, but that has not been watched across a full
+cycle. After the next renewal, check `mqtt_listener` and `last_data_update`: if
+they go back to `No messages` / `No data`, the account needs the app login again
+and this should be treated as a known limitation rather than a bug.
+
+This is the same underlying cause as [the device identity](#4-the-device-identity)
+above: XPENG treats an account and device it has seen through the app differently
+from one that only ever logged in headlessly. Because a renewal mints a *new*
+login every cycle, an install whose account was never seeded will renew happily
+forever while showing almost no data.
+
+## 6. When it goes wrong
 
 Read these in order:
 
@@ -214,13 +267,16 @@ Read these in order:
    failures, and the last outcome including what `import_credentials` returned.
 3. **The HA log**, for `homeassistant.components.rest_command` errors: they name
    the status the worker answered with.
+4. **Most entities `unknown` while the credentials are healthy** — that is the
+   MQTT authorization case in [section 5](#5-seed-the-account-in-the-app-first),
+   not a credential problem. Look for `MQTT connection refused: rc=Not authorized`.
 
 The worker raises a persistent notification after **two consecutive failures**.
 Note that Home Assistant 2026.10 no longer exposes persistent notifications as
 `persistent_notification.*` entities, so you will not find them with a template or
 in the state list — look in the notifications panel in the UI.
 
-## 6. Testing it without waiting two hours
+## 7. Testing it without waiting two hours
 
 Open the interval on purpose rather than shortening the code: set
 `input_datetime.xpeng_last_renewal` to a time more than 6000 seconds ago (Developer
