@@ -116,6 +116,35 @@ def _tail(primary: str, secondary: str = "", lines: int = 4, limit: int = 400) -
     return ""
 
 
+def _run_log_path() -> str:
+    """Where the last run's full output is kept."""
+    parent = os.path.dirname(PAIR_DIR.rstrip("/")) or "/config"
+    return os.path.join(parent, "xpeng-renew-last-run.log")
+
+
+def _write_run_log(stdout: str, stderr: str) -> None:
+    """Keep the onboarding tool's whole output in a readable file.
+
+    The health endpoint can only carry a summary, and the useful part of a
+    browser failure is long: Playwright prints the failing line, then a boxed
+    hint. Chasing Chromium through truncated summaries cost several releases,
+    so every run leaves its full output here instead. Written next to the pair
+    the add-on publishes, which is inside the mapped config directory.
+    """
+    path = _run_log_path()
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(
+                "# Full output of the onboarding tool from the last renewal.\n"
+                "# Treat as sensitive: it describes the account's login attempts.\n"
+                "# stdout\n%s\n# stderr\n%s\n" % (stdout, stderr)
+            )
+        os.chmod(path, 0o600)
+    except Exception as exc:  # noqa: BLE001 - diagnostics must never fail a run
+        _log("could not write %s: %s" % (path, exc))
+
+
 def _mint_pair() -> tuple[bool, str]:
     """Run the toolkit's onboarding tool, which writes the pair next to itself."""
     cmd = [
@@ -140,13 +169,16 @@ def _mint_pair() -> tuple[bool, str]:
             cmd += ["--captcha-solver-token", SOLVER_TOKEN]
 
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
+    _write_run_log(proc.stdout or "", proc.stderr or "")
     # On failure stderr holds the traceback, and stdout holds only the progress
     # lines printed before it died. Reporting stdout alone is what reduced a
     # missing-certificate failure to a bare "[0] device id = ..." and sent the
     # 2026-10-10 investigation looking for a request that never arrived.
     if proc.returncode != 0:
-        return False, "onboarding failed: " + _tail(proc.stderr, proc.stdout, lines=5)
-    return True, _tail(proc.stdout, proc.stderr, lines=3)
+        return False, "onboarding failed: " + _tail(
+            proc.stderr, proc.stdout, lines=5, limit=900
+        )
+    return True, _tail(proc.stdout, proc.stderr, lines=3, limit=900)
 
 
 def _publish_pair() -> str:
