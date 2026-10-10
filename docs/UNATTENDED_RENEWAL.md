@@ -238,16 +238,28 @@ so it is the *account's* registration state, not the id string. A single refusal
 can still appear now and then after seeding, as the credential rotation races; it
 recovers on its own and `last_data_update` keeps advancing.
 
-Mind the one-session-per-account rule when you do this: while the app and a
-headless install are both signed in on the same account, they will evict each
-other, and a renewal logs in again.
+### The app has to stay signed in
 
-**Not yet settled:** whether the authorization survives the app being signed out
-and the next unattended renewal. It is expected to, because seeding changes what
-XPENG knows about the *account*, but that has not been watched across a full
-cycle. After the next renewal, check `mqtt_listener` and `last_data_update`: if
-they go back to `No messages` / `No data`, the account needs the app login again
-and this should be treated as a known limitation rather than a bug.
+This was measured, and it is the awkward part: signing the app out puts the
+install straight back to where it started. Within a few minutes of the sign-out
+the same host went from 19/124 unknown and live data to 97/124 unknown,
+`last_data_update = No data`, `polling_status = Reconnecting`, and the
+`Not authorized` refusals resumed.
+
+So the authorization tracks an **active app session for the account**, not a
+one-off registration. That collides with the one-session-per-account rule, because
+an unattended renewal logs in again every cycle:
+
+* on a **dedicated second account** — the recommended setup — you get unattended
+  renewal but the account's app is signed out, so expect **no live vehicle data**:
+  the partial REST snapshot only. Plan for it rather than debugging it;
+* on an account whose **app stays signed in** you get live data, but each renewal
+  signs that app session out, and how quickly the app re-signs itself in (evicting
+  the install in turn) has not been watched across cycles.
+
+If live data matters on a given host, treat "which account, and is its app signed
+in" as a first-class part of the setup, and watch `mqtt_listener` and
+`last_data_update` after a renewal rather than assuming they stay healthy.
 
 This is the same underlying cause as [the device identity](#4-the-device-identity)
 above: XPENG treats an account and device it has seen through the app differently
