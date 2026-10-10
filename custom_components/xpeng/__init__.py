@@ -1351,6 +1351,46 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     # 7. Store for unload
+    #
+    # Never overwrite a previous client for this entry without stopping it. If
+    # this entry is set up again while an earlier client is still live, the
+    # assignment below would orphan that client: its paho network thread (named
+    # `paho-mqtt-client-<clientId>`) keeps reconnecting under the OLD clientId,
+    # and the broker then sees two clients under one XPENG account. It
+    # authorises one and refuses the other as "Not authorized"; every refusal
+    # triggers a credential refresh and a rebuild, and each rebuild resets the
+    # entities - which is how an install ends up flapping between ~20 and 124
+    # unknown entities. Measured on a live install 2026-10-11: two clientIds
+    # (one stale, from a device-id change), two live paho clients, 97/124
+    # unknown. Restarting HA cleared it; a config-entry reload did not.
+    #
+    # This guard is what makes changing `device_id` on an existing install safe.
+    previous = (hass.data.get(DOMAIN) or {}).get(entry.entry_id)
+    if previous:
+        previous_client = previous.get("mqtt_client")
+        if previous_client is not None and previous_client is not mqtt_client:
+            _LOGGER.warning(
+                "Entry %s is being set up again while its previous MQTT client "
+                "is still live - stopping it so the broker does not see two "
+                "clients for one account",
+                entry.entry_id,
+            )
+            # Cancel its timers first: they hold the old client and would keep
+            # firing against it (and against this new one) until unload.
+            for key in (
+                "cancel_timer",
+                "cancel_api_refresh",
+                "cancel_rest_timer",
+                "cancel_watchdog",
+            ):
+                cancel = previous.get(key)
+                if cancel:
+                    try:
+                        cancel()
+                    except Exception:  # noqa: BLE001 - replacing must not raise
+                        _LOGGER.debug("could not cancel %s while replacing", key)
+            await hass.async_add_executor_job(previous_client.disconnect)
+
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = {
         "coordinator": coordinator,
@@ -1969,17 +2009,32 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload an XPENG config entry."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
-        data = hass.data[DOMAIN].pop(entry.entry_id)
-        data["cancel_timer"]()
-        if data.get("cancel_api_refresh"):
-            data["cancel_api_refresh"]()
-        if data.get("cancel_rest_timer"):
-            data["cancel_rest_timer"]()
-        if data.get("cancel_watchdog"):
-            data["cancel_watchdog"]()
-        await hass.async_add_executor_job(data["mqtt_client"].disconnect)
+        # pop(..., None): a setup that failed part-way may leave no entry here,
+        # and raising on that would skip the teardown below entirely - leaving
+        # the MQTT client running under the old clientId. That is the state the
+        # replace guard in async_setup_entry also defends against; both are
+        # cheap and this is the one that runs on the ordinary reload path.
+        data = (hass.data.get(DOMAIN) or {}).pop(entry.entry_id, None)
+        if data:
+            # Client first. Cancelling timers cannot be allowed to fail loudly
+            # enough to skip it, so they come after and are individually guarded.
+            client = data.get("mqtt_client")
+            if client is not None:
+                await hass.async_add_executor_job(client.disconnect)
+            for key in (
+                "cancel_timer",
+                "cancel_api_refresh",
+                "cancel_rest_timer",
+                "cancel_watchdog",
+            ):
+                cancel = data.get(key)
+                if cancel:
+                    try:
+                        cancel()
+                    except Exception:  # noqa: BLE001
+                        _LOGGER.debug("could not cancel %s on unload", key)
         # Unload services if no more entries
-        if not hass.data[DOMAIN]:
+        if not hass.data.get(DOMAIN):
             await async_unload_services(hass)
     return unload_ok
 

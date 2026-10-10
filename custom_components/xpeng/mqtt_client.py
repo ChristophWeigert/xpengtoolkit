@@ -368,17 +368,44 @@ class XPengMQTTClient:
             self._reconnect_lock.release()
 
     def disconnect(self) -> None:
-        """Stop loop and disconnect. Called once at unload."""
-        if self._client is not None:
-            _LOGGER.info("Disconnecting XPENG MQTT client")
+        """Disconnect and stop the network loop. Safe to call more than once.
+
+        Order matters. paho sends the DISCONNECT packet from `disconnect()`, and
+        `loop_stop()` stops the thread that would write it - so stopping the loop
+        first can leave the broker holding the session. A session the broker
+        still attributes to this clientId is exactly what makes a later
+        reconnect look like a second subscriber under one account.
+
+        `loop_stop()` joins the network thread, so it can block; everything
+        before it here is therefore non-blocking, and the thread reference is
+        dropped before the join so a hung join cannot leave this object claiming
+        to own a live client.
+        """
+        client = self._client
+        if client is None:
+            return
+        _LOGGER.info(
+            "Disconnecting XPENG MQTT client (clientId=%s)", self._client_id
+        )
+        self._client = None
+        self._connected = False
+        self._subscription_mids.clear()
+        # Detach callbacks first: if the thread outlives this call, it must not
+        # keep feeding the coordinator, the watchdog or the auth-failure path as
+        # a ghost of a client nobody owns any more.
+        for attr in ("on_connect", "on_message", "on_disconnect", "on_subscribe"):
             try:
-                self._client.loop_stop()
-                self._client.disconnect()
-            except Exception:
+                setattr(client, attr, None)
+            except Exception:  # noqa: BLE001 - teardown must never raise
                 pass
-            self._client = None
-            self._connected = False
-            self._subscription_mids.clear()
+        try:
+            client.disconnect()
+        except Exception:  # noqa: BLE001
+            _LOGGER.debug("MQTT disconnect() raised; continuing teardown", exc_info=True)
+        try:
+            client.loop_stop()
+        except Exception:  # noqa: BLE001
+            _LOGGER.debug("MQTT loop_stop() raised", exc_info=True)
 
     def _next_msg_id(self) -> str:
         """Build the next unique outgoing message id."""
