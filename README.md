@@ -8,7 +8,7 @@ Unofficial, reverse-engineered, and not affiliated with XPENG.
 
 XPENG retires a session about two hours after the login that created it, and a
 refresh cannot extend it - the refresh loop keeps working right up to the moment
-the server ends the session. Two add-ons take the human out of the loop:
+the server ends the session. Two apps take the human out of the loop:
 
 * **[XPENG slider solver](https://github.com/xpengtoolkit/slider-solver)** - solves
   the login captcha. That slider is the only human step in onboarding, so this is
@@ -18,11 +18,29 @@ the server ends the session. Two add-ons take the human out of the loop:
   `xpeng.import_credentials` service, which validates the pair by minting MQTT
   credentials, exactly as the Repairs card does.
 
-Install both from the Add-on Store: Settings -> Add-ons -> Add-on Store ->
-three-dot menu -> Repositories, and add this repository's URL and the solver's.
+Install both from the app store: **Settings -> Apps -> Install app** ->
+three-dot menu -> **Repositories**, and add this repository's URL and the
+solver's. (Home Assistant renamed add-ons to **apps** in 2026.2; older releases
+call the same screen the Add-on Store.)
+
 Then follow [`docs/UNATTENDED_RENEWAL.md`](docs/UNATTENDED_RENEWAL.md) for the
-automation that drives them. **Both add-ons hold credentials** - set their tokens,
-and keep the pair directory out of any share.
+automation that drives them. Three things there are easy to miss:
+
+- **The first renewal is expected to fail** when the integration has no config
+  entry yet: it mints the pair and then has nowhere to import it. The pair has
+  already landed in the directory at that point, and the entry is created once,
+  by hand, with **Import tokens**.
+- **Set `solver_url` if the solver was not installed from the store.** The default
+  names the store install's container hostname
+  (`http://571f4c18-xpeng-slider-solver:8080`). A local-folder install is
+  `http://local-xpeng-slider-solver:8080`, and the Home Assistant host's own
+  address always works. The underscore slug form (`local_xpeng_slider_solver`)
+  does **not** resolve - hyphens do.
+- **Keep one `device_id`.** Set it once and leave it; changing it on a live
+  install is the stale-client trap in [Troubleshooting](#troubleshooting).
+
+**Both apps hold credentials** - set their tokens, and keep the pair directory out
+of any share.
 
 The service is useful by hand too: a credential swap no longer has to wait for the
 Repairs card to appear first (it is raised only after the broker refuses, or on the
@@ -53,16 +71,20 @@ You never type a device id anywhere. The tool generates it, and the integration
 **adopts** it from the imported tenant rather than minting a new one - that
 binding is exactly why the token files and the tenant must be imported together.
 
-Before any of that: **log in to the official app at least once** on your
-dedicated account, because a freshly shared car has no vehicle state until the
-real app has read it.
+**Do not sign the official app in on this account.** A shared car needs no app
+visit first - the integration works fully headless - and signing in makes the two
+evict each other, because XPENG allows one session per account (see
+[Use a dedicated account](#use-a-dedicated-account---do-not-use-your-primary-account)).
+If the entities come up empty, that is the stale-client case in
+[Troubleshooting](#troubleshooting), not a missing app login.
 
 ### The steps
 
 **Before step 1, once:** create a dedicated XPENG account and have your main
 account share the car to it (see
-[below](#use-a-dedicated-account---do-not-use-your-primary-account)), then log
-into the app with it.
+[below](#use-a-dedicated-account---do-not-use-your-primary-account)). Accept the
+share from the new account if the app asks you to - but **do not leave the
+official app signed in as that account**, for the reason given just above.
 
 | # | Step | Where | Roughly how long |
 |---|---|---|---|
@@ -105,8 +127,8 @@ exactly between 3.12.0 and 3.13.0 - so download an older build on purpose.
 The client certificate and key are **not** distributed with this project; you
 extract them from your own copy of the official app. See
 [`custom_components/xpeng/certs/README.md`](custom_components/xpeng/certs/README.md)
-for the full detail and 
-for the tested version matrix.
+for the full detail, including the version boundary that decides which APK build
+you need.
 
 If you cannot obtain the key, this integration is not usable - but for most
 people the APK route above now makes that a non-issue.
@@ -164,7 +186,10 @@ looks perfectly healthy - server-side, not something the client can prevent.
 A silence watchdog notices 300s of no vehicle-state traffic, drops and
 re-establishes the connection, and sends a passive query. Reconnects are
 serialised behind a lock, because concurrent reconnects produce two clients
-sharing one client ID that evict each other from the broker.
+sharing one client ID that evict each other from the broker - and setting an
+entry up again now stops any client a previous setup left behind, since two
+clients under one account is the failure described in
+[Troubleshooting](#troubleshooting).
 
 ### Credentials rotate, and the identity is per-install
 
@@ -340,7 +365,7 @@ means it found the certificate but could not recover the key - which is what a
 3.13.0-or-newer package looks like, so use an older build.
 
 Full detail: [`custom_components/xpeng/certs/README.md`](custom_components/xpeng/certs/README.md)
-and the tested matrix in .
+which also carries the extraction steps for each platform.
 On Windows, [`docs/WINDOWS_WSL_SETUP.md`](docs/WINDOWS_WSL_SETUP.md) walks this
 whole process through WSL.
 
@@ -533,6 +558,67 @@ tool (or filling in the field on the **Import tokens** form) will supply it.
 
 Note the value is the full account address, which is the point of showing it — so
 it will appear in dashboards and in the recorder database.
+
+## Troubleshooting
+
+### Most entities are `unknown`
+
+The usual cause, and the one worth ruling out first, is that **two MQTT clients are
+connected under one XPENG account.** The broker authorises one and refuses the other as
+`Not authorized`; every refusal triggers a credential refresh and a client rebuild,
+and each rebuild resets the entities - so values appear, vanish, and the count
+flaps around instead of settling.
+
+```
+XPENG MQTT connection refused: rc=Not authorized (rc_str=Not authorized)
+```
+
+The usual way in is **changing `device_id` on an install that already had one**.
+That changes the MQTT client id, and the client still using the old one is not
+always torn down - so two clients for one account end up fighting.
+
+**Fix: restart Home Assistant.** A config-entry reload does *not* clear it. The fix
+in the integration (0.4.6) stops a previous client when an entry is set up again,
+but if you are already in this state, only a restart clears the one that is loose.
+
+Two things that reliably mislead when you are debugging this:
+
+- **`sensor.<vehicle>_mqtt_listener` reads `No messages` on a perfectly healthy
+  install**, because vehicle data arrives over the REST poll rather than that
+  topic. Do not read it as "MQTT is dead, so there is no data".
+- **Counting client ids in the log tells you about history, not about now.** To
+  see which client is live, compare the *newest* timestamp per client id instead
+  of how many appear.
+
+### `Polling status` is `Silent` on a parked car
+
+`Silent` means "connected, but nothing has arrived for longer than the silence
+threshold" - the state the watchdog reconnects for. It is not the same as
+`Parked`, which is the normal quiet state. Because the parked poll interval is
+measured in hours while the silence threshold is minutes, a parked car can sit in
+`Silent` and have the watchdog reconnect between polls; a value that returns to
+`Parked` is not a problem in itself. If a car you know is awake stays `Silent`
+alongside `Not authorized` refusals, treat it as the case above.
+
+### Nothing is updating, and the log does not say why
+
+- **The renewal app records the whole onboarding run** - every step, plus whatever
+  the browser or the API said - in `/config/xpeng-renew-last-run.log`, rewritten on
+  every run. It is the first place to look, and it describes the account's login
+  attempts, so treat it as sensitive.
+- **`GET http://<your-ha-host>:8090/healthz`** reports renewals, failures and the
+  last outcome, including what `xpeng.import_credentials` returned.
+- **The Home Assistant log** shows `homeassistant.components.rest_command` errors,
+  which name the status the renewal app answered with.
+
+Note that Home Assistant 2026.10 no longer exposes persistent notifications as
+`persistent_notification.*` entities, so a template that watches for the renewal
+app's failure notification will not find it - look in the notifications panel.
+
+### The energy sensor reads `0.0`
+
+That is usually not zero consumption but a restricted endpoint on a shared account
+- see [Some data is gated to the owner account](#some-data-is-gated-to-the-owner-account).
 
 ## Options
 
