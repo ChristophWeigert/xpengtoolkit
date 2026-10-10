@@ -1,5 +1,5 @@
 name: XPENG credential renewal
-version: "0.1.10"
+version: "0.1.11"
 slug: xpeng_renew
 description: >-
   Renews XPENG credentials unattended. Solves the login slider through the solver
@@ -28,7 +28,14 @@ options:
   email: ""
   password: ""
   device_id: ""
-  solver_url: "http://local_xpeng_slider_solver:8080"
+  # The solver app's container hostname, which is what actually resolves between
+  # apps. The old default named the *local-folder* install
+  # (local_xpeng_slider_solver); an install from the store gets a
+  # repository-hashed name instead, and that name only resolves in its
+  # hyphenated hostname form - the underscore slug does NOT
+  # ("No address associated with hostname", measured 2026-10-10). Both forms
+  # were exercised on a live install; only this one worked.
+  solver_url: "http://571f4c18-xpeng-slider-solver:8080"
   solver_token: ""
   renew_token: ""
   pair_dir: "/config/xpeng-secrets"
