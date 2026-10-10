@@ -10,6 +10,4 @@ from __future__ import annotations
 
 from typing import Final
 
-AUTH_METHOD_IMPORT: Final = "import"
-
 DEFAULT_CERT_DIR: Final = "/config/custom_components/xpeng/certs"

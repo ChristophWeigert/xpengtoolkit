@@ -95,6 +95,20 @@ def _device_id() -> str:
     return ""
 
 
+def _tail(primary: str, secondary: str = "", lines: int = 4) -> str:
+    """Last non-empty ``lines`` of ``primary``, falling back to ``secondary``.
+
+    Both streams matter. The tool writes its progress to stdout and its
+    traceback to stderr, so reading only one of them hides exactly the half that
+    explains a failure.
+    """
+    for text in (primary, secondary):
+        kept = [line for line in (text or "").splitlines() if line.strip()][-lines:]
+        if kept:
+            return " | ".join(kept)[:400]
+    return ""
+
+
 def _mint_pair() -> tuple[bool, str]:
     """Run the toolkit's onboarding tool, which writes the pair next to itself."""
     cmd = [
@@ -114,10 +128,13 @@ def _mint_pair() -> tuple[bool, str]:
             cmd += ["--captcha-solver-token", SOLVER_TOKEN]
 
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
-    tail = (proc.stdout or proc.stderr or "").strip().splitlines()[-3:]
+    # On failure stderr holds the traceback, and stdout holds only the progress
+    # lines printed before it died. Reporting stdout alone is what reduced a
+    # missing-certificate failure to a bare "[0] device id = ..." and sent the
+    # 2026-10-10 investigation looking for a request that never arrived.
     if proc.returncode != 0:
-        return False, "onboarding failed: " + " | ".join(tail)[:400]
-    return True, " | ".join(tail)[:400]
+        return False, "onboarding failed: " + _tail(proc.stderr, proc.stdout, lines=5)
+    return True, _tail(proc.stdout, proc.stderr, lines=3)
 
 
 def _publish_pair() -> str:

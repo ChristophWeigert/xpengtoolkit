@@ -34,26 +34,53 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-try:  # normal package import
-    from .const import DEFAULT_CERT_DIR
-except ImportError:  # loaded as a top-level module
-    # tests/ and tools/ load this file by path, where there is no package to be
-    # relative to — and const.py needs Home Assistant, which is absent there.
-    # Fall back to the same directory const.py defaults to, but resolved
-    # relative to THIS file rather than hardcoded.
-    #
-    # The hardcoded "/config/custom_components/xpeng/certs" is right on Home
-    # Assistant and impossible anywhere else: /config does not exist on a
-    # development machine, so every standalone run failed at "mTLS certificate
-    # file(s) missing" before it could even attempt a login (2026-10-07) — while
-    # the working certs sat in this very directory the whole time. Home Assistant
-    # is unaffected, since it imports const.py and never reaches this branch.
-    try:
-        from const import DEFAULT_CERT_DIR
-    except ImportError:
-        DEFAULT_CERT_DIR = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "certs"
-        )
+def _default_cert_dir() -> str:
+    """Where the mTLS certificates live when no directory was configured.
+
+    Three layouts load this module and they disagree about the answer:
+
+    * Home Assistant imports it as a package, so const.py answers with the
+      config directory ("/config/custom_components/xpeng/certs").
+    * A development checkout or the tools/ directory loads it as a top-level
+      module, where const.py is usually not importable at all and the certs sit
+      beside this file.
+    * The renewal add-on vendors this file and deliberately ships no certs of
+      its own: it reads the integration's from /config through its config:rw
+      map.
+
+    Check every candidate against the filesystem and take the first that
+    actually holds the CA chain, rather than trusting one hardcoded path.
+
+    Loading by path used to skip that check, which cost every unattended
+    renewal: the add-on resolved the cert directory next to its own vendored
+    copy, found no certs there, and died at "mTLS certificate file(s) missing"
+    before it could even open a socket (2026-10-10). Home Assistant never
+    reached that branch, so only the add-on was broken — and silently, because
+    the traceback went to a stream the worker did not report.
+    """
+    candidates: list[str] = []
+    try:  # normal package import
+        from .const import DEFAULT_CERT_DIR as configured
+    except ImportError:  # loaded as a top-level module
+        try:
+            from const import DEFAULT_CERT_DIR as configured
+        except ImportError:
+            configured = ""
+    if configured:
+        candidates.append(configured)
+    candidates.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "certs"))
+    # A copy that carries no certs of its own (the renewal add-on) reads the
+    # installed integration's, which is where Home Assistant keeps them.
+    candidates.append("/config/custom_components/xpeng/certs")
+    for candidate in candidates:
+        if candidate and os.path.isfile(os.path.join(candidate, "ca-chain.crt")):
+            return candidate
+    # Nothing is installed yet. Name the configured location so the error the
+    # caller raises points at the directory that has to be populated.
+    return candidates[0] if candidates else ""
+
+
+DEFAULT_CERT_DIR: str = _default_cert_dir()
 
 try:  # normal package import
     from .xpeng_errors import LoginExpiredError, is_token_expired_response
