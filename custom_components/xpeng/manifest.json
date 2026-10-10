@@ -1,0 +1,17 @@
+{
+  "domain": "xpeng",
+  "name": "Xpengtk",
+  "codeowners": [
+    "@xpengtoolkit"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/xpengtoolkit/xpengtoolkit",
+  "issue_tracker": "https://github.com/xpengtoolkit/xpengtoolkit/issues",
+  "integration_type": "device",
+  "iot_class": "cloud_push",
+  "requirements": [
+    "paho-mqtt>=1.6.1",
+    "cryptography>=42.0.0"
+  ],
+  "version": "0.4.4"
+}

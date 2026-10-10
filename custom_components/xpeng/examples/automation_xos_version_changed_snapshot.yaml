@@ -1,0 +1,31 @@
+# The integration already auto-captures a snapshot on xos_version change via
+# its built-in event listener (see services.py). This automation is the
+# user-editable mirror — useful if you want to ALSO notify on the version
+# change, or if you want to capture additional snapshots (e.g. fire
+# xpeng.force_update or xpeng.check_ota for richer post-update data before
+# saving).
+#
+# Event payload reference (from coordinator.py): vin, old_version, new_version.
+
+alias: XPENG XOS version changed — manual snapshot + notify
+description: >-
+  Mirror of the built-in auto-snapshot listener. Notifies you when the XOS
+  version changes and adds a second snapshot a minute later (when the
+  remote_capabilities list has usually settled).
+mode: single
+max_exceeded: silent
+triggers:
+  - platform: event
+    event_type: xpeng_xos_version_changed
+actions:
+  - service: notify.pushover
+    data:
+      title: XPENG XOS updated
+      message: >-
+        {{ trigger.event.data.old_version }} -> {{ trigger.event.data.new_version }}
+      data:
+        priority: 0
+  - delay: { minutes: 1 }
+  - service: xpeng.capture_snapshot
+    data:
+      reason: "xos_changed_post_settle"

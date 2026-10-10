@@ -1,0 +1,30 @@
+# Notify via Pushover when the XPENG integration detects that XPENG has
+# enrolled your VIN in an OTA campaign. Fires once per upgradeId transition
+# (the coordinator's _check_ota_campaign_transition tracks the last-seen
+# upgradeId so the same campaign won't ping you repeatedly).
+#
+# Event payload reference (from coordinator.py): vin, upgradeId,
+# previousUpgradeId, osVersion (target version), osName, releaseNotesUrl,
+# estimateCostMinutes, packageSize, timestamp.
+
+alias: XPENG OTA available — Pushover
+description: >-
+  Pushover ping the moment XPENG enrols this VIN in an OTA campaign.
+  Replaces the need to hammer xpeng.force_update or xpeng.check_ota.
+mode: single
+triggers:
+  - platform: event
+    event_type: xpeng_ota_available
+actions:
+  - service: notify.pushover
+    data:
+      title: XPENG OTA available
+      message: >-
+        upgradeId={{ trigger.event.data.upgradeId | default('?') }}
+        target={{ trigger.event.data.osName | default('XOS') }}
+        {{ trigger.event.data.osVersion | default('?') }}
+        size={{ trigger.event.data.packageSize | default('?') }}
+        eta={{ trigger.event.data.estimateCostMinutes | default('?') }}min
+      data:
+        priority: 1
+        url: "{{ trigger.event.data.releaseNotesUrl | default('') }}"

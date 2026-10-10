@@ -1,0 +1,598 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect your XPENG vehicle",
+        "description": "Use a DEDICATED XPENG account that has been shared to your car - do NOT use your primary account. Signing in here creates a second client on the same account, and XPENG only allows one active session, so your phone app will get logged out repeatedly. Create a new XPENG account, share the car to it from your main account in the app, then sign in here with that one.\n\nXPENG also gates most accounts with its own slider captcha, and that challenge can only be cleared by a human dragging it in a real browser - which this setup screen cannot show. \"Import tokens from the onboarding tool\" is therefore the method that reliably completes: run tools/onboard_email_login.py once on a machine with a browser, then paste the two files it wrote. The Google and email options are kept for accounts XPENG does not challenge.",
+        "data": {
+          "vin": "Vehicle Identification Number (VIN)",
+          "auth_method": "Sign-in method"
+        },
+        "data_description": {
+          "vin": "The 17-character VIN of your vehicle",
+          "auth_method": "How you want to connect your XPENG account"
+        }
+      },
+      "email_code": {
+        "title": "Email Verification",
+        "description": "A verification code has been sent to {email}. Enter the code below.",
+        "data": {
+          "email_code": "Verification code"
+        },
+        "data_description": {
+          "email_code": "6-digit code sent to your email"
+        }
+      },
+      "reauth_confirm": {
+        "title": "XPENG Re-authentication",
+        "description": "Your XPENG login tokens have expired. A verification code has been sent to {email}.",
+        "data": {
+          "email_code": "Verification code"
+        },
+        "data_description": {
+          "email_code": "6-digit code sent to your email"
+        }
+      },
+      "reconfigure": {
+        "title": "Update XPENG Credentials",
+        "description": "Manually update MQTT credentials. Close the XPENG app on your phone before connecting.",
+        "data": {
+          "client_id": "MQTT Client ID",
+          "password": "MQTT Password",
+          "server": "MQTT Server (host:port)"
+        }
+      },
+      "google": {
+        "title": "Sign in with Google",
+        "description": "Sign in with Google to renew XPENG credentials.\n\n**This path is not captcha-free.** XPENG applies the same slider captcha to the account after the Google sign-in, and that challenge cannot be solved from inside Home Assistant. If the sign-in is refused with a captcha error, run tools/onboard_email_login.py instead and use the \"Import tokens from the onboarding tool\" method.\n\n**If a browser cannot deliver the callback** (on a Mac with the XPENG app installed the link opens the app; without it Google bounces to the homepage and the code is lost), run the helper instead:\n\n`swift tools/oauth_capture.swift`\n\nIt opens the system sign-in window, captures the callback, and prints `VERIFIER:` and `CALLBACK:`. Paste the callback URL below and the verifier into the second field.\n\n**Otherwise**, open this link and sign in, then paste the redirect URL:\n\n{url}",
+        "data": {
+          "redirect_url": "Paste the redirect URL here",
+          "code_verifier": "PKCE verifier (from tools/oauth_capture.swift)"
+        },
+        "data_description": {
+          "redirect_url": "The full callback URL, or the code on its own",
+          "code_verifier": "Leave blank unless you captured the callback with the system sign-in helper"
+        }
+      },
+      "email_password": {
+        "title": "Email sign-in",
+        "description": "Use a DEDICATED XPENG account that has been shared to your car - do NOT use your primary account. Signing in here creates a second client on the same account, and XPENG only allows one active session, so your phone app will get logged out repeatedly. Create a new XPENG account, share the car to it from your main account in the app, then sign in here with that one.\n\nXPENG gates most accounts with a slider captcha, and that challenge can only be cleared by a human dragging it in a real browser - Home Assistant cannot do that. If this sign-in is refused as captcha-gated, stop here: run tools/onboard_email_login.py on a machine with a browser and use the \"Import tokens from the onboarding tool\" method instead.",
+        "data": {
+          "xpeng_email": "Email address",
+          "xpeng_password": "Password"
+        },
+        "data_description": {
+          "xpeng_email": "Your XPENG account email address",
+          "xpeng_password": "Your XPENG account password"
+        }
+      },
+      "import_tokens": {
+        "title": "Import onboarding tokens",
+        "description": "XPENG's slider captcha cannot be solved inside Home Assistant, so the credentials have to be minted outside it by the onboarding tool.\n\nOn a machine with Node, Playwright and a real Chrome, run:\n\n`python3 tools/onboard_email_login.py --email YOU@example.com --save --mqtt`\n\nand drag the slider once when the browser window opens. The tool then writes xpeng_tokens.json and xpeng_tenant.json.\n\nPaste the contents of both files below - or, if they are already on the Home Assistant host, give their paths instead. Both files are live credentials, and both are required: the tokens and the tenant are a matched pair.",
+        "data": {
+          "tokens_json": "xpeng_tokens.json contents",
+          "tokens_path": "xpeng_tokens.json path (instead of pasting)",
+          "tenant_json": "xpeng_tenant.json contents",
+          "tenant_path": "xpeng_tenant.json path (instead of pasting)",
+          "vin": "Vehicle Identification Number (VIN)"
+        },
+        "data_description": {
+          "tokens_json": "The whole file, including the json wrapper the onboarding tool writes",
+          "tokens_path": "Absolute path on the Home Assistant host. Used only when the contents field above is empty.",
+          "tenant_json": "The whole file - it carries the deviceId the tokens are sealed against",
+          "tenant_path": "Absolute path on the Home Assistant host. Used only when the contents field above is empty.",
+          "vin": "Read from the token file when it carries one; otherwise enter the 17-character VIN of the vehicle these tokens belong to"
+        }
+      }
+    },
+    "error": {
+      "required": "This field is required",
+      "invalid_client_id": "Client ID must be in format xmart:app:userId:deviceUUID",
+      "cannot_connect": "Unable to connect to XPENG MQTT broker",
+      "login_failed": "Login failed. Check your email and password.",
+      "invalid_code": "Could not find an auth code in that URL. Copy the full address-bar URL after signing in.",
+      "unknown": "Unexpected error",
+      "captcha_gated": "XPENG is asking for its slider captcha, and that challenge can only be cleared by a human dragging it in a real browser - Home Assistant cannot do that. Run tools/onboard_email_login.py on a machine with a browser (the tool opens XPENG's slider; drag it once), then add the integration again with the \"Import tokens from the onboarding tool\" method and paste the two files it wrote.",
+      "invalid_tokens_json": "That is not valid JSON, so it cannot be the xpeng_tokens.json the onboarding tool wrote. Paste the whole file exactly as the tool saved it.",
+      "invalid_tokens": "The token data is missing something required: it must contain accessToken, and either an mqttAccount clientId or a uid. Re-run the onboarding tool and use the files from that same run.",
+      "invalid_tokens_path": "Could not read that xpeng_tokens.json path on the Home Assistant host. Check the path, or paste the file contents instead.",
+      "invalid_tenant_json": "That is not valid JSON, so it cannot be the xpeng_tenant.json the onboarding tool wrote. Paste the whole file exactly as the tool saved it.",
+      "invalid_tenant": "The tenant data is missing something required: it must contain deviceId and a non-empty keys pool, and every key must be base64 in the format the onboarding tool writes. Re-run the onboarding tool and use the tenant file from that same run - the tokens and tenant are a matched pair.",
+      "invalid_tenant_path": "Could not read that xpeng_tenant.json path on the Home Assistant host. Check the path, or paste the file contents instead.",
+      "invalid_vin": "The token file carries no VIN, and none was entered. Enter the 17-character VIN of the vehicle these tokens belong to."
+    },
+    "abort": {
+      "already_configured": "This vehicle is already configured",
+      "reconfigured": "Credentials updated successfully",
+      "reauth_successful": "Re-authentication successful. Credentials refreshed.",
+      "no_credentials": "No stored email/password. Please reconfigure the integration.",
+      "login_failed": "Re-authentication failed: XPENG refused the sign-in attempt. Re-onboard with the onboarding tool, then remove this XPENG entry and add the vehicle again with the \"Import tokens from the onboarding tool\" method.",
+      "captcha_gated": "XPENG requires its slider captcha to sign in, and that challenge cannot be solved inside Home Assistant. Run tools/onboard_email_login.py on a machine with a browser and drag the slider once, then remove this XPENG entry and add the vehicle again with the \"Import tokens from the onboarding tool\" method.",
+      "unknown": "Unknown error"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "XPENG Options",
+        "data": {
+          "scan_interval": "MQTT query interval (seconds)",
+          "parked_scan_interval": "Parked query interval (seconds)",
+          "mqtt_refresh_interval": "MQTT credential refresh interval (seconds)",
+          "rest_scan_interval": "REST API poll interval (seconds)",
+          "mqtt_listener_enabled": "Enable MQTT listener",
+          "mqtt_listener_topics": "MQTT topics to subscribe",
+          "mqtt_topic_discovery": "Enable MQTT topic discovery",
+          "token_file": "Login token file (legacy)",
+          "tenant_file": "Tenant cache file (legacy)",
+          "cert_dir": "Certificate directory",
+          "iccid": "TBox SIM ICCID",
+          "usable_battery_kwh": "Usable battery capacity (kWh)"
+        },
+        "data_description": {
+          "scan_interval": "How often to query the vehicle state via MQTT (10-3600 seconds)",
+          "parked_scan_interval": "Query interval when vehicle is parked (60-7200 seconds). Reduces unnecessary polling.",
+          "mqtt_refresh_interval": "How often to refresh MQTT credentials via API (10-300 seconds)",
+          "rest_scan_interval": "How often to poll REST API for vehicle image and XOS version (60-3600 seconds)",
+          "mqtt_listener_enabled": "Subscribe to additional MQTT topics beyond the primary vehicle state topic",
+          "mqtt_listener_topics": "Additional MQTT topics to subscribe to (one per line, or comma-separated). Supports MQTT wildcards (+ and #).",
+          "mqtt_topic_discovery": "Automatically try subscribing to known XPENG broker topics (CanPack, StatPack, etc.) to discover accessible data",
+          "token_file": "Path to login tokens JSON from CLI login script. Only needed if not using in-HA login.",
+          "tenant_file": "Path to cached tenant data. Auto-fetched if missing.",
+          "cert_dir": "Absolute path to the directory holding ca-chain.crt, client-cert-0.pem and client-key.pem. Default: /config/custom_components/xpeng/certs.",
+          "iccid": "TBox SIM ICCID. Read it on-device via the head-unit code *#9925*131# (no app API exposes it). Optional diagnostic sensor.",
+          "usable_battery_kwh": "Usable pack size for the parked-consumption kWh estimate (10-150). G6 Long Range ≈ 87.5, G6 Standard Range ≈ 66."
+        }
+      }
+    },
+    "error": {
+      "cert_files_missing": "One or more certificate files are missing from that directory. It must contain ca-chain.crt, client-cert-0.pem and client-key.pem."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery_soc": {
+        "name": "Battery"
+      },
+      "range": {
+        "name": "Range"
+      },
+      "odometer": {
+        "name": "Odometer"
+      },
+      "charging_state": {
+        "name": "Charging state"
+      },
+      "charge_power": {
+        "name": "Charge power"
+      },
+      "charge_voltage": {
+        "name": "Charge voltage"
+      },
+      "charge_current": {
+        "name": "Charge current"
+      },
+      "charge_rate": {
+        "name": "Charge rate"
+      },
+      "discharge_capacity": {
+        "name": "Discharge capacity"
+      },
+      "charge_limit": {
+        "name": "Charge current limit"
+      },
+      "max_charge": {
+        "name": "Max charge"
+      },
+      "charge_time_remaining": {
+        "name": "Charge time remaining"
+      },
+      "fast_charge_port": {
+        "name": "Fast charge port"
+      },
+      "slow_charge_port": {
+        "name": "Slow charge port"
+      },
+      "fast_charge_added_range": {
+        "name": "Fast charge added range"
+      },
+      "charge_schedule_start": {
+        "name": "Charge schedule start"
+      },
+      "charge_schedule_end": {
+        "name": "Charge schedule end"
+      },
+      "cabin_temperature": {
+        "name": "Cabin temperature"
+      },
+      "set_temperature": {
+        "name": "Set temperature"
+      },
+      "hvac_fan_speed": {
+        "name": "HVAC fan speed"
+      },
+      "latitude": {
+        "name": "Latitude"
+      },
+      "longitude": {
+        "name": "Longitude"
+      },
+      "speed": {
+        "name": "Speed"
+      },
+      "heading": {
+        "name": "Heading"
+      },
+      "shift_state": {
+        "name": "Shift state"
+      },
+      "vehicle_mode": {
+        "name": "Vehicle mode"
+      },
+      "car_power_state": {
+        "name": "Power state"
+      },
+      "tyre_pressure_fl": {
+        "name": "Tyre pressure front left"
+      },
+      "tyre_pressure_fr": {
+        "name": "Tyre pressure front right"
+      },
+      "tyre_pressure_rl": {
+        "name": "Tyre pressure rear left"
+      },
+      "tyre_pressure_rr": {
+        "name": "Tyre pressure rear right"
+      },
+      "driver_seat_heat": {
+        "name": "Driver seat heating"
+      },
+      "passenger_seat_heat": {
+        "name": "Passenger seat heating"
+      },
+      "steering_wheel_heat": {
+        "name": "Steering wheel heating"
+      },
+      "trunk_power_timer": {
+        "name": "Trunk power timer"
+      },
+      "last_charge_energy": {
+        "name": "Last charge energy"
+      },
+      "last_charge_range": {
+        "name": "Last charge range added"
+      },
+      "last_charge_duration": {
+        "name": "Last charge duration"
+      },
+      "sentinel_sensitivity": {
+        "name": "Sentinel sensitivity"
+      },
+      "ota_status": {
+        "name": "OTA status"
+      },
+      "ota_last_checked": {
+        "name": "OTA last checked"
+      },
+      "hvac_quick_warm": {
+        "name": "HVAC quick warm"
+      },
+      "hvac_quick_cool": {
+        "name": "HVAC quick cool"
+      },
+      "range_type": {
+        "name": "Range type"
+      },
+      "credential_age": {
+        "name": "Credential age"
+      },
+      "last_update": {
+        "name": "Last data update"
+      },
+      "last_data_update": {
+        "name": "Last data timestamp"
+      },
+      "xos_version": {
+        "name": "XOS version"
+      },
+      "mqtt_listener": {
+        "name": "MQTT listener"
+      },
+      "mqtt_discovery": {
+        "name": "MQTT discovery"
+      },
+      "command_feedback": {
+        "name": "Command feedback"
+      },
+      "last_notification": {
+        "name": "Last notification"
+      },
+      "maintenance": {
+        "name": "Next maintenance"
+      },
+      "xcombos": {
+        "name": "X-Combos"
+      },
+      "energy_report": {
+        "name": "Energy consumption (7-day avg)"
+      },
+      "parked_consumption": {
+        "name": "Parked consumption"
+      },
+      "ota_upgrade": {
+        "name": "OTA update"
+      },
+      "beta_program": {
+        "name": "Beta program"
+      },
+      "remote_capabilities": {
+        "name": "Remote capabilities"
+      },
+      "vehicle_extension": {
+        "name": "Vehicle extension"
+      },
+      "left_comfort_preon_seconds": {
+        "name": "Left-comfort preon countdown"
+      },
+      "hvac_schedules": {
+        "name": "HVAC schedules"
+      },
+      "appstore_catalogue": {
+        "name": "AppStore catalogue"
+      },
+      "cdu_id": {
+        "name": "CDU ID"
+      },
+      "cdu_partition": {
+        "name": "CDU partition"
+      },
+      "vehicle_identity": {
+        "name": "Vehicle identity"
+      },
+      "iccid": {
+        "name": "TBox ICCID"
+      },
+      "weather": {
+        "name": "Weather at vehicle"
+      },
+      "polling_status": {
+        "name": "Polling status"
+      },
+      "next_poll": {
+        "name": "Next poll"
+      },
+      "account": {
+        "name": "Account"
+      }
+    },
+    "calendar": {
+      "hvac_schedule_calendar": {
+        "name": "HVAC schedule"
+      }
+    },
+    "binary_sensor": {
+      "locked": {
+        "name": "Lock"
+      },
+      "charging": {
+        "name": "Charging"
+      },
+      "plugged_in": {
+        "name": "Plugged in"
+      },
+      "hvac_on": {
+        "name": "Climate"
+      },
+      "hvac_auto": {
+        "name": "Climate auto"
+      },
+      "defrost": {
+        "name": "Defrost"
+      },
+      "mirror_heat": {
+        "name": "Mirror heating"
+      },
+      "any_door_open": {
+        "name": "Doors"
+      },
+      "driver_door": {
+        "name": "Driver door"
+      },
+      "passenger_door": {
+        "name": "Passenger door"
+      },
+      "rear_left_door": {
+        "name": "Rear left door"
+      },
+      "rear_right_door": {
+        "name": "Rear right door"
+      },
+      "trunk": {
+        "name": "Trunk"
+      },
+      "bonnet": {
+        "name": "Bonnet"
+      },
+      "any_window_open": {
+        "name": "Windows"
+      },
+      "sentinel_mode": {
+        "name": "Sentinel mode"
+      },
+      "trunk_power": {
+        "name": "Trunk power"
+      },
+      "xguard": {
+        "name": "X-Guard camera"
+      },
+      "temp_lock": {
+        "name": "Temporary lock"
+      },
+      "credentials_valid": {
+        "name": "Credentials valid"
+      },
+      "mqtt_connected": {
+        "name": "MQTT connected"
+      }
+    },
+    "device_tracker": {
+      "location": {
+        "name": "Location"
+      }
+    },
+    "button": {
+      "flash_lights": {
+        "name": "Flash lights"
+      },
+      "honk_horn": {
+        "name": "Honk horn"
+      },
+      "close_windows": {
+        "name": "Close windows"
+      },
+      "vent_windows": {
+        "name": "Vent windows"
+      },
+      "force_update": {
+        "name": "Force update"
+      },
+      "wake_vehicle": {
+        "name": "Wake vehicle"
+      },
+      "query_xguard": {
+        "name": "Query X-Guard"
+      },
+      "open_trunk": {
+        "name": "Open trunk"
+      },
+      "close_trunk": {
+        "name": "Close trunk"
+      },
+      "start_charge": {
+        "name": "Start charging"
+      },
+      "stop_charge": {
+        "name": "Stop charging"
+      },
+      "open_charge_port": {
+        "name": "Open charge port"
+      },
+      "close_charge_port": {
+        "name": "Close charge port"
+      },
+      "open_fast_charge_port": {
+        "name": "Open fast charge port"
+      },
+      "close_fast_charge_port": {
+        "name": "Close fast charge port"
+      },
+      "open_windows": {
+        "name": "Open windows"
+      }
+    },
+    "switch": {
+      "sentinel_switch": {
+        "name": "Sentinel mode"
+      },
+      "trunk_power_switch": {
+        "name": "Trunk power"
+      },
+      "defrost_switch": {
+        "name": "Front defrost"
+      },
+      "parking_lights_switch": {
+        "name": "Parking lights"
+      },
+      "auto_upgrade_switch": {
+        "name": "OTA auto-upgrade"
+      }
+    },
+    "number": {
+      "sentinel_sensitivity_control": {
+        "name": "Sentinel sensitivity"
+      },
+      "trunk_power_timer_control": {
+        "name": "Trunk power timer"
+      },
+      "charge_limit_control": {
+        "name": "Charge limit"
+      }
+    },
+    "climate": {
+      "cabin_climate": {
+        "name": "Climate"
+      }
+    },
+    "lock": {
+      "door_lock": {
+        "name": "Door lock"
+      }
+    },
+    "select": {
+      "driver_seat_heat_select": {
+        "name": "Driver seat heating"
+      },
+      "passenger_seat_heat_select": {
+        "name": "Passenger seat heating"
+      },
+      "steering_wheel_heat_select": {
+        "name": "Steering wheel heating"
+      }
+    },
+    "image": {
+      "vehicle_picture": {
+        "name": "Vehicle picture"
+      }
+    }
+  },
+  "issues": {
+    "login_expired": {
+      "title": "XPENG login expired for {entry} (VIN {vin})",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Re-import XPENG tokens",
+            "description": "The XPENG credentials for **{entry}** (VIN `{vin}`) expired and could not be renewed automatically, so the vehicle entities have stopped updating.\n\nHome Assistant cannot log in on its own: XPENG gates sign-in with a slider captcha that only a human dragging it in a real browser can clear.\n\n**1.** On a computer, run the onboarding tool again:\n\n```\npython3 tools/onboard_email_login.py \\\n    --email YOUR_EMAIL --password 'YOUR_PASSWORD' \\\n    --save --mqtt\n```\n\nDrag the slider once when the browser opens.\n\n**2.** Paste the two files it wrote below, then submit. Both are needed: the tenant carries the device identity the tokens were sealed to.\n\nFull walkthrough: https://github.com/xpengtoolkit/xpengtoolkit#setup",
+            "data": {
+              "tokens_json": "xpeng_tokens.json contents",
+              "tokens_path": "…or its path on the Home Assistant host",
+              "tenant_json": "xpeng_tenant.json contents",
+              "tenant_path": "…or its path on the Home Assistant host"
+            },
+            "data_description": {
+              "tokens_json": "Paste the whole file, including the json wrapper.",
+              "tenant_json": "Paste the whole file. It must come from the same run as the tokens."
+            }
+          }
+        },
+        "abort": {
+          "entry_gone": "This integration entry no longer exists, so there was nothing to repair."
+        }
+      }
+    },
+    "credentials_rejected": {
+      "title": "XPENG credentials rejected for {entry} (VIN {vin})",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Re-import XPENG tokens",
+            "description": "XPENG rejected the stored credentials for **{entry}** (VIN `{vin}`), and they could not be renewed automatically.\n\nThis usually means the pair is no longer valid, or that the tokens and the tenant came from different onboarding runs - they must be imported together, because the tenant records the device identity the tokens were sealed against.\n\nRe-run `tools/onboard_email_login.py`, then paste the fresh pair below. See https://github.com/xpengtoolkit/xpengtoolkit#setup",
+            "data": {
+              "tokens_json": "xpeng_tokens.json contents",
+              "tokens_path": "…or its path on the Home Assistant host",
+              "tenant_json": "xpeng_tenant.json contents",
+              "tenant_path": "…or its path on the Home Assistant host"
+            },
+            "data_description": {
+              "tokens_json": "Paste the whole file, including the json wrapper.",
+              "tenant_json": "Paste the whole file. It must come from the same run as the tokens."
+            }
+          }
+        },
+        "abort": {
+          "entry_gone": "This integration entry no longer exists, so there was nothing to repair."
+        }
+      }
+    }
+  }
+}

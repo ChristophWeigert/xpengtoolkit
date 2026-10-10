@@ -1,0 +1,497 @@
+climate_on:
+  name: Climate ON
+  description: Turn on climate control
+  fields:
+    temperature:
+      name: Temperature
+      description: Target temperature in degrees Celsius
+      default: 22.0
+      example: 21.5
+      selector:
+        number:
+          min: 16
+          max: 32
+          step: 0.5
+          unit_of_measurement: "\u00b0C"
+    duration:
+      name: Duration
+      description: Run time in minutes
+      default: 15
+      example: 15
+      selector:
+        number:
+          min: 1
+          max: 60
+          unit_of_measurement: min
+
+climate_off:
+  name: Climate OFF
+  description: Turn off climate control
+
+close_windows:
+  name: Close windows
+  description: Close all windows
+
+vent_windows:
+  name: Vent windows
+  description: Open windows slightly for ventilation
+
+sentinel_on:
+  name: Sentinel mode ON
+  description: Enable sentinel (sentry) mode
+  fields:
+    sensitivity:
+      name: Sensitivity
+      description: Detection sensitivity level (0-3)
+      default: 2
+      example: 2
+      selector:
+        number:
+          min: 0
+          max: 3
+          step: 1
+
+sentinel_off:
+  name: Sentinel mode OFF
+  description: Disable sentinel (sentry) mode
+
+trunk_power_on:
+  name: Trunk power ON
+  description: Enable trunk power outlet (V2L)
+  fields:
+    duration:
+      name: Duration
+      description: Auto-off timer in minutes
+      default: 60
+      example: 60
+      selector:
+        number:
+          min: 1
+          max: 1440
+          unit_of_measurement: min
+
+trunk_power_off:
+  name: Trunk power OFF
+  description: Disable trunk power outlet
+
+flash_lights:
+  name: Flash lights
+  description: Flash the vehicle lights
+
+honk_horn:
+  name: Honk horn
+  description: Sound the vehicle horn
+
+force_update:
+  name: Force update
+  description: Force a vehicle state update query
+
+lock:
+  name: Lock
+  description: Lock the vehicle doors
+
+unlock:
+  name: Unlock
+  description: Unlock the vehicle doors
+
+start_charge:
+  name: Start charging
+  description: Start charging the vehicle battery
+
+stop_charge:
+  name: Stop charging
+  description: Stop charging the vehicle battery
+
+open_trunk:
+  name: Open trunk
+  description: Open the vehicle trunk
+
+close_trunk:
+  name: Close trunk
+  description: Close the vehicle trunk
+
+open_charge_port:
+  name: Open charge port
+  description: Open the slow (AC) charge port
+
+close_charge_port:
+  name: Close charge port
+  description: Close the slow (AC) charge port
+
+open_fast_charge_port:
+  name: Open fast charge port
+  description: Open the fast (DC) charge port
+
+close_fast_charge_port:
+  name: Close fast charge port
+  description: Close the fast (DC) charge port
+
+set_charge_limit:
+  name: Set charge limit
+  description: Set the battery charge limit percentage
+  fields:
+    limit:
+      name: Charge limit
+      description: Target charge percentage (50-100)
+      required: true
+      example: 80
+      selector:
+        number:
+          min: 50
+          max: 100
+          step: 5
+          unit_of_measurement: "%"
+
+defrost_on:
+  name: Defrost ON
+  description: Turn on front windshield defrost
+
+defrost_off:
+  name: Defrost OFF
+  description: Turn off front windshield defrost
+
+open_windows:
+  name: Open windows
+  description: Open all windows fully
+
+execute_scene:
+  name: Execute X-Combo scene
+  description: Execute (one-key start) an X-Combo smart scene
+  fields:
+    scene_id:
+      name: Scene ID
+      description: The X-Combo scene ID to execute
+      required: true
+      example: "12345"
+      selector:
+        text:
+
+toggle_scene:
+  name: Toggle X-Combo scene
+  description: Activate or deactivate an X-Combo smart scene
+  fields:
+    scene_id:
+      name: Scene ID
+      description: The X-Combo scene ID to toggle
+      required: true
+      example: "12345"
+      selector:
+        text:
+    active:
+      name: Active
+      description: Whether to activate (true) or deactivate (false) the scene
+      required: true
+      example: true
+      selector:
+        boolean:
+
+check_ota:
+  name: Check OTA
+  description: Check for available OTA updates and refresh OTA sensor data
+
+trigger_ota:
+  name: Trigger OTA upgrade
+  description: Initiate an OTA upgrade on the vehicle (use with caution)
+  fields:
+    upgrade_id:
+      name: Upgrade ID
+      description: The upgrade ID from the OTA upgrade sensor attributes
+      required: true
+      example: 12345
+      selector:
+        number:
+          min: 1
+          mode: box
+
+cancel_ota:
+  name: Cancel OTA schedule
+  description: Cancel a scheduled OTA upgrade
+  fields:
+    upgrade_id:
+      name: Upgrade ID
+      description: The upgrade ID of the scheduled update to cancel
+      required: true
+      example: 12345
+      selector:
+        number:
+          min: 1
+          mode: box
+
+auto_upgrade_on:
+  name: Auto-upgrade ON
+  description: Enable automatic OTA upgrades
+
+auto_upgrade_off:
+  name: Auto-upgrade OFF
+  description: Disable automatic OTA upgrades
+
+ota_feedback:
+  name: OTA status feedback
+  description: Send OTA upgrade status feedback to the server
+  fields:
+    upgrade_id:
+      name: Upgrade ID
+      description: The upgrade ID to send feedback for
+      required: true
+      example: 12345
+      selector:
+        number:
+          min: 1
+          mode: box
+    status:
+      name: Status
+      description: The status code to send (0=success, etc.)
+      required: true
+      default: 0
+      example: 0
+      selector:
+        number:
+          min: 0
+          mode: box
+
+send_raw_mqtt:
+  name: Send raw MQTT command
+  description: Send an arbitrary MQTT command to the vehicle (advanced/debug use)
+  fields:
+    service_type:
+      name: Service type
+      description: The MQTT service_type number (e.g. 34 for CMD_TO_SCREEN)
+      required: true
+      example: 19
+      selector:
+        number:
+          min: 0
+          max: 50
+          mode: box
+    msg_type:
+      name: Message type
+      description: The msg_type (2=control command, 4=query)
+      default: 2
+      example: 2
+      selector:
+        number:
+          min: 0
+          max: 10
+          mode: box
+    msg_content:
+      name: Message content
+      description: "JSON string for msg_content (e.g. '{\"cmd_type\": 1, \"cmd_value\": 1}')"
+      default: "{}"
+      example: '{"cmd_type": 1, "cmd_value": 1}'
+      selector:
+        text:
+          multiline: true
+
+clear_stuck_commands:
+  name: Clear stuck commands
+  description: >-
+    Clear the server-side pending vehicle command queue. Use when the car
+    returns code:12 ("Vehicle controls in used"), e.g. after rapid command
+    bursts. Calls REST vehicleCmdClear; only affects your own account.
+
+capture_snapshot:
+  name: Capture state snapshot
+  description: >-
+    Write a JSON snapshot of every coordinator-tracked XPENG field to
+    <config>/xpeng_snapshots/<vin>_<timestamp>.json. Also auto-fires on
+    detected xos_version change so each OTA update produces a before/after
+    pair. Useful for diffing across XOS updates.
+  fields:
+    reason:
+      name: Reason
+      description: Free-form label stored in the snapshot file (e.g. "pre_xos_update")
+      example: "pre_xos_update"
+      default: "manual"
+      selector:
+        text:
+
+create_hvac_schedule:
+  name: Create HVAC schedule
+  description: >-
+    Create a scheduled HVAC (climate) appointment on the vehicle. Empty
+    days_of_week means run once at the next occurrence.
+  fields:
+    start_time:
+      name: Start time
+      description: Local start time in HH:MM (24h)
+      example: "07:30"
+      required: true
+      selector:
+        text:
+    days_of_week:
+      name: Days of week
+      description: >-
+        List of weekday numbers (1=Mon..7=Sun) for recurring schedules. Empty
+        list = one-shot.
+      example: "[1, 2, 3, 4, 5]"
+      default: []
+      selector:
+        select:
+          multiple: true
+          options:
+            - label: Monday
+              value: "1"
+            - label: Tuesday
+              value: "2"
+            - label: Wednesday
+              value: "3"
+            - label: Thursday
+              value: "4"
+            - label: Friday
+              value: "5"
+            - label: Saturday
+              value: "6"
+            - label: Sunday
+              value: "7"
+    enabled:
+      name: Enabled
+      description: Whether the schedule starts active
+      default: true
+      selector:
+        boolean:
+    action_type:
+      name: Action type
+      description: Backend actionType string (advanced)
+      default: AIR_CONDITION_OPEN
+      selector:
+        text:
+    time_zone:
+      name: Time zone
+      description: Optional IANA time zone (e.g. Europe/London)
+      example: Europe/London
+      selector:
+        text:
+
+update_hvac_schedule:
+  name: Update HVAC schedule
+  description: Update an existing HVAC scheduled appointment by id.
+  fields:
+    appointment_id:
+      name: Appointment ID
+      description: The appointmentId returned by create/list
+      required: true
+      selector:
+        text:
+    start_time:
+      name: Start time
+      description: Local start time in HH:MM (24h)
+      example: "07:30"
+      required: true
+      selector:
+        text:
+    days_of_week:
+      name: Days of week
+      description: List of weekday numbers (1=Mon..7=Sun); empty = one-shot
+      example: "[1, 2, 3, 4, 5]"
+      default: []
+      selector:
+        select:
+          multiple: true
+          options:
+            - label: Monday
+              value: "1"
+            - label: Tuesday
+              value: "2"
+            - label: Wednesday
+              value: "3"
+            - label: Thursday
+              value: "4"
+            - label: Friday
+              value: "5"
+            - label: Saturday
+              value: "6"
+            - label: Sunday
+              value: "7"
+    enabled:
+      name: Enabled
+      description: Whether the schedule is active
+      default: true
+      selector:
+        boolean:
+    action_type:
+      name: Action type
+      description: Backend actionType string (advanced)
+      default: AIR_CONDITION_OPEN
+      selector:
+        text:
+    time_zone:
+      name: Time zone
+      description: Optional IANA time zone (e.g. Europe/London)
+      example: Europe/London
+      selector:
+        text:
+
+delete_hvac_schedule:
+  name: Delete HVAC schedule
+  description: Delete an HVAC scheduled appointment by id.
+  fields:
+    appointment_id:
+      name: Appointment ID
+      description: The appointmentId returned by create/list
+      required: true
+      selector:
+        text:
+    time_zone:
+      name: Time zone
+      description: Optional IANA time zone
+      example: Europe/London
+      selector:
+        text:
+
+list_hvac_schedules:
+  name: List HVAC schedules
+  description: >-
+    Fetch the current list of HVAC scheduled appointments. The response is
+    logged to Home Assistant logs (search for "HVAC schedules").
+
+send_navigation:
+  name: Send navigation
+  description: >-
+    Send a navigation destination card to the vehicle's head unit. Backs the
+    official app's "send POI to car" feature via the cloud REST channel.
+  fields:
+    name:
+      name: Name
+      description: Destination name shown on the vehicle screen
+      required: true
+      example: Home
+    latitude:
+      name: Latitude
+      description: Destination latitude (WGS84)
+      required: true
+      example: 51.5074
+      selector:
+        number:
+          min: -90
+          max: 90
+          mode: box
+    longitude:
+      name: Longitude
+      description: Destination longitude (WGS84)
+      required: true
+      example: -0.1278
+      selector:
+        number:
+          min: -180
+          max: 180
+          mode: box
+    label:
+      name: Label
+      description: Optional category label for the navigation card
+      example: Home
+    poi_id:
+      name: POI ID
+      description: Optional POI identifier from a POI search
+      example: "12345"
+    msg_type:
+      name: Message type
+      description: >-
+        Optional message type sent to the server. Leave blank to omit.
+      example: "2"
+
+force_calendar_sync:
+  name: Force calendar sync
+  description: >-
+    Trigger the vehicle's phone-calendar schedule sync (same as the head-unit
+    sync button). Re-asserts the calendar sync authorization and refreshes the
+    schedule metadata from the XPENG assistant service.

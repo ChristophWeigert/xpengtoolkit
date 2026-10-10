@@ -1,0 +1,163 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Tests for the silence watchdog's escalation policy. Standard library only.
+
+    python3 tests/test_watchdog_policy.py
+    python3 -m unittest discover -s tests -v
+
+The escalation exists because a reconnect plus a passive query does not always
+clear XPENG's stalled cloud fanout — measured 2026-10-06, 11h31m of silence
+survived ~66 of them, and one force-upload fixed it in 1.2 seconds. But a
+force-upload WAKES THE CAR, so what is tested here is mostly restraint: the
+interesting assertions are the ones that say "no".
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import pathlib
+import sys
+import unittest
+
+# Loaded by path, not imported as `custom_components.xpeng.watchdog_policy`:
+# that would execute the package's __init__, which imports Home Assistant, which
+# is not installed here (and must not need to be). The module itself is
+# deliberately free of HA imports — that is the point of it existing.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import _component  # noqa: E402
+
+_MODULE_PATH = _component.module_path("watchdog_policy.py")
+_spec = importlib.util.spec_from_file_location("watchdog_policy", _MODULE_PATH)
+assert _spec and _spec.loader
+policy = importlib.util.module_from_spec(_spec)
+sys.modules["watchdog_policy"] = policy
+_spec.loader.exec_module(policy)
+
+HOUR = 3600.0
+MINUTE = 60.0
+
+
+class TestBounds(unittest.TestCase):
+    def test_the_documented_bounds_are_the_ones_used(self):
+        """These are what the operator was told; a silent change is a bug."""
+        self.assertEqual(policy.ESCALATE_AFTER_SECONDS, 30 * MINUTE)
+        self.assertEqual(policy.ESCALATE_BACKOFF_SECONDS, 12 * HOUR)
+
+    def test_the_backoff_is_longer_than_the_patience(self):
+        """Otherwise the bound would be the silence rule, not the wake rate."""
+        self.assertGreater(
+            policy.ESCALATE_BACKOFF_SECONDS, policy.ESCALATE_AFTER_SECONDS
+        )
+
+    def test_patience_clears_the_reconnect_cadence(self):
+        """A reconnect gets several honest attempts before we force an upload.
+
+        RECONNECT_BACKOFF is 600s in __init__.py; the escalation must not fire
+        between two reconnects, or it would pre-empt the cheap recovery it is
+        meant to be a last resort after.
+        """
+        self.assertGreaterEqual(policy.ESCALATE_AFTER_SECONDS, 10 * MINUTE * 3)
+
+
+class TestSilenceBound(unittest.TestCase):
+    def test_a_brief_silence_is_left_alone(self):
+        """A parked car may legitimately say nothing for a while."""
+        self.assertFalse(policy.should_escalate(10 * MINUTE, 0.0, 10_000.0))
+
+    def test_one_second_short_of_the_bound_is_left_alone(self):
+        self.assertFalse(
+            policy.should_escalate(
+                policy.ESCALATE_AFTER_SECONDS - 1, 0.0, 100_000.0
+            )
+        )
+
+    def test_the_bound_itself_escalates(self):
+        """`>=`, so the documented half hour means half an hour."""
+        self.assertTrue(
+            policy.should_escalate(policy.ESCALATE_AFTER_SECONDS, 0.0, 100_000.0)
+        )
+
+    def test_well_past_the_bound_escalates(self):
+        self.assertTrue(policy.should_escalate(11.5 * HOUR, 0.0, 100_000.0))
+
+
+class TestBackoff(unittest.TestCase):
+    def test_a_second_upload_inside_the_backoff_is_refused(self):
+        now = 100_000.0
+        last = now - HOUR  # one hour ago
+        self.assertFalse(policy.should_escalate(5 * HOUR, last, now))
+
+    def test_one_second_short_of_the_backoff_is_refused(self):
+        now = 100_000.0
+        last = now - (12 * HOUR - 1)
+        self.assertFalse(policy.should_escalate(20 * HOUR, last, now))
+
+    def test_the_backoff_itself_is_allowed(self):
+        now = 100_000.0
+        last = now - 12 * HOUR
+        self.assertTrue(policy.should_escalate(20 * HOUR, last, now))
+
+    def test_never_escalated_does_not_block(self):
+        """0.0 is "none yet", not "infinitely long ago" and not "unknown"."""
+        self.assertTrue(policy.should_escalate(3 * HOUR, 0.0, 5.0))
+
+
+class TestABoundedWakeRate(unittest.TestCase):
+    """The behaviour that matters: what a permanently wedged fanout costs.
+
+    A force-upload during a stall yields exactly ONE full state and then the
+    silence resumes, so the policy must not treat that message as recovery. This
+    simulates the worst case — the stall never ends — and asserts the wake count
+    is governed by the backoff and nothing else.
+    """
+
+    @staticmethod
+    def _run(hours: float):
+        now = 1_000_000.0
+        silence_since = now  # the last message, i.e. silence grows from here
+        last_escalation = 0.0
+        escalations = []
+        while now < silence_since + hours * HOUR:
+            silence = now - silence_since
+            if policy.should_escalate(silence, last_escalation, now):
+                escalations.append(now - silence_since)
+                last_escalation = now
+            now += 60.0  # the watchdog ticks once a minute
+        return escalations
+
+    def test_a_short_stall_wakes_once(self):
+        self.assertEqual(len(self._run(1.0)), 1)
+
+    def test_a_day_of_stall_wakes_three_times(self):
+        """Half an hour, then every 12h after: 0.5h, 12.5h and 24.5h."""
+        gaps = self._run(30)
+        self.assertEqual(len(gaps), 3)
+        self.assertAlmostEqual(gaps[0] / HOUR, 0.5, places=1)
+        self.assertAlmostEqual(gaps[1] / HOUR, 12.5, places=1)
+        self.assertAlmostEqual(gaps[2] / HOUR, 24.5, places=1)
+
+    def test_a_week_of_stall_is_about_a_dozen_wakes_not_three_hundred(self):
+        """Without the backoff this would be one every half hour."""
+        self.assertEqual(len(self._run(7 * 24)), 14)
+
+    def test_the_gap_between_wakes_is_never_under_the_backoff(self):
+        gaps = self._run(72)
+        self.assertGreaterEqual(len(gaps), 2)
+        for earlier, later in zip(gaps, gaps[1:]):
+            self.assertGreaterEqual(later - earlier, 12 * HOUR)
+
+
+class TestRecovery(unittest.TestCase):
+    def test_a_stall_after_a_healthy_stretch_escalates_promptly(self):
+        """The bound is on wake RATE, not a permanent penalty.
+
+        Once the previous escalation is older than the backoff — which any
+        healthy stretch makes it — a new stall may escalate on its own merits.
+        """
+        now = 1_000_000.0
+        last = now - (5 * 24 * HOUR)  # escalated five days ago
+        self.assertTrue(policy.should_escalate(2.5 * HOUR, last, now))
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

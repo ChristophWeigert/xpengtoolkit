@@ -1,0 +1,36 @@
+name: XPENG credential renewal
+version: "0.1.0"
+slug: xpeng_renew
+description: >-
+  Renews XPENG credentials unattended. Solves the login slider through the solver
+  add-on and imports the fresh pair with the integration's xpeng.import_credentials
+  service, so nothing needs a human - trigger it from an automation.
+url: https://github.com/xpengtoolkit/xpengtoolkit
+arch:
+  - amd64
+  - aarch64
+startup: application
+boot: auto
+init: false
+map:
+  - config:rw
+ports:
+  "8090/tcp": 8090
+ports_description:
+  "8090/tcp": Renewal API - POST /renew, GET /healthz
+options:
+  email: ""
+  password: ""
+  device_id: ""
+  solver_url: "http://local_xpeng_slider_solver:8080"
+  solver_token: ""
+  renew_token: ""
+  pair_dir: "/config/xpeng-secrets"
+schema:
+  email: email
+  password: password
+  device_id: str?
+  solver_url: url
+  solver_token: password
+  renew_token: password
+  pair_dir: str

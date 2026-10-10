@@ -1,0 +1,20 @@
+# Credentials and keys must never be committed.
+# Users supply their own; see custom_components/xpeng/certs/README.md
+custom_components/xpeng/certs/*.pem
+custom_components/xpeng/certs/*.crt
+custom_components/xpeng/certs/*.der
+custom_components/xpeng/certs/*.bks
+custom_components/xpeng/xpeng_tokens.json
+custom_components/xpeng/xpeng_tenant.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
