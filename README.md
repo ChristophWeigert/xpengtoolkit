@@ -18,13 +18,9 @@ the server ends the session. Two apps take the human out of the loop:
   `xpeng.import_credentials` service, which validates the pair by minting MQTT
   credentials, exactly as the Repairs card does.
 
-Install both from the app store: **Settings -> Apps -> Install app** ->
-three-dot menu -> **Repositories**, and add this repository's URL and the
-solver's. (Home Assistant renamed add-ons to **apps** in 2026.2; older releases
-call the same screen the Add-on Store.)
-
-Then follow [`docs/UNATTENDED_RENEWAL.md`](docs/UNATTENDED_RENEWAL.md) for the
-automation that drives them. Three things there are easy to miss:
+[Step 7](#step-7---install-the-two-apps) installs and configures them, and
+[step 8](#step-8---add-the-renewal-automation) adds the automation that calls
+them. Three things are easy to miss:
 
 - **The first renewal is expected to fail** when the integration has no config
   entry yet: it mints the pair and then has nowhere to import it. The pair has
@@ -65,7 +61,7 @@ credentials. Three independent pieces, from three different places:
 |---|---|---|---|
 | **1. App mTLS certificate + key** | `CN=xp_app_client01`, the same for every XPENG user. Proves *the app*, not you. | Extracted from an XPENG APK | You, once (step 2) |
 | **2. Device identity** | A random 32-hex id unique to this install, bound into the signed requests and the MQTT client id | **Minted automatically** by the onboarding tool when it fetches the tenant | Nobody - it is handed to you |
-| **3. Account tokens** | Your account's access/refresh token, and the tenant key pool they are sealed with | Minted by the onboarding tool from your email + password + one slider drag | You, once (step 3) |
+| **3. Account tokens** | Your account's access/refresh token, and the tenant key pool they are sealed with | Minted by the onboarding tool from your email + password + one slider drag | You, once (step 4) |
 
 You never type a device id anywhere. The tool generates it, and the integration
 **adopts** it from the imported tenant rather than minting a new one - that
@@ -90,12 +86,21 @@ official app signed in as that account**, for the reason given just above.
 |---|---|---|---|
 | **1** | [Install the integration](#installation) - add the HACS custom repository, install, restart HA | Home Assistant | 2 min |
 | **2** | [Download the repository ZIP](https://github.com/xpengtoolkit/xpengtoolkit) and [extract the certificates](#step-2---extract-the-certificates-outside-home-assistant) from an XPENG APK **3.7.0-3.12.0** | Any computer | 5 min |
-| **3** | [Get tokens](#step-3---get-tokens-with-the-onboarding-tool-outside-home-assistant) with the onboarding tool (drag one slider) | A computer with Chrome | 5 min |
-| **4** | [Add the integration](#step-4---import-them-into-home-assistant) and choose **Import tokens** | Home Assistant | 1 min |
-| **5** | Set the **Certificate directory** option to the folder from step 2 | Home Assistant | 30 s |
+| **3** | [Copy the three PEM files onto the Home Assistant host](#step-3---copy-the-certificates-onto-the-home-assistant-host) | Home Assistant | 2 min |
+| **4** | [Get tokens](#step-4---get-tokens-with-the-onboarding-tool-outside-home-assistant) with the onboarding tool (drag one slider) | A computer with Chrome | 5 min |
+| **5** | [Add the integration](#step-5---import-them-into-home-assistant) and choose **Import tokens** | Home Assistant | 1 min |
+| **6** | Set the **Certificate directory** option to the folder from step 3 | Home Assistant | 30 s |
+| **7** | [Install the two apps](#step-7---install-the-two-apps) (slider solver + credential renewal) and set their tokens | Home Assistant | 5 min |
+| **8** | [Add the renewal automation](#step-8---add-the-renewal-automation) | Home Assistant | 5 min |
 
 **Two of these happen outside Home Assistant** - that is not a limitation we can
 remove, and the reason is given under each step.
+
+Steps **1-6 are the install**; **7 and 8 are what keep it alive**. Skip them and
+the integration still works - it just stops about two hours later, when XPENG
+retires the session, and needs a fresh pair pasted by hand. There is no way to
+renew a session from inside Home Assistant without them, because the login is
+captcha-gated.
 
 Before you start, two things that catch people out:
 
@@ -306,7 +311,7 @@ remove the entry and add it again with the dedicated one.
 
 ## Installation
 
-This is step 1 of [the process above](#the-steps). The other four steps are
+This is step 1 of [the process above](#the-steps). The other seven steps are
 under [Setup](#setup).
 
 ### HACS (custom repository)
@@ -324,7 +329,7 @@ Then: **Settings -> Devices & Services -> Add Integration -> Xpengtk**.
 
 ## Setup
 
-This section covers **steps 2 to 5** of the summary above; step 1 is
+This section covers **steps 2 to 8** of the summary above; step 1 is
 [Installation](#installation).
 
 **Sign in with your dedicated account, never your primary one** (see above).
@@ -369,7 +374,34 @@ which also carries the extraction steps for each platform.
 On Windows, [`docs/WINDOWS_WSL_SETUP.md`](docs/WINDOWS_WSL_SETUP.md) walks this
 whole process through WSL.
 
-### Step 3 - get tokens with the onboarding tool (outside Home Assistant)
+### Step 3 - copy the certificates onto the Home Assistant host
+
+Step 2 ran on your own computer; the integration runs on Home Assistant, so the
+three files have to get there. Put them **outside** the integration folder:
+
+```
+/config/xpeng-certs/
+├── ca-chain.crt
+├── client-cert-0.pem
+└── client-key.pem
+```
+
+`/config/xpeng-certs` is what the rest of this README assumes. Any path works
+except `custom_components/xpeng/certs/`: that is the default, but it sits inside
+the integration, which an update replaces - your keys would go with it.
+
+Getting them there is up to you and your setup: the **Samba share**, the **File
+editor** app, `scp`, or anything else that can write to `/config`. Then check they
+arrived:
+
+```bash
+ls -l /config/xpeng-certs      # three files
+```
+
+These are live credentials, so set the directory to `700` and the files to `600`,
+and do not leave the folder exposed in a share.
+
+### Step 4 - get tokens with the onboarding tool (outside Home Assistant)
 
 Still in that same top folder. This runs on a desktop machine (Mac/Linux/Windows
 with Node and a Chrome install), not on your Home Assistant host. It opens a
@@ -425,7 +457,7 @@ Why this step exists, and cannot be folded into Home Assistant: the only
 human-only part of XPENG's login is that slider gesture. Everything else is
 plain HTTP.
 
-### Step 4 - import them into Home Assistant
+### Step 5 - import them into Home Assistant
 
 **Settings -> Devices & Services -> Add Integration -> Xpengtk**, then choose
 **Import tokens**.
@@ -433,7 +465,7 @@ plain HTTP.
 The form takes either the file *contents* or a path. **Prefer pasting the
 contents** - open each file in a text editor, copy the whole thing in. The paths
 are inside the Home Assistant container, so they only work if the files were
-written somewhere under `/config`, which is not where step 3 put them unless you
+written somewhere under `/config`, which is not where step 4 put them unless you
 went out of your way.
 
 | Field | What goes in it |
@@ -447,11 +479,54 @@ integration **adopts the device id from the imported tenant** rather than mintin
 a new one - so if you ever see it mint a fresh id instead, the tenant did not
 come through and the credentials will be rejected.
 
-### Step 5 - point the integration at the certificates
+### Step 6 - point the integration at the certificates
 
 *Settings -> Devices & Services -> XPENG -> Configure*, and set the
-**Certificate directory** to the folder from step 2. The form validates it: if
+**Certificate directory** to the folder from step 3. The form validates it: if
 any of the three files is missing, saving is refused rather than failing later.
+
+### Step 7 - install the two apps
+
+This is the part that makes renewal unattended, and it is where the two companion
+apps come in:
+
+* **[XPENG slider solver](https://github.com/xpengtoolkit/slider-solver)** - clears
+  the login captcha, which is the one human step in onboarding.
+* **XPENG credential renewal** - this repository. It mints a fresh pair ahead of the
+  two-hour cap and imports it with `xpeng.import_credentials`, the same service the
+  Repairs card uses.
+
+**Settings -> Apps -> Install app -> three-dot menu -> Repositories**, add this
+repository's URL and the solver's, then install both. (Home Assistant renamed
+add-ons to **apps** in 2026.2; older releases call the same screen the Add-on
+Store.)
+
+Then configure the renewal app:
+
+| Option | Value |
+|---|---|
+| `email` / `password` | the dedicated account - never the one signed into the phone app |
+| `renew_token` | any secret. **Set it** - the worker holds your password, and this is what the automation presents |
+| `solver_url` | the default if the solver came from the store; otherwise see the [solver_url table](docs/UNATTENDED_RENEWAL.md#if-solver_url-does-not-resolve) |
+| `solver_token` | the solver's token, if you set one |
+| `device_id` | leave blank and the first renewal pins it, or set it yourself. Do not change it afterwards - [it is the stale-client trap](#most-entities-are-unknown) |
+| `pair_dir` | `/config/xpeng-secrets` by default. `chmod 700` it |
+
+The pair directory is live credentials on disk: `chmod 700`, and keep it out of any
+share.
+
+### Step 8 - add the renewal automation
+
+The app only acts when it is called, so something has to call it: ahead of the cap
+on a schedule, and immediately when the credentials are already invalid. That takes
+a `rest_command` pointing at the app's `/renew`, a helper to record when it last
+ran, and an automation joining them.
+
+Copy all three from
+[`docs/UNATTENDED_RENEWAL.md`](docs/UNATTENDED_RENEWAL.md#3-home-assistant-side),
+which also explains why the interval is checked inside the action rather than as a
+condition, and how to test the whole thing without waiting two hours for a session
+to expire.
 
 ### If you are asked to re-authenticate later
 
@@ -465,7 +540,7 @@ The card explains the situation and offers a **Fix** button that opens the
 import form directly, so a fresh pair can be pasted without hunting through
 settings. What it asks for:
 
-1. Re-run the onboarding tool from [step 3](#step-3---get-tokens-with-the-onboarding-tool-outside-home-assistant)
+1. Re-run the onboarding tool from [step 4](#step-4---get-tokens-with-the-onboarding-tool-outside-home-assistant)
    and drag the slider once.
 2. Paste the new `xpeng_tokens.json` and `xpeng_tenant.json` into the card.
 
@@ -491,8 +566,8 @@ failure.
 ### Notes
 
 Each installation mints its **own device identity**, and the credentials issued
-are bound to it, so a token set from step 3 belongs to whichever machine and
-install it was produced for. That is why step 4 imports the pair together - the
+are bound to it, so a token set from step 4 belongs to whichever machine and
+install it was produced for. That is why step 5 imports the pair together - the
 tenant records the identity the tokens were sealed against. Do not mix tokens
 from one run with a tenant from another.
 
