@@ -328,7 +328,11 @@ def main() -> int:
             env, timeout=300,
         )
         if not gt.get("ok"):
-            print(f"[!] guardian failed: {str(gt)[:160]}")
+            # Not truncated here: the browser's own account of why it refused to
+            # start is long, and cutting it at 160 characters is what hid the
+            # cause of a container launch failure for several rounds. The helper
+            # caps its own message; the run log keeps whatever arrives.
+            print(f"[!] guardian failed: {str(gt)}")
             return 1
         print("[6] Guardian token minted; retrying pwdLogin")
         try:

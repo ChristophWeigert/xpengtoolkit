@@ -1,5 +1,5 @@
 name: XPENG credential renewal
-version: "0.1.6"
+version: "0.1.7"
 slug: xpeng_renew
 description: >-
   Renews XPENG credentials unattended. Solves the login slider through the solver
