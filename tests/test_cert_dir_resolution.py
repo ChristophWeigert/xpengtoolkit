@@ -127,6 +127,20 @@ class TestRenewAddonReportsStderr(unittest.TestCase):
     def test_a_success_still_reports_progress(self):
         self.assertIn("[8] createMqttAccount", self.server._tail("[8] createMqttAccount OK", ""))
 
+    def test_a_long_failure_keeps_its_end(self):
+        """The cause sits at the bottom of a long browser-launch message.
+
+        Trimming from the front cut the one line that named it, which is how a
+        missing Chromium sandbox flag presented as an unreadable wall of box
+        drawing.
+        """
+        stderr = "\n".join(f"noise line {n}" for n in range(40)) + \
+            "\n" + "x" * 120 + " sandbox flags missing"
+        reported = self.server._tail(stderr, "", lines=1, limit=60)
+        self.assertIn("sandbox flags missing", reported)
+        self.assertLessEqual(len(reported), 60)
+        self.assertTrue(reported.startswith("..."))
+
     def test_nothing_at_all_is_not_an_error(self):
         self.assertEqual(self.server._tail("", ""), "")
 

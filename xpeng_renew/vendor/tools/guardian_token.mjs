@@ -111,12 +111,36 @@ try {
   );
 }
 
-const launchOpts = { headless: !HEADFUL };
+// Chromium refuses to start its sandbox as root, and a container's /dev/shm is
+// normally too small for it: without the first two flags the launch dies before
+// the SDK ever loads. Inside the renewal add-on that surfaced as "could not
+// launch chromium: Target page, context or browser has been closed", after the
+// slider had already been solved. The third flag keeps the browser from
+// advertising itself as automated, which matters because the Guardian token is
+// risk-scored on the browser environment. This is the same trio the
+// slider-solver add-on launches with.
+const LAUNCH_ARGS = [
+  '--no-sandbox',
+  '--disable-dev-shm-usage',
+  '--disable-blink-features=AutomationControlled',
+];
+
+function launchOptions(extra = {}) {
+  return { headless: !HEADFUL, args: LAUNCH_ARGS, ...extra };
+}
+
+const launchOpts = launchOptions();
 if (USE_CHROME) {
   // Use the real installed Google Chrome rather than the bundled build.
+  // executablePath and channel are mutually exclusive, so the bundled lookup
+  // below is for the other branch only.
   launchOpts.channel = 'chrome';
 } else {
-  launchOpts.executablePath = resolveChrome();
+  // Only set executablePath when the lookup actually found something: on Linux
+  // it finds nothing (it looks in the macOS cache) and Playwright's own
+  // PLAYWRIGHT_BROWSERS_PATH lookup is the one that works.
+  const found = resolveChrome();
+  if (found) launchOpts.executablePath = found;
 }
 const browser = await chromium
   .launch(launchOpts)
@@ -124,8 +148,9 @@ const browser = await chromium
     if (USE_CHROME) {
       // No real Chrome installed — fall back rather than failing the run.
       console.error(`--chrome unavailable (${err.message}); using bundled Chromium`);
+      const found = resolveChrome();
       return chromium
-        .launch({ headless: !HEADFUL, executablePath: resolveChrome() })
+        .launch(launchOptions(found ? { executablePath: found } : {}))
         .catch((e2) => fail(`could not launch chromium: ${e2.message}`));
     }
     return fail(`could not launch chromium: ${err.message}`);

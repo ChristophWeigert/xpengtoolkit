@@ -95,17 +95,24 @@ def _device_id() -> str:
     return ""
 
 
-def _tail(primary: str, secondary: str = "", lines: int = 4) -> str:
+def _tail(primary: str, secondary: str = "", lines: int = 4, limit: int = 400) -> str:
     """Last non-empty ``lines`` of ``primary``, falling back to ``secondary``.
 
     Both streams matter. The tool writes its progress to stdout and its
     traceback to stderr, so reading only one of them hides exactly the half that
     explains a failure.
+
+    A message longer than ``limit`` keeps its END. The specific part of a
+    traceback, or of a browser launch failure, is at the bottom; trimming from
+    the front threw away exactly the line that named the cause.
     """
     for text in (primary, secondary):
         kept = [line for line in (text or "").splitlines() if line.strip()][-lines:]
         if kept:
-            return " | ".join(kept)[:400]
+            joined = " | ".join(kept)
+            if len(joined) <= limit:
+                return joined
+            return "..." + joined[-(limit - 3):]
     return ""
 
 
