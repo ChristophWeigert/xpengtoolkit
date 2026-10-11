@@ -730,6 +730,29 @@ Note that Home Assistant 2026.10 no longer exposes persistent notifications as
 `persistent_notification.*` entities, so a template that watches for the renewal
 app's failure notification will not find it - look in the notifications panel.
 
+### The seat heating turns on the wrong seat
+
+Fixed in **0.4.12**, and worth knowing on an older build: seat commands carry
+`cmd_type` **1 = driver, 0 = passenger**, and the two were swapped. The values had been
+assigned on a right-hand-drive car - where the driver's seat is the right one - by
+reading which state field moved rather than the car's own meaning, so in a
+left-hand-drive car "passenger" heated the driver's seat.
+
+Seat control is only partly implemented, deliberately:
+
+| Option | Status |
+|---|---|
+| `Heat 1` | measured |
+| `Ventilation 1` | measured - `cmd_value` 2 is the **ventilation** function, which is why the old "Medium" turned ventilation on |
+| `Off` | uses `mode 0`; the outstanding candidate, not yet confirmed in the app |
+| `Medium`, `High` | withdrawn: 2 was ventilation and 3 is refused |
+| Rear-row heating, ventilation levels | not implemented |
+
+`cmd_value 0` is **not** off - it returns `Nicht unterstützt für dieses Fahrzeug`
+("not supported for this vehicle"), which is the error you get pressing Off on a build
+with the old map. Until `mode 0` is confirmed, XPENG's own app is the reliable way to
+switch a seat off.
+
 ### The energy sensor reads `0.0`
 
 That is usually not zero consumption but a restricted endpoint on a shared account

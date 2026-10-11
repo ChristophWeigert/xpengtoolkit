@@ -16,9 +16,30 @@ from .mqtt_client import XPengMQTTClient
 
 _LOGGER = logging.getLogger(__name__)
 
-HEAT_OPTIONS = ["Off", "Low", "Medium", "High"]
-HEAT_VALUE_MAP = {"Off": 0, "Low": 1, "Medium": 2, "High": 3}
-HEAT_REVERSE_MAP = {0: "Off", 1: "Low", 2: "Medium", 3: "High"}
+#: Seat commands are ``service_type 30`` with ``{"cmd_type", "mode", "cmd_value"}``.
+#: Measured on a car whose responses the account holder could check in XPENG's own
+#: app (2026-10-11), because the state fields alone cannot tell you which seat moved:
+#:
+#:   cmd_type  1 = the DRIVER's seat, 0 = the passenger's. The two were swapped here,
+#:             which is why a left-hand-drive owner setting "passenger" heated his own
+#:             seat: the values were assigned on a right-hand-drive car, where the
+#:             driver happens to be the right-hand seat, and 1 was read as "passenger"
+#:             from the state field that moved rather than from the car's own meaning.
+#:   mode      the level. 1 is verified; higher levels are not, and mode 0 is the
+#:             best candidate for "off" but has not been confirmed in the app.
+#:   cmd_value the function: 1 = heating, 2 = ventilation. 0 and 3 come back
+#:             "Nicht unterstützt für dieses Fahrzeug", so neither is "off" - that is
+#:             the error the same owner hit pressing Off.
+#:
+#: Only the combinations below are offered: each was either measured, or is the one
+#: outstanding candidate. Guessing the rest would move a real seat to no purpose.
+SEAT_OPTIONS = ["Off", "Heat 1", "Ventilation 1"]
+SEAT_COMMANDS = {"Off": (0, 1), "Heat 1": (1, 1), "Ventilation 1": (1, 2)}
+
+#: The heating field the car reports, so the select can show what it will act on.
+HEAT_OPTIONS = SEAT_OPTIONS
+HEAT_VALUE_MAP = {0: "Off", 1: "Heat 1", 2: "Ventilation 1"}
+HEAT_REVERSE_MAP = {"Off": 0, "Heat 1": 1, "Ventilation 1": 2}
 
 
 async def async_setup_entry(
@@ -37,7 +58,7 @@ async def async_setup_entry(
             key="driver_seat_heat_select",
             name="Driver seat heating",
             icon="mdi:car-seat-heater",
-            cmd_type=0,
+            cmd_type=1,
             value_path="msg_content.instant.seat.driver_seat_heat",
         ),
         XPengSeatHeatSelect(
@@ -45,7 +66,7 @@ async def async_setup_entry(
             key="passenger_seat_heat_select",
             name="Passenger seat heating",
             icon="mdi:car-seat-heater",
-            cmd_type=1,
+            cmd_type=0,
             value_path="msg_content.instant.seat.passenger_seat_heat",
         ),
         XPengSteeringWheelHeatSelect(coordinator, mqtt_client),
@@ -78,17 +99,21 @@ class XPengSeatHeatSelect(XPengEntity, SelectEntity):
 
     @property
     def current_option(self) -> str | None:
+        # `seat.driver_seat_heat` is the *heating* level. Ventilation is a different
+        # function of the same seat and the car does not report it in this field, so a
+        # ventilation command reads back here as Off - the field is truthful about
+        # heat, which is what this entity is.
         val = self._get_nested_value(self._value_path)
         if val is None:
             return None
-        return HEAT_REVERSE_MAP.get(val, "Off")
+        return HEAT_VALUE_MAP.get(val, "Off")
 
     async def async_select_option(self, option: str) -> None:
-        value = HEAT_VALUE_MAP.get(option, 0)
+        mode, cmd_value = SEAT_COMMANDS.get(option, (0, 1))
         await self.hass.async_add_executor_job(
             self._mqtt_client.send_command,
             self._vin, 30,
-            {"cmd_type": self._cmd_type, "mode": 1, "cmd_value": value},
+            {"cmd_type": self._cmd_type, "mode": mode, "cmd_value": cmd_value},
         )
 
 
