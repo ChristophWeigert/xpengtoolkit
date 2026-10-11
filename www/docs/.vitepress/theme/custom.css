@@ -1,0 +1,31 @@
+/*
+ * The XPENG blue, applied to VitePress's green accent slots so links, buttons
+ * and the hero image tint match the brand without a custom theme.
+ */
+:root {
+  --vp-c-green: #0d6efd;
+  --vp-c-green-light: #6cb2eb;
+  --vp-c-green-lighter: #aed2f1;
+  --vp-c-green-dark: #0c4b9b;
+  --vp-c-green-darker: #03254c;
+  --vp-c-green-dimm-1: rgba(13, 110, 253, 0.05);
+  --vp-c-green-dimm-2: rgba(13, 110, 253, 0.2);
+  --vp-c-green-dimm-3: rgba(13, 110, 253, 0.5);
+}
+
+/* Screenshots are captured at 2x and are readable only at full width. */
+.vp-doc img {
+  border-radius: 6px;
+  border: 1px solid var(--vp-c-divider);
+}
+
+/* Wide entity tables should scroll rather than squash. */
+.vp-doc table {
+  display: table;
+  width: 100%;
+}
+
+.vp-doc td,
+.vp-doc th {
+  vertical-align: top;
+}
