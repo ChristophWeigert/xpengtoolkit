@@ -24,6 +24,7 @@ from homeassistant.helpers.selector import (
     TextSelectorConfig,
 )
 
+from .xpeng_api import resolve_cert_dir
 from .const import (
     AUTH_METHOD_EMAIL,
     AUTH_METHOD_GOOGLE,
@@ -578,6 +579,19 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="import_tokens",
+            # REMOVE_EXTRA, not the default PREVENT_EXTRA, so a client that submits a
+            # field this step does not know is tolerated rather than refused. A renewal
+            # app older than 0.1.15 posted `{"vin": ..., "auth_method": "import"}` to
+            # whatever step the flow opened on, and since 0.4.13 that is this one when a
+            # pair is already on disk - so every fresh install got
+            #
+            #     400 {"errors":{"base":["not a valid option at 'auth_method'"]}}
+            #
+            # with credentials on disk and no entry. The app now asks which step it
+            # landed on, but tolerating the extra key here costs nothing and spares an
+            # install that updates the integration before the app. Extra keys are
+            # dropped, not stored, and the form is unchanged: REMOVE_EXTRA does not
+            # render them.
             data_schema=vol.Schema(
                 {
                     vol.Optional("tokens_json", default=""): TextSelector(
@@ -598,7 +612,8 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
                         CONF_XPENG_EMAIL,
                         default=str(self._email or ""),
                     ): str,
-                }
+                },
+                extra=vol.REMOVE_EXTRA,
             ),
             errors=errors,
         )
@@ -1308,10 +1323,14 @@ class XPengOptionsFlow(OptionsFlow):
                             CONF_TENANT_FILE, DEFAULT_TENANT_FILE
                         ),
                     ): str,
+                    # Resolved here rather than taken from const: the recommended
+                    # update-safe layout keeps the certificates outside the integration
+                    # directory, and const can only name one hard-coded path. Recording
+                    # the wrong one is what broke a fresh install (see resolve_cert_dir).
                     vol.Optional(
                         CONF_CERT_DIR,
                         default=current.get(
-                            CONF_CERT_DIR, DEFAULT_CERT_DIR
+                            CONF_CERT_DIR, resolve_cert_dir("")
                         ),
                     ): str,
                     vol.Optional(

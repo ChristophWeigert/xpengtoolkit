@@ -86,6 +86,38 @@ def _default_cert_dir() -> str:
     return candidates[0] if candidates else ""
 
 
+def resolve_cert_dir(configured: str = "") -> str:
+    """The certificate directory to actually read from.
+
+    ``configured`` is what an entry stored, and it wins - but only while it still holds
+    the files. A stored path can be wrong for a reason nobody typed: the config flow
+    records a default when a client submits no certificate directory, which is what the
+    renewal app does when it bootstraps a fresh install, and that recorded default
+    outlives the directory it names.
+
+    Measured 2026-10-11 on a fresh install whose certificates were in
+    `/config/xpeng-certs`: the entry recorded `/config/custom_components/xpeng/certs`,
+    which holds only a README, and setup died inside the TLS context with no entities
+    and nothing pointing at the cause. Falling back to the filesystem search turns that
+    into a warning and a working install.
+    """
+    # Imported here, and defensively, for the same reason the resolver below is: this
+    # file is loaded three ways (as a package, as a top-level module, and vendored into
+    # the renewal add-on) and only the first can rely on relative imports succeeding.
+    try:  # normal package import
+        from .mqtt_client import CERT_FILES
+    except ImportError:
+        try:
+            from mqtt_client import CERT_FILES  # type: ignore
+        except ImportError:  # pragma: no cover - last resort
+            CERT_FILES = ("ca-chain.crt", "client-cert-0.pem", "client-key.pem")  # type: ignore
+    if configured and all(
+        os.path.isfile(os.path.join(configured, name)) for name in CERT_FILES
+    ):
+        return configured
+    return _default_cert_dir()
+
+
 DEFAULT_CERT_DIR: str = _default_cert_dir()
 
 try:  # normal package import

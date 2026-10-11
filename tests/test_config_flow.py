@@ -17,6 +17,7 @@ import asyncio
 import importlib.util
 import sys
 import types
+import pathlib
 import unittest
 from pathlib import Path
 
@@ -443,3 +444,36 @@ class NotificationIntervalOptionTests(unittest.TestCase):
     def test_the_form_exposes_it(self):
         self.assertIn("CONF_NOTIFICATION_POLL_INTERVAL,", self.CF)
         self.assertIn("min=60, max=3600", self.CF)
+
+
+class ImportStepToleranceTests(unittest.TestCase):
+    """A client's wrong assumption must not leave a fresh install half-done."""
+
+    def test_the_import_step_drops_unknown_keys_instead_of_refusing_them(self):
+        """Measured on a fresh install: 0.4.16 + renewal app 0.1.14.
+
+        Since 0.4.13 the flow opens on `import_tokens` when a pair is already on disk,
+        and the app posted `{"vin": ..., "auth_method": "import"}` to whatever step came
+        back. That step's schema refused it -
+
+            400 {"errors":{"base":["not a valid option at 'auth_method'"]}}
+
+        - so the pair was written, the entry was not created, and the install had
+        credentials on disk and no entities. `REMOVE_EXTRA` accepts and drops unknown
+        keys, which is the tolerant half of the fix: the app now asks which step it
+        landed on, and an install that updates the integration before the app still
+        finishes.
+        """
+        source = pathlib.Path(
+            _component.module_path("config_flow.py")
+        ).read_text(encoding="utf-8")
+        start = source.index('step_id="import_tokens"')
+        block = source[start:source.index("errors=errors", start)]
+        self.assertIn("extra=vol.REMOVE_EXTRA", block)
+        # the measured failure is recorded where the tolerance is, so nobody removes it
+        # as noise
+        self.assertIn("not a valid option at 'auth_method'", block)
+
+
+if __name__ == "__main__":
+    unittest.main()

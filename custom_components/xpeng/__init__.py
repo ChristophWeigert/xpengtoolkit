@@ -551,7 +551,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     token_file = entry.options.get(CONF_TOKEN_FILE, "").strip()
     tenant_file = entry.options.get(CONF_TENANT_FILE, DEFAULT_TENANT_FILE).strip()
-    cert_dir = entry.options.get(CONF_CERT_DIR, DEFAULT_CERT_DIR).strip()
+    # The stored option wins only while it still holds the files. A default written when
+    # the certificates lived somewhere else outlives the move, and the failure is a
+    # FileNotFoundError deep inside the TLS context with no entities to show for it.
+    from .xpeng_api import resolve_cert_dir
+
+    stored_cert_dir = entry.options.get(CONF_CERT_DIR, "").strip()
+    cert_dir = resolve_cert_dir(stored_cert_dir)
+    if stored_cert_dir and cert_dir != stored_cert_dir:
+        _LOGGER.warning(
+            "Certificates are not in the configured directory %s; using %s instead. "
+            "Set the integration's 'Certificate directory' option to %s to make this "
+            "permanent.",
+            stored_cert_dir, cert_dir, cert_dir,
+        )
     configured_device_id = entry.options.get(
         CONF_CONFIGURED_DEVICE_ID, DEFAULT_CONFIGURED_DEVICE_ID
     ).strip()
