@@ -10,6 +10,13 @@
   </defs>
   <g clip-path="url(#rounded)">
     <rect x="0" y="0" width="256" height="256" fill="url(#tile)"/>
+    <!-- The project's own initial, laid through the tile at low opacity. Deliberately a
+         plain diagonal cross and not XPENG's angular mark: that logo is theirs, and this
+         is ours. Kept behind the car so the car stays crisp. -->
+    <g stroke="#FFFFFF" stroke-width="34" stroke-linecap="round" opacity="0.18">
+      <line x1="20" y1="20" x2="236" y2="236"/>
+      <line x1="236" y1="20" x2="20" y2="236"/>
+    </g>
     <path d="M38 172 L49 138 C56 125 77 114 100 111 L156 111 C179 114 200 125 207 138 L218 172
              C219 177 216 181 210 181 L46 181 C40 181 37 177 38 172 Z" fill="#FFFFFF"/>
     <circle cx="79" cy="182" r="19" fill="url(#tile)"/>

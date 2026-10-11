@@ -10,6 +10,11 @@
   <g transform="translate(28, 40)">
     <g clip-path="url(#rounded)">
       <rect x="0" y="0" width="176" height="176" fill="url(#tile)"/>
+    <!-- the project's initial, as in icon.svg -->
+    <g stroke="#FFFFFF" stroke-width="23" stroke-linecap="round" opacity="0.18">
+      <line x1="14" y1="14" x2="162" y2="162"/>
+      <line x1="162" y1="14" x2="14" y2="162"/>
+    </g>
       <path d="M26 118 L34 95 C38 86 53 78 69 76 L107 76 C123 78 138 86 143 95 L150 118
                C151 121 149 124 145 124 L32 124 C28 124 25 121 26 118 Z" fill="#FFFFFF"/>
       <circle cx="54" cy="125" r="13" fill="url(#tile)"/>

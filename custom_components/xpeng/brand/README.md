@@ -6,8 +6,9 @@ custom integration, and those take precedence over anything in the central
 
 ## What this is, and what it is not
 
-The mark is **this project's own** - a car with a charge bolt cut out of it - not XPENG's
-logo. XPENG's mark is theirs, and there is nothing for us to use in the brands repository:
+The mark is **this project's own** - a car with a charge bolt cut out of it, and a
+diagonal cross laid through the tile. The cross is the project's initial ("Xpengtk"),
+**not** XPENG's angular mark: theirs is theirs, and this one is a plain X on purpose. XPENG's mark is theirs, and there is nothing for us to use in the brands repository:
 `custom_integrations/xpeng/icon.png` returns 404 (checked 2026-10-12), which is why an
 install shows Home Assistant's placeholder.
 
