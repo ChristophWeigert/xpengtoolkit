@@ -762,10 +762,24 @@ independent of what the car thought it was doing.
 | **Steering wheel heating** | `Off`, `Low`, `Medium`, `High` | service 31, its own value space, unmeasured |
 | Left / right **rear** seat heating and ventilation | sensors only | the car reports them; the rear seats' `cmd_type` values are unmeasured, and a wrong one heats somebody |
 
-**Ventilation off is not yet reliable.** `mode 0` with `cmd_value 2` cleared ventilation
-from level 2, but did not clear it from level 1 in a later test - twice. Until that is
-pinned, XPENG's own app is the way to switch ventilation off. Heating off has worked
-every time it has been tried.
+### A sleeping car, and why a seat command can look like it did nothing
+
+The car reports its state only when something wakes it (`service_type 19`, `cmd_type 2`
+forces an upload), and it goes back to sleep within a minute or two. While it is asleep a
+command may still be accepted and applied - the cloud answers `Erfolgreich` - but the
+state fields will not change until the next wake. Two traps follow, and both cost real
+time here:
+
+- **`last_data_update` is the freshness signal, not the seat sensors' `last_updated`.**
+  Home Assistant only moves `last_updated` when a state's *value* changes, so a seat
+  sensor that has been `0` all along keeps an old timestamp no matter how much data
+  arrives. An old seat timestamp is not evidence that nothing arrived.
+- **Wake before concluding anything.** If `sensor.<vehicle>_last_data_update` is old,
+  wake the car and read again: more than one "failed" command in testing had in fact
+  been applied, with the stale reading taken for a failure.
+
+This is also what "most values only propagated after pressing Wake vehicle" means: the
+values were not late, the car was asleep.
 
 `cmd_value 0` is **not** off - it returns `Nicht unterstützt für dieses Fahrzeug`
 ("not supported for this vehicle"), which is the error you get pressing Off on a build
