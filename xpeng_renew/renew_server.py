@@ -343,10 +343,26 @@ def _bootstrap_entry(pair_dir: str) -> tuple[bool, str]:
         return False, "could not start the config flow: %s %s" % (status, body)
     flow_id = body["flow_id"]
 
-    status, body = _core_json(
-        "/config/config_entries/flow/%s" % flow_id, {"vin": vin, "auth_method": "import"}
-    )
-    if status != 200 or not isinstance(body, dict) or body.get("step_id") != "import_tokens":
+    # Which step this lands on is the integration's decision, not ours. Since 0.4.13 an
+    # install with a pair already in `pair_dir` skips the method question and opens on
+    # `import_tokens`; an older one opens on `user`, which is where the VIN and the auth
+    # method belong. Sending `auth_method` to `import_tokens` is rejected by that step's
+    # form schema:
+    #
+    #     400 {"errors":{"base":["not a valid option at 'auth_method'"]}}
+    #
+    # which is what happened on the first fresh install against 0.4.16: the pair was
+    # minted, the entry was not created, and the install stayed half-finished with no
+    # entities at all. So ask the step what it is, and answer only the question it asked.
+    if body.get("step_id") == "user":
+        status, body = _core_json(
+            "/config/config_entries/flow/%s" % flow_id,
+            {"vin": vin, "auth_method": "import"},
+        )
+        if status != 200 or not isinstance(body, dict):
+            return False, "the import step was not reached: %s %s" % (status, body)
+
+    if body.get("step_id") != "import_tokens":
         return False, "the import step was not reached: %s %s" % (status, body)
 
     status, body = _core_json(

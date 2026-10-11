@@ -76,6 +76,26 @@ class BootstrapTests(unittest.TestCase):
         block = SERVER[SERVER.index(marker):]
         self.assertIn('"bootstrapped"', block[:1200])
 
+    def test_the_bootstrap_asks_the_flow_which_step_it_landed_on(self):
+        """The flow decides the step; submitting the wrong step's fields is a 400.
+
+        Measured on the first fresh install against 0.4.16: the flow skipped straight to
+        `import_tokens` because a pair was already in `pair_dir`, and the app's `vin` +
+        `auth_method` payload was refused by that step's schema with
+
+            "not a valid option at 'auth_method'"
+
+        so the pair was minted and the entry was never created. 0.1.14 did exactly that.
+        """
+        start = SERVER.index("def _bootstrap_entry(")
+        block = SERVER[start:SERVER.index("def _notify(", start)]
+        # the auth-method payload is guarded by a check on the step that came back
+        guard = block.index('if body.get("step_id") == "user":')
+        payload = block.index('"auth_method": "import"')
+        self.assertLess(guard, payload, "auth_method must not be sent unconditionally")
+        self.assertIn('if body.get("step_id") != "import_tokens":', block)
+        self.assertIn("not a valid option at 'auth_method'", block)
+
     def test_an_unknown_vin_is_reported_rather_than_guessed(self):
         """Creating an entry needs a real VIN: it decides the entity ids."""
         self.assertIn("no VIN to create the config entry with", SERVER)
