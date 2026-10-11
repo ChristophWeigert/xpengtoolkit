@@ -16,6 +16,14 @@ your own account and credentials, at your own risk. A third-party client may
 affect the official app's live view.
 :::
 
+::: warning No credentials, certificates or keys are supplied
+This project ships **none** of them. You obtain the mTLS client certificate and
+key from your own copy of the official app, and your own account credentials,
+by following [Certificates](./certificates). How you obtain them, where you store
+them, and any distribution you make of those artefacts, is your own
+responsibility and entirely at your own risk.
+:::
+
 ## Two channels, one account
 
 The integration talks to XPENG's cloud over two independent channels, and they do

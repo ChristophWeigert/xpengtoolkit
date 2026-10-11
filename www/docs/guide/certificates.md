@@ -6,6 +6,14 @@ per-account** — its subject is `CN=xp_app_client01`, the same for every user o
 official app — which is why the same three files work for anyone who can extract
 them.
 
+::: warning No credentials, certificates or keys are supplied
+This project ships **none** of them. You obtain the mTLS client certificate and
+key from your own copy of the official app, and your own account credentials,
+using the instructions below. How you obtain them, where you store them, and any
+distribution you make of those artefacts, is your own responsibility and
+entirely at your own risk.
+:::
+
 ## Why the client key is needed
 
 Two channels need the client key; a third does not:

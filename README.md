@@ -4,9 +4,23 @@ A Home Assistant custom integration for XPENG vehicles (`domain: xpeng`).
 
 Unofficial, reverse-engineered, and not affiliated with XPENG.
 
+**Documentation: <https://xpengtoolkit.github.io/xpengtoolkit/>** — installation,
+the certificates, the two renewal apps, every entity and service, dashboard and
+automation examples, and what to check when it stops working.
+
 It runs headless - no phone and no official app - and with the two helper apps in
 [Unattended renewal](#unattended-renewal) it re-mints its own credentials before the
 session expires, so nothing has to be done by hand.
+
+> **No credentials, certificates or keys are supplied with this project.** You
+> obtain your own: the mTLS client certificate and key come from your own copy of
+> the official app, and the account credentials are your own. How you obtain
+> them, where you store them, and any distribution you make of those artefacts,
+> is your own responsibility and entirely at your own risk. The instructions are
+> in
+> [`custom_components/xpeng/certs/README.md`](custom_components/xpeng/certs/README.md),
+> and on the rendered site under
+> [Certificates](https://xpengtoolkit.github.io/xpengtoolkit/guide/certificates).
 
 ## The whole process at a glance
 

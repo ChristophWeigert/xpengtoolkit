@@ -40,3 +40,11 @@ features:
 
 footer: Apache 2.0 Licensed | Unofficial, not affiliated with XPENG
 ---
+
+::: warning No credentials, certificates or keys are supplied
+This project ships **none** of them. You obtain the mTLS client certificate and
+key from your own copy of the official app, and your own account credentials, by
+following [Certificates](/guide/certificates). How you obtain them, where you
+store them, and any distribution you make of those artefacts, is your own
+responsibility and entirely at your own risk.
+:::
