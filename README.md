@@ -196,13 +196,23 @@ seat heating, sentinel/X-Guard, OTA state, and a set of remote commands.
 
 XPENG's notifications do **not** arrive over MQTT and are not pushed to this
 integration. They live server-side in the app's **Message Centre**, and this
-integration polls that list. A new one appears within
-`NOTIFICATION_POLL_INTERVAL` (5 minutes) as:
+integration polls that list. A new one appears within one poll interval as:
 
 - **`sensor.<vehicle>_last_notification`** - state is the message text, with
-  `count`, `title`, `category`, `msg_type`, `timestamp`, `read` and `msg_id`
-  in the attributes
+  `count`, `title`, `category`, `msg_type`, `timestamp`, `read`, `msg_id`, and
+  `delay_s` / `collected_at` in the attributes
 - **`xpeng_notification`** - a bus event carrying the same flattened fields
+
+**How late was it?** `delay_s` is `timestamp` (when XPENG recorded the message)
+minus `collected_at` (when the poll saw it), so the answer is on the sensor rather
+than being two timestamps to subtract by hand. It cannot be better than the poll
+interval - the interval, plus however long the API took - so when `delay_s` sits
+near the interval, the interval is the thing to change:
+
+**Settings -> Devices & Services -> XPENG -> Configure -> Message Centre poll
+interval**, default **300 s**, floor 60 s. Every poll is **six requests**, one per
+category, so lowering it multiplies the API traffic; the floor is there because
+below a minute the rate limit, not the car, would decide the delay.
 
 The Message Centre groups messages into categories, and the API returns **one
 category per request**. All six are polled, and every message is tagged with the

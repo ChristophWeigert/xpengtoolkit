@@ -417,3 +417,29 @@ class FirstScreenTests(unittest.TestCase):
         """Fallback for anyone who follows the older instructions anyway."""
         self.assertIn("default=default_tokens_path", self.CF)
         self.assertIn("default=default_tenant_path", self.CF)
+
+
+class NotificationIntervalOptionTests(unittest.TestCase):
+    """The Message Centre poll interval is the only lever on notification delay.
+
+    Notifications are REST-only - XPENG does not push them - so a notification cannot
+    arrive sooner than the interval, which used to be a bare constant.
+    """
+
+    CONST = (PKG_DIR / "const.py").read_text(encoding="utf-8")
+    INIT = (PKG_DIR / "__init__.py").read_text(encoding="utf-8")
+    CF = (PKG_DIR / "config_flow.py").read_text(encoding="utf-8")
+
+    def test_the_option_exists_with_a_floor(self):
+        self.assertIn('CONF_NOTIFICATION_POLL_INTERVAL: Final = "notification_poll_interval"', self.CONST)
+        self.assertIn("DEFAULT_NOTIFICATION_POLL_INTERVAL: Final = 300", self.CONST)
+        self.assertIn("MIN_NOTIFICATION_POLL_INTERVAL: Final = 60", self.CONST)
+
+    def test_the_timer_uses_the_option_not_the_constant(self):
+        self.assertIn("timedelta(seconds=notification_poll_interval)", self.INIT)
+        self.assertNotIn("timedelta(seconds=NOTIFICATION_POLL_INTERVAL)", self.INIT)
+        self.assertIn("MIN_NOTIFICATION_POLL_INTERVAL,", self.INIT)
+
+    def test_the_form_exposes_it(self):
+        self.assertIn("CONF_NOTIFICATION_POLL_INTERVAL,", self.CF)
+        self.assertIn("min=60, max=3600", self.CF)

@@ -125,7 +125,8 @@
           "tenant_file": "Tenant cache file (legacy)",
           "cert_dir": "Certificate directory",
           "iccid": "TBox SIM ICCID",
-          "usable_battery_kwh": "Usable battery capacity (kWh)"
+          "usable_battery_kwh": "Usable battery capacity (kWh)",
+          "notification_poll_interval": "Message Centre poll interval (seconds)"
         },
         "data_description": {
           "scan_interval": "How often to query the vehicle state via MQTT (10-3600 seconds)",
@@ -139,7 +140,8 @@
           "tenant_file": "Path to cached tenant data. Auto-fetched if missing.",
           "cert_dir": "Absolute path to the directory holding ca-chain.crt, client-cert-0.pem and client-key.pem. Default: /config/custom_components/xpeng/certs.",
           "iccid": "TBox SIM ICCID. Read it on-device via the head-unit code *#9925*131# (no app API exposes it). Optional diagnostic sensor.",
-          "usable_battery_kwh": "Usable pack size for the parked-consumption kWh estimate (10-150). G6 Long Range ≈ 87.5, G6 Standard Range ≈ 66."
+          "usable_battery_kwh": "Usable pack size for the parked-consumption kWh estimate (10-150). G6 Long Range ≈ 87.5, G6 Standard Range ≈ 66.",
+          "notification_poll_interval": "How often to poll XPENG's Message Centre for notifications. Six requests per poll, one per category; a notification cannot arrive sooner than this. The sensor records the real delay as `delay_s`."
         }
       }
     },

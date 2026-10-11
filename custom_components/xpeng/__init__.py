@@ -27,8 +27,11 @@ from .const import (
     CONF_MQTT_LISTENER_ENABLED,
     CONF_MQTT_LISTENER_TOPICS,
     CONF_MQTT_REFRESH_INTERVAL,
+    DEFAULT_NOTIFICATION_POLL_INTERVAL,
+    MIN_NOTIFICATION_POLL_INTERVAL,
     NOTIFICATION_POLL_INTERVAL,
     CONF_MQTT_TOPIC_DISCOVERY,
+    CONF_NOTIFICATION_POLL_INTERVAL,
     CONF_PARKED_SCAN_INTERVAL,
     CONF_PASSWORD,
     CONF_REST_SCAN_INTERVAL,
@@ -558,6 +561,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     rest_scan_interval = entry.options.get(
         CONF_REST_SCAN_INTERVAL, DEFAULT_REST_SCAN_INTERVAL
     )
+    # A notification poll is six requests (one per category), so this has a floor
+    # rather than being free to set to zero: below a minute the API's rate limiting,
+    # not the car, would be deciding the delay.
+    notification_poll_interval = max(
+        MIN_NOTIFICATION_POLL_INTERVAL,
+        int(
+            entry.options.get(
+                CONF_NOTIFICATION_POLL_INTERVAL, DEFAULT_NOTIFICATION_POLL_INTERVAL
+            )
+        ),
+    )
 
     # Determine if API operations are available
     has_entry_tokens = bool(
@@ -1080,11 +1094,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 coordinator.set_rest_data({"rest_notifications": items})
 
         cancel_notifications = async_track_time_interval(
-            hass, _poll_notifications, timedelta(seconds=NOTIFICATION_POLL_INTERVAL)
+            hass, _poll_notifications, timedelta(seconds=notification_poll_interval)
         )
         entry.async_on_unload(cancel_notifications)
         _LOGGER.info(
-            "Notification polling enabled: every %ds", NOTIFICATION_POLL_INTERVAL
+            "Notification polling enabled: every %ds", notification_poll_interval
         )
         hass.async_create_task(_poll_notifications(None))
 

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import collections
 import importlib.util
+from datetime import datetime, timedelta
 import pathlib
 import sys
 import types
@@ -74,11 +75,16 @@ def _load_sensor_module():
     _mod(f"{pkg}.const", DOMAIN="xpeng", SENSOR_DESCRIPTIONS=(),
          XPengSensorEntityDescription=_Any)
     _mod(f"{pkg}.coordinator", XPengDataCoordinator=_Any)
-    # The live/private copy's sensor.py does `from . import poll_status` (its
-    # poll-status sensor imports it); the shipping copy does not reference it
-    # yet. Stub it so this test can run against either tree.
-    _mod(f"{pkg}.poll_status", describe=_Any, format_age=_Any,
-         cadence=_Any, next_query_at=_Any)
+    # The real module, not a stub: poll_status is Home Assistant-free by design, and
+    # sensor.py now calls its delay arithmetic, so stubbing it would test nothing and
+    # hand the attributes a non-numeric stand-in.
+    _poll_spec = importlib.util.spec_from_file_location(
+        f"{pkg}.poll_status", _component.module_path("poll_status.py")
+    )
+    assert _poll_spec and _poll_spec.loader
+    _poll = importlib.util.module_from_spec(_poll_spec)
+    sys.modules[f"{pkg}.poll_status"] = _poll
+    _poll_spec.loader.exec_module(_poll)
 
     class _XPengEntity:
         def __init__(self, coordinator) -> None:
@@ -181,3 +187,24 @@ class TestNotificationSensor(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+    def test_the_delay_is_reported_with_the_collection_time(self):
+        """The whole point of the sensor for a polled source.
+
+        Notifications are not pushed: they are polled, so the delay is the interval
+        plus whatever the API took. It used to be two timestamps to subtract by hand,
+        against a collection time that only the recorder held.
+        """
+        sent = datetime.now() - timedelta(minutes=4)
+        ent = XPengNotificationSensor(_FakeCoordinator(
+            [{"message": "Charging started", "timestamp": sent.isoformat()}], 1))
+        attrs = ent.extra_state_attributes
+        self.assertIn("delay_s", attrs)
+        self.assertIn("collected_at", attrs)
+        self.assertAlmostEqual(attrs["delay_s"], 240, delta=10)
+
+    def test_an_unusable_timestamp_reports_no_delay(self):
+        """A wrong delay is worse than none: it would be used to tune the interval."""
+        ent = XPengNotificationSensor(_FakeCoordinator(
+            [{"message": "x", "timestamp": "not a time"}], 1))
+        self.assertIsNone(ent.extra_state_attributes["delay_s"])

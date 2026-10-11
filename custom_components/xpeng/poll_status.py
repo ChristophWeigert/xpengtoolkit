@@ -24,6 +24,8 @@ Two things are deliberately separate here:
 
 from __future__ import annotations
 
+from datetime import datetime
+
 #: Charging or driving: force-upload every `scan_interval`, because the car is
 #: already awake and the autonomous push stream cannot be relied on.
 ACTIVE = "Active"
@@ -167,3 +169,40 @@ def format_age(seconds: float) -> str:
     if hours > 0:
         return f"{hours}h {minutes}m"
     return f"{minutes}m"
+
+
+def notification_delay_seconds(timestamp: str, now_epoch: float) -> float | None:
+    """How long a Message Centre message took to reach Home Assistant.
+
+    XPENG's notifications are polled, not pushed, so the answer is the poll interval
+    plus whatever the API took - and until this existed it was two timestamps in the
+    attributes that you had to subtract yourself, against a collection time that only
+    appeared in the recorder.
+
+    `createTime` arrives as ``YYYY-MM-DD HH:MM:SS.0000`` and the API layer normalises
+    it to an ISO string with **no timezone**, so a naive value is read as this Home
+    Assistant's local time - which is what XPENG shows the account holder anyway.
+    Anything unparseable returns None rather than a guess, because a wrong delay is
+    worse than no delay.
+    """
+    text = str(timestamp or "").strip()
+    if not text:
+        return None
+    candidates = [text.replace(" ", "T", 1)]
+    # 4-digit fractions are what the raw field carries, and fromisoformat rejected
+    # them before 3.11, so offer a padded form too.
+    head, _, frac = candidates[0].partition(".")
+    if frac and len(frac) != 3 and len(frac) != 6:
+        digits = "".join(ch for ch in frac if ch.isdigit())
+        if digits:
+            candidates.append(f"{head}.{(digits + '000000')[:6]}")
+
+    for candidate in candidates:
+        try:
+            stamp = datetime.fromisoformat(candidate)
+        except ValueError:
+            continue
+        if stamp.tzinfo is None:
+            stamp = stamp.astimezone()  # naive means local time
+        return now_epoch - stamp.timestamp()
+    return None

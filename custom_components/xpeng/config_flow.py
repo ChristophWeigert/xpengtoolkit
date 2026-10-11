@@ -38,6 +38,7 @@ from .const import (
     CONF_MQTT_LISTENER_TOPICS,
     CONF_MQTT_REFRESH_INTERVAL,
     CONF_MQTT_TOPIC_DISCOVERY,
+    CONF_NOTIFICATION_POLL_INTERVAL,
     CONF_PARKED_SCAN_INTERVAL,
     CONF_PASSWORD,
     CONF_REST_SCAN_INTERVAL,
@@ -52,6 +53,7 @@ from .const import (
     CONF_XPENG_PASSWORD,
     DEFAULT_CERT_DIR,
     DEFAULT_MQTT_REFRESH_INTERVAL,
+    DEFAULT_NOTIFICATION_POLL_INTERVAL,
     DEFAULT_PARKED_SCAN_INTERVAL,
     DEFAULT_REST_SCAN_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
@@ -1262,6 +1264,13 @@ class XPengOptionsFlow(OptionsFlow):
                             DEFAULT_MQTT_REFRESH_INTERVAL,
                         ),
                     ): vol.All(int, vol.Range(min=10, max=300)),
+                    vol.Optional(
+                        CONF_NOTIFICATION_POLL_INTERVAL,
+                        default=current.get(
+                            CONF_NOTIFICATION_POLL_INTERVAL,
+                            DEFAULT_NOTIFICATION_POLL_INTERVAL,
+                        ),
+                    ): vol.All(int, vol.Range(min=60, max=3600)),
                     vol.Optional(
                         CONF_REST_SCAN_INTERVAL,
                         default=current.get(

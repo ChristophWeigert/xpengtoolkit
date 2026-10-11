@@ -877,6 +877,10 @@ class XPengNotificationSensor(XPengEntity, SensorEntity):
         }
         note = self._last
         if note:
+            # The delay is the point of this sensor for the messages it carries:
+            # a poll cannot beat its own interval, and knowing the real number is
+            # what tells you whether tuning it would help. `collected_at` is when
+            # we saw it, `timestamp` when XPENG says it happened.
             attrs.update(
                 {
                     "service_type": note.get("service_type"),
@@ -885,6 +889,10 @@ class XPengNotificationSensor(XPengEntity, SensorEntity):
                     "message": note.get("message"),
                     "timestamp": note.get("timestamp"),
                     "source": note.get("source"),
+                    "delay_s": poll_status.notification_delay_seconds(
+                        note.get("timestamp"), time.time()
+                    ),
+                    "collected_at": datetime.now(timezone.utc).isoformat(),
                 }
             )
         return attrs

@@ -14,6 +14,7 @@ need to be.
 from __future__ import annotations
 
 import importlib.util
+from datetime import datetime, timezone
 import pathlib
 import sys
 import unittest
@@ -271,3 +272,41 @@ class TestFormatAge(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TestNotificationDelay(unittest.TestCase):
+    """How late a Message Centre message was, given only its own timestamp.
+
+    The API's `createTime` has no timezone, so a naive value is read as local time -
+    which is what XPENG shows the account holder. Everything else is rejected rather
+    than guessed, because this number is what decides whether the poll interval is
+    worth lowering.
+    """
+
+    NOW = 1_700_000_000.0
+
+    def test_a_naive_stamp_is_read_as_local_time(self):
+        stamp = datetime.fromtimestamp(self.NOW - 300).isoformat()
+        self.assertAlmostEqual(poll.notification_delay_seconds(stamp, self.NOW), 300.0, delta=1)
+
+    def test_the_raw_four_digit_fraction_parses(self):
+        """createTime arrives as "YYYY-MM-DD HH:MM:SS.0000", which fromisoformat
+        refused before 3.11 - the API layer normalises it, but the raw value can
+        still reach an attribute when that normalisation fails."""
+        stamp = datetime.fromtimestamp(self.NOW - 120).strftime("%Y-%m-%d %H:%M:%S.0000")
+        delay = poll.notification_delay_seconds(stamp, self.NOW)
+        self.assertIsNotNone(delay)
+        self.assertAlmostEqual(delay, 120.0, delta=1)
+
+    def test_an_explicit_offset_is_respected(self):
+        stamp = datetime.fromtimestamp(self.NOW - 60, tz=timezone.utc).isoformat()
+        self.assertAlmostEqual(poll.notification_delay_seconds(stamp, self.NOW), 60.0, delta=1)
+
+    def test_nothing_usable_is_none_rather_than_a_guess(self):
+        for bad in ("", None, "yesterday", "2026-13-45 99:99:99"):
+            self.assertIsNone(poll.notification_delay_seconds(bad, self.NOW), repr(bad))
+
+    def test_a_future_stamp_stays_negative(self):
+        """Clock skew is information; clamping it would hide a real problem."""
+        stamp = datetime.fromtimestamp(self.NOW + 500).isoformat()
+        self.assertLess(poll.notification_delay_seconds(stamp, self.NOW), 0)

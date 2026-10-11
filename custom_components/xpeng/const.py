@@ -784,4 +784,11 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[XPengBinarySensorEntityDescription, ...] = (
 #: How often to poll the message centre for new notifications.
 #: Not tied to the vehicle poll: notifications are a server-side list that
 #: changes independently of the car, and one small request is cheap.
-NOTIFICATION_POLL_INTERVAL: Final = 300
+CONF_NOTIFICATION_POLL_INTERVAL: Final = "notification_poll_interval"
+#: Message Centre notification polling. 300s is the shipped default and the
+#: interval this was measured at; a poll cannot be faster than this, so lowering
+#: it is the only lever (at the cost of six API requests per poll).
+DEFAULT_NOTIFICATION_POLL_INTERVAL: Final = 300
+MIN_NOTIFICATION_POLL_INTERVAL: Final = 60
+#: Kept for the call site that predates the option.
+NOTIFICATION_POLL_INTERVAL: Final = DEFAULT_NOTIFICATION_POLL_INTERVAL
