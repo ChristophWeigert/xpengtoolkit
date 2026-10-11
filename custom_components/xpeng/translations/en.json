@@ -360,6 +360,24 @@
       },
       "account": {
         "name": "Account"
+      },
+      "driver_seat_ventilation": {
+        "name": "Driver seat ventilation"
+      },
+      "passenger_seat_ventilation": {
+        "name": "Passenger seat ventilation"
+      },
+      "left_rear_seat_heat": {
+        "name": "Left rear seat heating"
+      },
+      "right_rear_seat_heat": {
+        "name": "Right rear seat heating"
+      },
+      "left_rear_seat_ventilation": {
+        "name": "Left rear seat ventilation"
+      },
+      "right_rear_seat_ventilation": {
+        "name": "Right rear seat ventilation"
       }
     },
     "calendar": {
@@ -534,6 +552,12 @@
       },
       "steering_wheel_heat_select": {
         "name": "Steering wheel heating"
+      },
+      "driver_seat_ventilation_select": {
+        "name": "Driver seat ventilation"
+      },
+      "passenger_seat_ventilation_select": {
+        "name": "Passenger seat ventilation"
       }
     },
     "image": {

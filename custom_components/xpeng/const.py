@@ -474,6 +474,48 @@ SENSOR_DESCRIPTIONS: tuple[XPengSensorEntityDescription, ...] = (
         value_path="msg_content.instant.seat.passenger_seat_heat",
         icon="mdi:car-seat-heater",
     ),
+
+    # The car reports each seat function separately, and reports the rear seats too.
+    # These names come from the payload itself (the same `seat` group the heating
+    # fields are in, documented by the read-only xpeng-mac-bridge reference) rather
+    # than from guesswork: `driver_seat_ventilation` is a different field from
+    # `driver_seat_heat`, which is why a ventilation command never showed up here.
+    XPengSensorEntityDescription(
+        key="driver_seat_ventilation",
+        translation_key="driver_seat_ventilation",
+        value_path="msg_content.instant.seat.driver_seat_ventilation",
+        icon="mdi:car-seat",
+    ),
+    XPengSensorEntityDescription(
+        key="passenger_seat_ventilation",
+        translation_key="passenger_seat_ventilation",
+        value_path="msg_content.instant.seat.passenger_seat_ventilation",
+        icon="mdi:car-seat",
+    ),
+    XPengSensorEntityDescription(
+        key="left_rear_seat_heat",
+        translation_key="left_rear_seat_heat",
+        value_path="msg_content.instant.seat.left_rear_seat_heat",
+        icon="mdi:car-seat-heater",
+    ),
+    XPengSensorEntityDescription(
+        key="right_rear_seat_heat",
+        translation_key="right_rear_seat_heat",
+        value_path="msg_content.instant.seat.right_rear_seat_heat",
+        icon="mdi:car-seat-heater",
+    ),
+    XPengSensorEntityDescription(
+        key="left_rear_seat_ventilation",
+        translation_key="left_rear_seat_ventilation",
+        value_path="msg_content.instant.seat.left_rear_seat_ventilation",
+        icon="mdi:car-seat",
+    ),
+    XPengSensorEntityDescription(
+        key="right_rear_seat_ventilation",
+        translation_key="right_rear_seat_ventilation",
+        value_path="msg_content.instant.seat.right_rear_seat_ventilation",
+        icon="mdi:car-seat",
+    ),
     XPengSensorEntityDescription(
         key="steering_wheel_heat",
         translation_key="steering_wheel_heat",

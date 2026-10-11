@@ -738,20 +738,23 @@ assigned on a right-hand-drive car - where the driver's seat is the right one - 
 reading which state field moved rather than the car's own meaning, so in a
 left-hand-drive car "passenger" heated the driver's seat.
 
-Seat control is only partly implemented, deliberately:
+Seat control is split by function, because the car reports each one in its own field:
 
-| Option | Status |
-|---|---|
-| `Heat 1` | measured |
-| `Ventilation 1` | measured - `cmd_value` 2 is the **ventilation** function, which is why the old "Medium" turned ventilation on |
-| `Off` | uses `mode 0`; the outstanding candidate, not yet confirmed in the app |
-| `Medium`, `High` | withdrawn: 2 was ventilation and 3 is refused |
-| Rear-row heating, ventilation levels | not implemented |
+| Entity | Options | Notes |
+|---|---|---|
+| Driver / passenger **seat heating** | `Off`, `Heat 1` | reads `seat.driver_seat_heat`; level 1 measured, 2 and 3 not |
+| Driver / passenger **seat ventilation** | `Off`, `Ventilation 1` | reads `seat.driver_seat_ventilation` - its own field, so the result actually shows |
+| **Steering wheel heating** | `Off`, `Low`, `Medium`, `High` | service 31, its own value space, not measured |
+| Left / right **rear** seat heating and ventilation | sensors only | the car reports them (`seat.left_rear_seat_heat`, ...) but the rear seats' `cmd_type` values are not measured, and a wrong one heats somebody |
+
+`cmd_value` is the **function** (1 = heating, 2 = ventilation) and `mode` the **level**,
+with `mode 0` the outstanding candidate for off. Only level 1 of each function has been
+confirmed against XPENG's app, so only that is offered: a wrong value here moves a real
+seat, and the car cannot always be watched while it happens.
 
 `cmd_value 0` is **not** off - it returns `Nicht unterstützt für dieses Fahrzeug`
 ("not supported for this vehicle"), which is the error you get pressing Off on a build
-with the old map. Until `mode 0` is confirmed, XPENG's own app is the reliable way to
-switch a seat off.
+with the old map.
 
 ### The energy sensor reads `0.0`
 
