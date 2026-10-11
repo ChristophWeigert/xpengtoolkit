@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Xpengtk's own mark - a car with a charge bolt cut out of it - not XPENG's logo, which
+       is theirs. Full-bleed tile, so the icon keeps its contrast against Home Assistant's
+       light and dark themes without needing a dark_ variant. -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#12A4B4"/><stop offset="1" stop-color="#1668B0"/>
+    </linearGradient>
+    <clipPath id="rounded"><rect x="0" y="0" width="256" height="256" rx="58" ry="58"/></clipPath>
+  </defs>
+  <g clip-path="url(#rounded)">
+    <rect x="0" y="0" width="256" height="256" fill="url(#tile)"/>
+    <path d="M38 172 L49 138 C56 125 77 114 100 111 L156 111 C179 114 200 125 207 138 L218 172
+             C219 177 216 181 210 181 L46 181 C40 181 37 177 38 172 Z" fill="#FFFFFF"/>
+    <circle cx="79" cy="182" r="19" fill="url(#tile)"/>
+    <circle cx="177" cy="182" r="19" fill="url(#tile)"/>
+    <circle cx="79" cy="182" r="8" fill="#FFFFFF"/>
+    <circle cx="177" cy="182" r="8" fill="#FFFFFF"/>
+    <path d="M137 116 L114 152 L129 152 L122 176 L150 137 L134 137 Z" fill="url(#tile)"/>
+  </g>
+</svg>
