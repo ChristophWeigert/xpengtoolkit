@@ -1,6 +1,7 @@
 """Select platform for the XPENG integration."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -28,15 +29,21 @@ _LOGGER = logging.getLogger(__name__)
 #:   cmd_value the function: 1 = heating, 2 = ventilation. 0 and 3 come back
 #:             "Nicht unterstützt für dieses Fahrzeug", so neither is "off" - that is
 #:             the error that owner hit pressing Off.
-#:   mode      the level. Level 1 of each function is measured; 2 and 3 are not, and
-#:             mode 0 is the outstanding candidate for off.
+#:   mode      a momentary switch, NOT a level to set. Measured on the car while it
+#:             reported its own fields after every command (2026-10-11): mode 1 read
+#:             back 1, mode 2 read 2, mode 0 turned it off from level 2. But sending
+#:             the *same* payload three times read back 1, 0, 1 - so it is a press that
+#:             toggles, not an assignment, which is also why mode 3 turned the heating
+#:             off rather than selecting a third level. mode 3 is therefore not
+#:             offered, and `async_select_option` turns the seat off before stepping
+#:             down a level so that a press cannot mean its opposite.
 #:
 #: Only measured combinations are offered. Guessing here moves a real seat, and the
 #: car cannot always be watched while it happens.
-SEAT_HEAT_OPTIONS = ["Off", "Heat 1"]
-SEAT_HEAT_COMMANDS = {"Off": (0, 1), "Heat 1": (1, 1)}
-SEAT_VENT_OPTIONS = ["Off", "Ventilation 1"]
-SEAT_VENT_COMMANDS = {"Off": (0, 2), "Ventilation 1": (1, 2)}
+SEAT_HEAT_OPTIONS = ["Off", "Heat 1", "Heat 2"]
+SEAT_HEAT_COMMANDS = {"Off": (0, 1), "Heat 1": (1, 1), "Heat 2": (2, 1)}
+SEAT_VENT_OPTIONS = ["Off", "Ventilation 1", "Ventilation 2"]
+SEAT_VENT_COMMANDS = {"Off": (0, 2), "Ventilation 1": (1, 2), "Ventilation 2": (2, 2)}
 
 #: The car reports each function in its own field - `seat.driver_seat_heat` and
 #: `seat.driver_seat_ventilation` are separate - so heating and ventilation are
@@ -157,12 +164,30 @@ class XPengSeatSelect(XPengEntity, SelectEntity):
 
     async def async_select_option(self, option: str) -> None:
         mode, cmd_value = self._commands.get(option, (0, 1))
-        await self.hass.async_add_executor_job(
-            self._mqtt_client.send_command,
-            self._vin, 30,
-            {"cmd_type": self._cmd_type, "mode": mode, "cmd_value": cmd_value},
-        )
 
+        # These are momentary switches, not level setters, which took measuring twice
+        # over to see:
+        #
+        #   * the SAME payload sent three times read back 1, 0, 1 - a press toggles;
+        #   * pressing a level while another is already on can switch the function off
+        #     instead of selecting it (mode=2 straight from level 1 did exactly that).
+        #
+        # What IS reproducible, measured twice each on the car with its own fields read
+        # back, is "off, then press the level once": mode 0 -> mode 1 reads 1, and
+        # mode 0 -> mode 2 reads 2. So every level change turns the seat off first. One
+        # extra command, and the result stops depending on what the car thought it was
+        # already doing.
+        plan = [0, mode] if mode != 0 else [0]
+        for step in plan:
+            await self.hass.async_add_executor_job(
+                self._mqtt_client.send_command,
+                self._vin, 30,
+                {"cmd_type": self._cmd_type, "mode": step, "cmd_value": cmd_value},
+            )
+            if len(plan) > 1 and step == 0:
+                # Back-to-back commands did not both land in one test, so give the car a
+                # moment between the off and the press.
+                await asyncio.sleep(2)
 
 class XPengSteeringWheelHeatSelect(XPengEntity, SelectEntity):
     """Select entity for steering wheel heating level."""

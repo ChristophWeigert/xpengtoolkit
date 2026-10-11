@@ -95,6 +95,19 @@ class SeatCommandTests(unittest.TestCase):
         self.assertEqual(_commands("SEAT_HEAT_COMMANDS")["Heat 1"], (1, 1))
         self.assertEqual(_commands("SEAT_VENT_COMMANDS")["Ventilation 1"], (1, 2))
 
+    def test_the_levels_are_the_mode_and_two_of_them_exist(self):
+        """Measured on the car: mode 1 read back 1, mode 2 read back 2, mode 0 read 0."""
+        self.assertEqual(_commands("SEAT_HEAT_COMMANDS")["Heat 2"], (2, 1))
+        self.assertEqual(_commands("SEAT_VENT_COMMANDS")["Ventilation 2"], (2, 2))
+        for table in ("SEAT_HEAT_COMMANDS", "SEAT_VENT_COMMANDS"):
+            self.assertEqual(_commands(table)["Off"][0], 0, table)
+
+    def test_level_three_is_not_offered(self):
+        """mode 3 is accepted and turns the heating off, so it is not a level here."""
+        for table in ("SEAT_HEAT_COMMANDS", "SEAT_VENT_COMMANDS"):
+            for option, (mode, _value) in _commands(table).items():
+                self.assertNotEqual(mode, 3, option)
+
     def test_off_is_not_the_value_that_was_refused(self):
         """`cmd_value` 0 as "off" is what produced the "not supported" error."""
         for table in ("SEAT_HEAT_COMMANDS", "SEAT_VENT_COMMANDS"):
@@ -136,3 +149,19 @@ class SeatCommandTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_every_level_change_turns_the_seat_off_first(self):
+        """Because the switch is momentary, a press means "next", not "set".
+
+        Sending the same payload three times read back 1, 0, 1, and pressing level 2
+        straight from level 1 switched the heating off. "Off then press once" is the
+        pattern that reproduced twice over for both levels, so it is used for every
+        level change rather than reasoned about per transition.
+        """
+        self.assertIn("plan = [0, mode] if mode != 0 else [0]", SOURCE)
+        self.assertIn("await asyncio.sleep(2)", SOURCE)
+
+    def test_the_momentary_behaviour_is_recorded(self):
+        """Someone will otherwise 'simplify' the off-first step away."""
+        self.assertIn("momentary", SOURCE)
+        self.assertIn("read back 1, 0, 1", SOURCE)

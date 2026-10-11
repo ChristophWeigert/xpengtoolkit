@@ -738,19 +738,34 @@ assigned on a right-hand-drive car - where the driver's seat is the right one - 
 reading which state field moved rather than the car's own meaning, so in a
 left-hand-drive car "passenger" heated the driver's seat.
 
-Seat control is split by function, because the car reports each one in its own field:
+### Seat commands are momentary switches, not level setters
 
-| Entity | Options | Notes |
+This is the part that is not obvious, and it cost several rounds of measuring. For
+`service_type 30`, `cmd_value` selects the **function** (1 = heating, 2 = ventilation)
+and `mode` selects the **level** - but `mode` is a *press*, not an assignment:
+
+- the **same payload sent three times** read back `1, 0, 1` - each press toggles;
+- pressing a level while another is already on can switch the function **off** instead
+  of selecting it (`mode=2` straight from level 1 did exactly that);
+- `mode 3` is accepted and turns the heating off, so it is not a third level and is not
+  offered.
+
+What reproduces every time is **off, then press the level once** (`mode 0` → `mode 1`
+reads 1; `mode 0` → `mode 2` reads 2). The select entities therefore turn the seat off
+before selecting a level, which costs one extra command and makes the outcome
+independent of what the car thought it was doing.
+
+| Entity | Options | State |
 |---|---|---|
-| Driver / passenger **seat heating** | `Off`, `Heat 1` | reads `seat.driver_seat_heat`; level 1 measured, 2 and 3 not |
-| Driver / passenger **seat ventilation** | `Off`, `Ventilation 1` | reads `seat.driver_seat_ventilation` - its own field, so the result actually shows |
-| **Steering wheel heating** | `Off`, `Low`, `Medium`, `High` | service 31, its own value space, not measured |
-| Left / right **rear** seat heating and ventilation | sensors only | the car reports them (`seat.left_rear_seat_heat`, ...) but the rear seats' `cmd_type` values are not measured, and a wrong one heats somebody |
+| Driver / passenger **seat heating** | `Off`, `Heat 1`, `Heat 2` | reads `seat.driver_seat_heat` |
+| Driver / passenger **seat ventilation** | `Off`, `Ventilation 1`, `Ventilation 2` | reads `seat.driver_seat_ventilation` |
+| **Steering wheel heating** | `Off`, `Low`, `Medium`, `High` | service 31, its own value space, unmeasured |
+| Left / right **rear** seat heating and ventilation | sensors only | the car reports them; the rear seats' `cmd_type` values are unmeasured, and a wrong one heats somebody |
 
-`cmd_value` is the **function** (1 = heating, 2 = ventilation) and `mode` the **level**,
-with `mode 0` the outstanding candidate for off. Only level 1 of each function has been
-confirmed against XPENG's app, so only that is offered: a wrong value here moves a real
-seat, and the car cannot always be watched while it happens.
+**Ventilation off is not yet reliable.** `mode 0` with `cmd_value 2` cleared ventilation
+from level 2, but did not clear it from level 1 in a later test - twice. Until that is
+pinned, XPENG's own app is the way to switch ventilation off. Heating off has worked
+every time it has been tried.
 
 `cmd_value 0` is **not** off - it returns `Nicht unterstützt für dieses Fahrzeug`
 ("not supported for this vehicle"), which is the error you get pressing Off on a build
