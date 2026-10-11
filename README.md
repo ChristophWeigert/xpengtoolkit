@@ -4,49 +4,9 @@ A Home Assistant custom integration for XPENG vehicles (`domain: xpeng`).
 
 Unofficial, reverse-engineered, and not affiliated with XPENG.
 
-## Unattended renewal
-
-XPENG retires a session about two hours after the login that created it, and a
-refresh cannot extend it - the refresh loop keeps working right up to the moment
-the server ends the session. Two apps take the human out of the loop:
-
-* **[XPENG slider solver](https://github.com/xpengtoolkit/slider-solver)** - solves
-  the login captcha. That slider is the only human step in onboarding, so this is
-  what makes an automated login possible at all.
-* **XPENG credential renewal** - this repository. It mints a fresh pair with the
-  toolkit's own login code and imports it through the integration's
-  `xpeng.import_credentials` service, which validates the pair by minting MQTT
-  credentials, exactly as the Repairs card does.
-
-[Steps 4-5](#step-4---install-the-two-apps) install the apps and mint the first
-pair with the solver, and it renews itself from then on. Three things are easy to miss:
-
-- **The first renewal is expected to fail** when the integration has no config
-  entry yet: it mints the pair and then has nowhere to import it. The pair has
-  already landed in the directory at that point, and the entry is created once,
-  by hand, with **Import tokens**.
-- **Set `solver_url` if the solver was not installed from the store.** The default
-  names the store install's container hostname
-  (`http://571f4c18-xpeng-slider-solver:8080`). A local-folder install is
-  `http://local-xpeng-slider-solver:8080`, and the Home Assistant host's own
-  address always works. The underscore slug form (`local_xpeng_slider_solver`)
-  does **not** resolve - hyphens do.
-- **Keep one `device_id`.** Set it once and leave it; changing it on a live
-  install is the stale-client trap in [Troubleshooting](#troubleshooting).
-
-**Both apps hold credentials** - set their tokens, and keep the pair directory out
-of any share.
-
-The service is useful by hand too: a credential swap no longer has to wait for the
-Repairs card to appear first (it is raised only after the broker refuses, or on the
-hourly poll - up to an hour late).
-
-```yaml
-service: xpeng.import_credentials
-data:
-  tokens_path: /config/xpeng-secrets/xpeng_tokens.json
-  tenant_path: /config/xpeng-secrets/xpeng_tenant.json
-```
+It runs headless - no phone and no official app - and with the two helper apps in
+[Unattended renewal](#unattended-renewal) it re-mints its own credentials before the
+session expires, so nothing has to be done by hand.
 
 ## The whole process at a glance
 
@@ -538,7 +498,7 @@ not resolve - see [the table](docs/UNATTENDED_RENEWAL.md#if-solver_url-does-not-
 
 If you would rather Home Assistant drove renewals - for a last-run helper you can put
 on a dashboard, or to trigger them yourself - set **`renew_interval: 0`** on the app and
-use the [optional automation](docs/UNATTENDED_RENEWAL.md#3-home-assistant-side).
+use the [optional automation](docs/UNATTENDED_RENEWAL.md#3-home-assistant-side-optional).
 
 ### If you are asked to re-authenticate later
 
@@ -645,6 +605,50 @@ tool (or filling in the field on the **Import tokens** form) will supply it.
 
 Note the value is the full account address, which is the point of showing it — so
 it will appear in dashboards and in the recorder database.
+
+## Unattended renewal
+
+XPENG retires a session about two hours after the login that created it, and a
+refresh cannot extend it - the refresh loop keeps working right up to the moment
+the server ends the session. Two apps take the human out of the loop:
+
+* **[XPENG slider solver](https://github.com/xpengtoolkit/slider-solver)** - solves
+  the login captcha. That slider is the only human step in onboarding, so this is
+  what makes an automated login possible at all.
+* **XPENG credential renewal** - this repository. It mints a fresh pair with the
+  toolkit's own login code and imports it through the integration's
+  `xpeng.import_credentials` service, which validates the pair by minting MQTT
+  credentials, exactly as the Repairs card does.
+
+[Steps 4-5](#step-4---install-the-two-apps) install the apps and mint the first
+pair with the solver, and it renews itself from then on. Three things are easy to miss:
+
+- **The first run creates the integration entry.** On a fresh install there is nothing
+  to import into, so the app drives the config flow and creates the entry from the pair
+  it just minted - nothing is pasted, and there is no failure to expect. See
+  [`docs/UNATTENDED_RENEWAL.md` §2](docs/UNATTENDED_RENEWAL.md#2-first-run-the-app-creates-the-config-entry).
+- **Set `solver_url` if the solver was not installed from the store.** The default
+  names the store install's container hostname
+  (`http://571f4c18-xpeng-slider-solver:8080`). A local-folder install is
+  `http://local-xpeng-slider-solver:8080`, and the Home Assistant host's own
+  address always works. The underscore slug form (`local_xpeng_slider_solver`)
+  does **not** resolve - hyphens do.
+- **Keep one `device_id`.** Set it once and leave it; changing it on a live
+  install is the stale-client trap in [Troubleshooting](#troubleshooting).
+
+**Both apps hold credentials** - set their tokens, and keep the pair directory out
+of any share.
+
+The service is useful by hand too: a credential swap no longer has to wait for the
+Repairs card to appear first (it is raised only after the broker refuses, or on the
+hourly poll - up to an hour late).
+
+```yaml
+service: xpeng.import_credentials
+data:
+  tokens_path: /config/xpeng-secrets/xpeng_tokens.json
+  tenant_path: /config/xpeng-secrets/xpeng_tenant.json
+```
 
 ## Troubleshooting
 
