@@ -73,8 +73,9 @@ copied *inside* `custom_components/xpeng/`, which is what you get if you place i
 on the Home Assistant share.
 
 ```bash
+# asks for the password on stdin (nothing in shell history)
 python3 tools/onboard_email_login.py \
-    --email USER@example.com --password '<their password>' \
+    --email USER@example.com \
     --save --mqtt
 ```
 

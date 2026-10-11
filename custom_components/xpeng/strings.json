@@ -68,7 +68,7 @@
       },
       "import_tokens": {
         "title": "Import onboarding tokens",
-        "description": "Both files must come from the SAME run of the onboarding tool: the tenant carries the deviceId the tokens are sealed against, so a pair from different runs is rejected.\n\nRun `python3 tools/onboard_email_login.py --save --mqtt` on a machine with a browser, and drag the slider once when it opens - or let the renewal app mint the pair with the solver.\n\nPaste both files below, or give their paths if they are already on this host.",
+        "description": "Both files must come from the SAME run of the onboarding tool: the tenant carries the deviceId the tokens are sealed against, so a pair from different runs is rejected.\n\nOn a machine with a browser: `pip install cryptography`, extract the mTLS certificates from an APK (step 2), then run `python3 tools/onboard_email_login.py --email YOU@example.com --save --mqtt` - it prompts for the password and needs one slider drag. Or let the renewal app mint the pair with the solver, which needs no desktop at all.\n\nPaste both files below, or give their paths if they are already on this host.",
         "data": {
           "tokens_json": "xpeng_tokens.json contents",
           "tokens_path": "xpeng_tokens.json path (instead of pasting)",

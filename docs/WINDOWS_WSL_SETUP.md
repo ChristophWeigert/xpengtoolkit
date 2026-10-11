@@ -176,7 +176,6 @@ python3 tools/xpeng_apk_certs.py \
 ```bash
 python3 tools/onboard_email_login.py \
     --email YOUR_SECONDARY_EMAIL \
-    --password 'YOUR_PASSWORD' \
     --save --mqtt
 ```
 

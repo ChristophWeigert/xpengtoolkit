@@ -407,7 +407,7 @@ browser window; **drag the slider once**. It then writes two files:
 
 ```bash
 python3 tools/onboard_email_login.py \
-    --email YOUR_SECONDARY_EMAIL --password 'YOUR_PASSWORD' --save --mqtt
+    --email YOUR_SECONDARY_EMAIL --save --mqtt
 ```
 
 It writes **`xpeng_tokens.json`** and **`xpeng_tenant.json`** into
@@ -422,7 +422,7 @@ session cannot renew itself. A hosted solver removes it:
 
 ```bash
 python3 tools/onboard_email_login.py \
-    --email YOUR_SECONDARY_EMAIL --password 'YOUR_PASSWORD' \
+    --email YOUR_SECONDARY_EMAIL \
     --captcha-solver http://your-solver-host:8080 --save --mqtt
 ```
 

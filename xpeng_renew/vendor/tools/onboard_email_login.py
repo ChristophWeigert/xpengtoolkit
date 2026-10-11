@@ -24,6 +24,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import getpass
 import importlib.util
 import json
 import os
@@ -190,7 +191,10 @@ def solve_via_service(url: str, token: str = "", timeout: int = 120) -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--email", required=True)
-    ap.add_argument("--password", required=True)
+    # Deliberately not required: the tool asks for it when it is missing. That keeps
+    # a password out of the documentation's example commands and out of shell
+    # history, which is where a --password '...' argument ends up.
+    ap.add_argument("--password", default="")
     ap.add_argument("--save", action="store_true",
                     help="write xpeng_tokens.json + xpeng_tenant.json into the component")
     ap.add_argument("--mqtt", action="store_true", help="also call createMqttAccount")
@@ -239,6 +243,16 @@ def main() -> int:
              "interactive run can still drag the slider NetEase falls back to.",
     )
     args = ap.parse_args()
+
+    if not args.password:
+        try:
+            args.password = getpass.getpass("XPENG account password: ")
+        except (EOFError, KeyboardInterrupt):
+            print("[-] no password given", file=sys.stderr)
+            return 2
+        if not args.password:
+            print("[-] no password given", file=sys.stderr)
+            return 2
 
     env = dict(os.environ)
     env["XPENG_PLAYWRIGHT_DIR"] = args.playwright_dir
