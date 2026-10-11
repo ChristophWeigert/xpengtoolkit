@@ -5,7 +5,7 @@ refresh cannot extend it — measured at 2 h 12 m, 2 h 03 m and about 2 h on two
 accounts, with the refresh loop healthy right up to the moment the server ended
 it. One install has since run for **days** without an expiry, so treat the two
 hours as the common case rather than a rule - see
-[the device identity](./device-identity). An install meant to run for weeks
+[the device identity](#the-device-identity). An install meant to run for weeks
 therefore has to log in again before that happens, and a login normally needs a
 human to drag a slider.
 
@@ -266,10 +266,13 @@ schedule. Measured on one install:
   ~2 h 07 m–2 h 27 m — the cap;
 * after re-onboarding the same account with the device id already used by the
   phone, the session stayed valid for **3 h 44 m and counting**, with no `12010202`
-  ("Login status has expired") anywhere in the log.
+  ("Login status has expired") anywhere in the log;
+* an install running on a device id taken from its phone has since gone **days**
+  without an expiry.
 
-So a session bound to an identity XPENG has seen before outlives one bound to a
-brand-new identity. Practical consequences:
+So the two hours is not a clock on the session: it is what a *previously unseen*
+identity gets. A session bound to an identity XPENG has seen before outlives one
+bound to a brand-new identity. Practical consequences:
 
 * The 100-minute cycle is correct either way, and it is what makes a fresh install
   work: a new install mints a new id and gets about two hours.

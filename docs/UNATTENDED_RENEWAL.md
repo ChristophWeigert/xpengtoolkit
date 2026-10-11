@@ -252,10 +252,13 @@ than the schedule. Measured on 2026-10-10 on one install:
   ~2h07m–2h27m — the cap;
 * after re-onboarding the same account with the device id already used by the
   phone, the session stayed valid for **3h44m and counting**, with no `12010202`
-  ("Login status has expired") anywhere in the log.
+  ("Login status has expired") anywhere in the log;
+* an install running on a device id taken from its phone has since gone **days**
+  without an expiry.
 
-So a session bound to an identity XPENG has seen before outlives one bound to a
-brand-new identity. Practical consequences:
+So the two hours is not a clock on the session: it is what a *previously unseen*
+identity gets. A session bound to an identity XPENG has seen before outlives one
+bound to a brand-new identity. Practical consequences:
 
 * The 100-minute cycle is correct either way, and it is what makes a fresh install
   work: a new install mints a new id and gets ~2 hours.
