@@ -69,7 +69,9 @@ solver app clears.
 
 **Steps 4-5 are the whole of it**: the app creates the entry, then keeps it alive on
 its own timer. Without them the integration still works, but only until XPENG retires
-the session about two hours later, and then a fresh pair has to be pasted in by hand.
+the session - about two hours later on the accounts we measured, though not always (see
+[Unattended renewal](docs/UNATTENDED_RENEWAL.md)) - and then a fresh pair has to be
+pasted in by hand.
 If you would rather not run the apps at all, or
 not hand them the account password before you have seen the integration work,
 [the alternative](#alternative-mint-the-first-pair-yourself) mints the
@@ -433,15 +435,21 @@ is unchanged. Only `guardian_token.mjs` is still needed locally, so a caller tha
 only has the solver can run without Playwright or Chrome at all.
 
 The service is self-hosted and separate: see
-[xpengtoolkit/slider-solver](https://github.com/xpengtoolkit/slider-solver)
-(`docker run -e SOLVER_TOKEN=... -p 8080:8080`). It solves the account owner's own
-challenge on a host they control - keep it private, and never expose it without
-`SOLVER_TOKEN`.
+[xpengtoolkit/slider-solver](https://github.com/xpengtoolkit/slider-solver). There are two
+ways to run the **same container**, and they are alternatives rather than two components:
+as a Home Assistant **app**, which is the usual route on HAOS and what
+[Unattended renewal](docs/UNATTENDED_RENEWAL.md) installs, or as a **standalone Docker
+image** on any other host (`docker run -e SOLVER_TOKEN=... -p 8080:8080`) if you are not
+on HAOS or Supervised. It needs no human: it measures the slider and submits the answer
+itself. It solves the account owner's own challenge on a host they control - keep it
+private, and never expose it without `SOLVER_TOKEN`.
 
 That is what makes renewal unattended: with the whole flow headless, an install
 can mint fresh tokens before its session ends rather than waiting for the Repairs
-card. Sessions currently last about two hours from login (measured), so a renewal
-scheduled comfortably inside that window keeps an install alive indefinitely.
+card. Sessions last about two hours from login on the installs we measured, so a
+renewal scheduled comfortably inside that window keeps an install alive indefinitely -
+and one install has since run for days without an expiry, so the trigger is not simply
+elapsed time.
 
 Two things happen here that people do not expect:
 
@@ -632,9 +640,9 @@ it will appear in dashboards and in the recorder database.
 
 ## Unattended renewal
 
-XPENG retires a session about two hours after the login that created it, and a
-refresh cannot extend it - the refresh loop keeps working right up to the moment
-the server ends the session. Two apps take the human out of the loop:
+XPENG retires a session about two hours after the login that created it on the installs
+we measured - not invariably, one has run for days - and a refresh cannot extend it: the
+refresh loop keeps working right up to the moment the server ends the session. Two apps take the human out of the loop:
 
 * **[XPENG slider solver](https://github.com/xpengtoolkit/slider-solver)** - solves
   the login captcha. That slider is the only human step in onboarding, so this is

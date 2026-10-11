@@ -3,8 +3,11 @@
 XPENG retires a session about two hours after the login that created it, and a
 refresh cannot extend it — measured at 2 h 12 m, 2 h 03 m and about 2 h on two
 accounts, with the refresh loop healthy right up to the moment the server ended
-it. An install meant to run for weeks therefore has to log in again before that
-happens, and a login normally needs a human to drag a slider.
+it. One install has since run for **days** without an expiry, so treat the two
+hours as the common case rather than a rule - see
+[the device identity](./device-identity). An install meant to run for weeks
+therefore has to log in again before that happens, and a login normally needs a
+human to drag a slider.
 
 Two apps remove the human, and the renewal app decides when:
 
@@ -139,6 +142,17 @@ a renewal last ran, on a dashboard, and a trigger you can see and edit in the UI
 you want that, set **`renew_interval: 0`** on the app first, so the two are not both
 renewing.
 
+> **Two things trip people up here.** The sensor is
+> `binary_sensor.xpeng_<the last six characters of your VIN>_credentials_valid` - for the
+> VIN `L1NNSGHA3SB800783` that is `binary_sensor.xpeng_800783_credentials_valid`. Find
+> yours under **Settings -> Devices & Services -> Entities**, searching for
+> `credentials_valid`, and use exactly what you find; the placeholder is not a name
+> anything ships with. The `input_datetime` block below is also not decoration: the
+> automation reads it as its clock. If `input_datetime.xpeng_last_renewal` is not in your
+> entities, either the block never reached `configuration.yaml` or Home Assistant has not
+> been restarted since - and the automation will do nothing until it is. See *Avoiding the
+> helper* below if you would rather not create it at all.
+
 `configuration.yaml`:
 
 ```yaml
@@ -211,6 +225,24 @@ cap, and the failure state for the case where it did not.
 
 That order is not cosmetic. Verified on a live install: with the worker answering
 `401` the helper kept its previous value, and with a `200` it was stamped.
+
+### Avoiding the helper
+
+The helper exists to give the automation a clock and to put that clock on a dashboard. If
+you would rather not declare anything in `configuration.yaml`, an automation can use its
+own `last_triggered` instead - replace the `template` condition with:
+
+```yaml
+            - condition: template
+              value_template: >-
+                {{ this.attributes.last_triggered is none
+                   or (now() - this.attributes.last_triggered).total_seconds() > 6000 }}
+```
+
+and delete the final `input_datetime.set_datetime` action. `last_triggered` is `none` on
+the first run, which is what the first line covers, so the first renewal happens as soon
+as the automation is enabled. The trade is visibility: the helper is an entity you can put
+on a dashboard, while `last_triggered` is only visible in the automation's attributes.
 
 ### Why a helper, and 6000 seconds
 
