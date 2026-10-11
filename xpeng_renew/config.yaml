@@ -3,8 +3,9 @@ version: "0.1.15"
 slug: xpeng_renew
 description: >-
   Renews XPENG credentials unattended. Solves the login slider through the solver
-  add-on and imports the fresh pair with the integration's xpeng.import_credentials
-  service, so nothing needs a human - trigger it from an automation.
+  add-on, then imports the fresh pair - and on an install with no config entry yet it
+  creates that entry itself by driving the config flow, because
+  xpeng.import_credentials does not exist until an entry does. Nothing needs a human.
 url: https://github.com/xpengtoolkit/xpengtoolkit
 arch:
   - amd64
@@ -31,8 +32,9 @@ options:
   # Only needed if the token file has no VIN (the tool records one).
   vin: ""
   # Renew on this app's own timer, in seconds. 0 disables the scheduler and leaves
-  # triggering to Home Assistant (or to you). 6000s sits inside the ~2h session cap
-  # with room for a retry.
+  # triggering to Home Assistant (or to you). 6000s sits inside the ~2h window a
+  # *freshly minted* identity gets, with room for a retry: an install presenting a
+  # device id XPENG has seen before is not retired on a timer at all.
   renew_interval: 6000
   # How often to ask Home Assistant whether the credentials are still valid, so a
   # session that dies early is replaced within a few minutes.
