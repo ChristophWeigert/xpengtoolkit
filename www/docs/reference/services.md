@@ -56,6 +56,12 @@ curl -sS -X POST \
 automation; see [Credential import](#credential-import) and
 [Unattended renewal](../guide/unattended-renewal).
 
+Every service below belongs to a **capability group**, and is refused unless that group
+is at Full access - a ceiling that applies to automations, scripts, voice assistants and
+tokens alike. `xpeng.import_credentials` is the one exemption. See
+[Command permissions](../reference/command-permissions) for the groups and for what a
+refusal looks like.
+
 ## Climate and comfort
 
 ### climate_on

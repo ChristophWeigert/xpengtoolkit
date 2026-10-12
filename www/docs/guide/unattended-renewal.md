@@ -365,9 +365,11 @@ Then set the blueprint's action to:
     priority: 0        # Pushover's own scale; -2 quietest, 2 needs acknowledgement
 ```
 
+::: v-pre
 `{{ message }}` is what the blueprint works out from whichever check fired, and
 `{{ trigger.id }}` names it: `credentials`, `mqtt`, `polling`, `renewal`, `recovered` or
 `mqtt_recovered`. Both are available to any action you put there.
+:::
 
 ### What it checks, and the version floor
 

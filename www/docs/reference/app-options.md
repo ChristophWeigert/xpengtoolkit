@@ -46,9 +46,17 @@ imports it. If there is no config entry yet it creates one first — see
 | `solver_token` | password | empty | The solver's `solver_token`, if you set one |
 | `renew_token` | password | empty | Bearer token that `POST /renew` requires |
 | `pair_dir` | string | `/config/xpeng-secrets` | Where the minted pair is written for Home Assistant to read |
+| `command_mode` | optional list | `safe_plus` | What the integration may do to the car, applied when this app creates the config entry: `read_only`, `safe`, `safe_plus`, `full` (`charging` is the old name for `safe_plus`) |
 
 The renewal app declares no minimum or maximum for `renew_interval` or
 `invalid_poll_interval` beyond "integer", so the Supervisor accepts any value.
+
+`command_mode` is only *applied* when the app creates a config entry - an install
+that already has one keeps whatever the integration is set to, and changing it
+afterwards is the integration's own **Configure** screen. It exists so the
+app-driven route, which is the one that creates the entry with no human involved,
+does not silently land on Full access. See
+[Command permissions](../reference/command-permissions).
 
 ### The options that matter
 

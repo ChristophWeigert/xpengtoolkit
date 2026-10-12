@@ -256,6 +256,12 @@ optimistic control entities. Buttons send an MQTT command straight to the car
 with no confirmation; the last response is visible on
 `sensor.xpeng_<vehicle>_command_feedback`.
 
+Each one exists **only as far as [Command permissions](../reference/command-permissions)
+allows**: a group set to Disabled is not created at all, and one set to Read only keeps
+its state but refuses its commands - so an entity listed below can legitimately be
+missing. A new install starts at **Safe Plus**, which has everything here except the OTA
+switch, the trunk-power outlet, unlocking, the trunk and the windows.
+
 ### Buttons
 
 | Entity | Family | Action |
@@ -294,6 +300,8 @@ with no confirmation; the last response is visible on
 | `number.xpeng_<vehicle>_trunk_power_timer` | number | 0–1440 min, step 30 | Outlet auto-off; 0 switches the outlet off |
 | `select.xpeng_<vehicle>_driver_seat_heating` | select | Off / Low / Medium / High | Driver seat heat |
 | `select.xpeng_<vehicle>_passenger_seat_heating` | select | Off / Low / Medium / High | Passenger seat heat |
+| `select.xpeng_<vehicle>_driver_seat_ventilation` | select | Off / Ventilation 1 / Ventilation 2 | Driver seat ventilation |
+| `select.xpeng_<vehicle>_passenger_seat_ventilation` | select | Off / Ventilation 1 / Ventilation 2 | Passenger seat ventilation |
 | `select.xpeng_<vehicle>_steering_wheel_heating` | select | Off / Low / Medium / High | Steering-wheel heat |
 
 Besides these entities the integration registers services for the same operations

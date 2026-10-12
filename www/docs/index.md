@@ -32,6 +32,12 @@ features:
   details: |
     XPENG retires a session about two hours after the login that created it. Two
     helper apps mint a fresh pair and import it before that happens.
+- icon: "🔒"
+  title: Command permissions
+  details: |
+    A ceiling on what the integration may do to the car - presets, or per capability
+    group. A new install starts at Safe Plus: watch, pre-condition and charge, but not
+    unlock.
 - icon: "🚗"
   title: Around 120 entities
   details: |

@@ -62,6 +62,12 @@ A parked car is **never** force-woken on a schedule. The only force-upload sent 
 a possibly-sleeping car is a single one on a genuine Home Assistant restart, to
 seed the entity values.
 
+Even that can be switched off: **Allow the integration to wake the car**, on the
+same Configure screen, makes the integration strictly passive. It sends queries
+only, and the watchdog degrades to a passive query instead of a force-upload, at the
+price of staler sensors. See
+[Command permissions](../reference/command-permissions#allow-wake).
+
 The timing defaults, all options on the integration under
 **Settings → Devices & Services → XPENG → Configure**:
 
@@ -116,7 +122,11 @@ Roughly 120 entities across sensors, binary sensors, device tracker, lock,
 climate, select, number, switch, button, calendar and image: battery and range,
 charging state and charge limits, doors/windows/tyres, location, climate and seat
 heating, sentinel/X-Guard, OTA state, and a set of remote commands. The count
-varies with the car's configuration and with options such as the TBox ICCID.
+varies with the car's configuration, with options such as the TBox ICCID, and with
+[Command permissions](../reference/command-permissions): a group set to Disabled is
+not created, and one set to Read only keeps its state but refuses its commands. A new
+install starts at Safe Plus, so the OTA switch, the trunk-power outlet, unlocking, the
+trunk and the windows are absent until it is widened.
 
 A group of diagnostic entities answers a different question — "is the integration
 still receiving data?" — and is the first place to look when a value looks wrong.

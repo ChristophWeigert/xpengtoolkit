@@ -143,6 +143,14 @@ The integration **adopts** the device id from the imported tenant rather than
 minting a new one. If you ever see it mint a fresh one instead, the tenant did not
 come through, and the credentials will be rejected.
 
+The screen ends with two more fields, **Command permissions** and **Allow the
+integration to wake the car**, which decide what the integration is allowed to do to
+the car - independent of who is asking. A new install starts at **Safe Plus**: watch,
+pre-condition and charge, but not unlock, open, re-flash or command raw. Accept it, or
+pick **Full access** if you want what the integration did before 0.4.20; it can be
+changed at any time under **Configure**. See
+[Command permissions](../reference/command-permissions).
+
 ## Use a dedicated account
 
 **Create a new XPENG account and share your car to it. Do not sign this
@@ -182,6 +190,7 @@ login.
 | **The first run creates the entry itself** | On a fresh install there is nothing to import into, so the renewal app drives the config flow and creates the entry from the pair it just minted. Nothing is pasted, and there is no failure to expect. An answer of `400: No XPENG config entry to import credentials into` means the entry disappeared between the app's check and its call — run it again. |
 | **`solver_url` may need setting** | The default names the solver's container hostname as installed from the store. A local-folder install, and the bare host address, are different — see the [`solver_url` table](./unattended-renewal#if-solver_url-does-not-resolve). |
 | **Keep one `device_id`** | Set it once and leave it. Changing it on a live install changes the MQTT client id, and the stale client left behind is the failure in [Fault finding](./fault-finding#most-entities-are-unknown). |
+| **A new install starts at Safe Plus** | Since 0.4.20 the integration carries a ceiling on what it may do to the car, and a *new* entry starts at **Safe Plus** - so the OTA switch, the trunk-power outlet, unlocking, the trunk and the windows are not created until you widen it under **Configure**. An entry that predates the option keeps **Full access**, so an update changes nothing. If a control you expected is missing, that is [the reason](./fault-finding#a-control-is-missing), not a broken install. |
 
 ## Next
 

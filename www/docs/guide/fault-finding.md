@@ -153,6 +153,35 @@ rows, and the staged-credentials line is logged at debug level.
 | Login-expired lines in the log | Occasional warnings such as `Login token refresh failed:` or `Tokens still expired after refresh — triggering reauth`, each followed by a successful refresh | A steady stream of warnings with no success in between: the pair is dead and the Repairs card is the way back. The codes behind them are `12010101`, `12010104` and `12010202` |
 | Distinct MQTT client ids | **One** live id: count distinct `xmart:app:...` ids in the log and compare their *newest* timestamps | Two with recent timestamps — the competing-client case above. Restart Home Assistant |
 
+## A control is missing {#a-control-is-missing}
+
+An entity that simply is not there - no unlock button, no OTA switch, no charge-limit
+number - is usually **Command permissions**, not a fault. Since 0.4.20 every command
+belongs to a capability group that is **Full**, **Read only** or **Disabled**:
+Disabled means the entity is never created, and Read only keeps it reporting state but
+refuses its commands. A new install starts at **Safe Plus**, which leaves unlocking,
+the trunk and windows, OTA and raw commands out on purpose.
+
+Open **Settings → Devices & services → XPENG → Configure**: the first field shows the
+preset, and choosing **Custom** opens the per-group matrix. Widen the group you want and
+submit - the entry reloads and the entities come back, keeping their entity ids and
+their history. [Command permissions](../reference/command-permissions) lists which
+service and entity lives in each group.
+
+A *refused* command is different from a missing one, and says so. It raises with the
+group and the setting:
+
+```
+'xpeng.unlock' is blocked by this integration's command permissions: the 'Access
+actions' group is set to disabled in this integration's command permissions (mode:
+safe).
+```
+
+Every refusal also fires an `xpeng_command_denied` event and writes one warning to the
+log, so `grep Refused /config/home-assistant.log` answers "did something try?".
+Neither is a credentials problem: if the log shows `Login token refresh failed` as
+well, that is the separate case below.
+
 ## Getting back to a working login
 
 If the credentials really are dead, the integration raises a **Repairs** card named

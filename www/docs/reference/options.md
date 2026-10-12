@@ -27,6 +27,8 @@ directory (see [Certificate directory](#certificate-directory)).
 | `token_file` | Login token file (legacy) | empty | absolute path |
 | `tenant_file` | Tenant cache file (legacy) | `/config/custom_components/xpeng/xpeng_tenant.json` | absolute path |
 | `cert_dir` | Certificate directory | `/config/custom_components/xpeng/certs` | absolute path holding three PEM files |
+| `command_mode` | Command permissions | `safe_plus` on a new entry; Full access when unset | `read_only` / `safe` / `safe_plus` / `full` / `custom` |
+| `allow_wake` | Allow the integration to wake the car | on | on / off |
 | `iccid` | TBox SIM ICCID | empty | free text, diagnostic only |
 | `usable_battery_kwh` | Usable battery capacity (kWh) | `87.5` | `10`–`150` |
 
@@ -249,6 +251,25 @@ A value that is too high overstates parked drain and a value that is too low
 understates it; nothing else in the integration depends on the figure, and the
 estimate is also bounded per hour and per step in the coordinator so that a
 mis-set value cannot produce an absurd reading.
+
+## Command permissions
+
+The first two fields on the form decide what the integration may do to the car at all.
+`command_mode` is a preset - **Read only**, **Safe**, **Safe Plus** or **Full access**
+- and choosing **Custom** opens a second screen with one dropdown per capability group.
+`allow_wake` is separate because waking a sleeping car costs a little of its 12V
+battery: with it off the integration sends queries only, and the watchdog degrades to a
+passive query instead of a force-upload.
+
+| Setting | A new entry starts at | An entry with no stored value |
+| --- | --- | --- |
+| `command_mode` | `safe_plus` | **Full access** |
+| `allow_wake` | on | on |
+
+The second column is the upgrade guarantee: an install that predates the option keeps
+Full access, so an update never takes charging or unlocking away from an automation
+that relies on it. See [Command permissions](./command-permissions) for the groups,
+what each one covers, and what the mode does *not* protect against.
 
 ## Fixed timers
 

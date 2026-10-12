@@ -40,6 +40,7 @@ export default defineConfig({
         text: "Reference",
         items: [
           { text: "Integration options", link: "/reference/options" },
+          { text: "Command permissions", link: "/reference/command-permissions" },
           { text: "Entities", link: "/reference/entities" },
           { text: "Services", link: "/reference/services" },
           { text: "App options", link: "/reference/app-options" },
