@@ -1,0 +1,164 @@
+blueprint:
+  name: XPENG integration health check
+  description: >-
+    Watch the XPENG integration's own verdict on itself, plus the credential renewal app's
+    failure notice, and notify when something is wrong. Every check has a dwell window, so
+    a renewal taking a minute or an MQTT client reconnecting while the car is parked stays
+    silent. The message is available to your action as {{ message }}.
+  domain: automation
+  author: xpengtoolkit
+  source_url: https://github.com/xpengtoolkit/xpengtoolkit/blob/main/blueprints/automation/xpengtoolkit/health_check.yaml
+  homeassistant:
+    min_version: "2026.6.0"
+  input:
+    entities:
+      name: Entities
+      icon: mdi:car
+      input:
+        credentials_sensor:
+          name: Credentials valid
+          description: The binary sensor that says whether the integration still has working credentials.
+          selector:
+            entity:
+              domain: binary_sensor
+              integration: xpeng
+        mqtt_sensor:
+          name: MQTT connected
+          description: The binary sensor for the broker connection - the car being quiet is not the same thing.
+          selector:
+            entity:
+              domain: binary_sensor
+              integration: xpeng
+        polling_sensor:
+          name: Polling status
+          description: The status sensor. Parked is healthy; a long Reconnecting is not.
+          selector:
+            entity:
+              domain: sensor
+              integration: xpeng
+    notify:
+      name: What to do about it
+      icon: mdi:bell-ring
+      input:
+        notify_action:
+          name: Action on a problem
+          description: >-
+            Runs when something is wrong and again when it clears. Use notify.send_message
+            with your own notifier, or leave the default to keep the alert in Home
+            Assistant. The text is in {{ message }}; the run's trigger id is in
+            {{ trigger.id }}.
+          default:
+            - action: persistent_notification.create
+              data:
+                notification_id: xpeng_health_notify
+                title: XPENG health
+                message: "{{ message }}"
+          selector:
+            action: {}
+    thresholds:
+      name: Thresholds
+      icon: mdi:timer-outline
+      collapsed: true
+      input:
+        credentials_minutes:
+          name: Credentials invalid for
+          description: Long enough to cover a renewal and the session being replaced.
+          default: 20
+          selector:
+            number: { min: 1, max: 1440, unit_of_measurement: minutes }
+        mqtt_minutes:
+          name: MQTT down for
+          default: 30
+          selector:
+            number: { min: 1, max: 1440, unit_of_measurement: minutes }
+        polling_minutes:
+          name: Polling stuck for
+          default: 45
+          selector:
+            number: { min: 1, max: 1440, unit_of_measurement: minutes }
+        watch_renewal:
+          name: Also watch the renewal app's failure notice
+          description: >-
+            The renewal app posts a persistent notification after two consecutive failed
+            renewals; this forwards it. Turn off if that app is not installed.
+          default: true
+          selector:
+            boolean: {}
+
+variables:
+  credentials: !input credentials_sensor
+  mqtt: !input mqtt_sensor
+  polling: !input polling_sensor
+  message: >-
+    {% if trigger.id == 'credentials' %}
+      XPENG credentials are invalid: {{ state_attr(credentials, 'reason') or 'no reason given' }}
+    {% elif trigger.id == 'mqtt' %}
+      XPENG MQTT has been down for {{ mqtt_minutes }} minutes. Credentials are {{ states(credentials) }}.
+    {% elif trigger.id == 'polling' %}
+      XPENG polling is stuck on {{ states(polling) }} for {{ polling_minutes }} minutes.
+    {% elif trigger.id == 'renewal' %}
+      The XPENG credential renewal app has failed twice in a row. Its log is /config/xpeng-renew-last-run.log.
+    {% else %}
+      XPENG health recovered: credentials are {{ states(credentials) }}.
+    {% endif %}
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: state
+    entity_id: !input credentials_sensor
+    to: "off"
+    for:
+      minutes: !input credentials_minutes
+    id: credentials
+    note: The integration's own verdict; its reason attribute says which way it went.
+  - trigger: state
+    entity_id: !input mqtt_sensor
+    to: "off"
+    for:
+      minutes: !input mqtt_minutes
+    id: mqtt
+    note: The broker connection, not the car. Blips are normal; this is not.
+  - trigger: state
+    entity_id: !input polling_sensor
+    to: Reconnecting
+    for:
+      minutes: !input polling_minutes
+    id: polling
+    note: Parked is the healthy idle state and stays silent.
+  - trigger: persistent_notification
+    update_type: [added, updated]
+    notification_id: xpeng_renewal
+    id: renewal
+    enabled: !input watch_renewal
+    note: >-
+      updated matters as much as added: the app re-posts under the same id, which since
+      2026.9 fires updated and not added.
+  - trigger: state
+    entity_id: !input credentials_sensor
+    to: "on"
+    id: recovered
+  - trigger: state
+    entity_id: !input mqtt_sensor
+    to: "on"
+    id: mqtt_recovered
+
+conditions: []
+
+actions:
+  - if:
+      - condition: trigger
+        id: [recovered, mqtt_recovered]
+    then:
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: xpeng_health
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: xpeng_health_notify
+    else: !input notify_action
+    note: >-
+      The input is the whole branch, not an item inside it: Home Assistant will not splice a
+      tagged list into a list. The default input writes the card, so the card still happens by
+      default - and the two dismissals above cover both that card and the default's own.

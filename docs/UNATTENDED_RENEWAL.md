@@ -370,170 +370,92 @@ when run by hand — worth knowing if you copy the YAML from somewhere older.
 
 ## 8. Being told, instead of looking
 
-Everything above is something you go and read. This is the version that comes to you. It
-watches the integration's own verdict on itself and the renewal app's failure notice, and
-says nothing while things are well - every trigger carries a `for:` window, because a
-renewal takes about a minute and an MQTT client reconnecting while the car is parked is not
-news.
+Everything above is something you go and read. This is the version that comes to you: it
+watches the integration's own verdict on itself and the credential renewal app's failure
+notice, and says nothing while things are well.
 
-**Needs 0.4.4 or newer**, which is where the health binary sensors arrived. An older
-install carries `credential_age`, `last_data_update` and `polling_status` instead - on one of
-those, drop the `credentials_valid` and `mqtt_connected` triggers and keep the
-`polling_status` one, which is the check that still means something there.
+**Import the blueprint** - one click, and it stays updatable from source:
 
-Set `<vin6>` to the last six characters of your VIN (the entity ids are built from it) and
-replace the notify target with your own. Home Assistant validates this when you paste it
-into **Settings -> Automations -> Create automation -> Edit in YAML**; there are no helpers
-to create and nothing to add to `configuration.yaml`.
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub%2Ecom%2Fxpengtoolkit%2Fxpengtoolkit%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fxpengtoolkit%2Fhealth_check%2Eyaml)
 
-```yaml
-- id: xpeng_health_check
-  alias: XPENG health check
-  description: >-
-    Watches the integration's own verdict and the renewal app's failure notice, and speaks
-    only when a problem has persisted.
-  mode: single
-  max_exceeded: silent
-  triggers:
-    - trigger: state
-      entity_id: binary_sensor.xpeng_<vin6>_credentials_valid
-      to: "off"
-      for: "00:20:00"
-      id: credentials
-      note: >-
-        Off means no working credentials. The `reason` attribute says which way: "no
-        successful refresh yet", "N consecutive failures", or "no successful refresh for Ns".
-    - trigger: state
-      entity_id: binary_sensor.xpeng_<vin6>_mqtt_connected
-      to: "off"
-      for: "00:30:00"
-      id: mqtt
-      note: The broker connection, not the car. Blips are normal; half an hour is not.
-    - trigger: state
-      entity_id: sensor.xpeng_<vin6>_polling_status
-      to: Reconnecting
-      for: "00:45:00"
-      id: polling
-      note: >-
-        Parked is the healthy idle state and stays silent. Stuck on Reconnecting is what an
-        unreachable cloud looks like from here.
-    - trigger: persistent_notification
-      update_type: [added, updated]
-      notification_id: xpeng_renewal
-      id: renewal
-      note: >-
-        The renewal app posts this after two consecutive failed renewals, so this forwards
-        its own alarm to a phone. `updated` matters as much as `added`: the app re-posts
-        under the same id, which since 2026.9 fires `updated` and not `added`.
-    - trigger: state
-      entity_id: binary_sensor.xpeng_<vin6>_credentials_valid
-      to: "on"
-      id: recovered
-    - trigger: state
-      entity_id: binary_sensor.xpeng_<vin6>_mqtt_connected
-      to: "on"
-      id: mqtt_recovered
-  conditions: []
-  actions:
-    - choose:
-        - conditions:
-            - condition: trigger
-              id: credentials
-          sequence:
-            - action: persistent_notification.create
-              data:
-                notification_id: xpeng_health
-                title: XPENG credentials are invalid
-                message: >-
-                  {{ state_attr('binary_sensor.xpeng_<vin6>_credentials_valid', 'reason')
-                     or 'no reason given' }}. Last data update:
-                  {{ states('sensor.xpeng_<vin6>_last_data_update') }}.
-            - action: notify.send_message
-              continue_on_error: true
-              target:
-                entity_id: notify.oneplus13        # <- your notifier
-              data:
-                title: XPENG credentials are invalid
-                message: >-
-                  {{ state_attr('binary_sensor.xpeng_<vin6>_credentials_valid', 'reason')
-                     or 'no reason given' }}
-        - conditions:
-            - condition: trigger
-              id: mqtt
-          sequence:
-            - action: persistent_notification.create
-              data:
-                notification_id: xpeng_health
-                title: XPENG MQTT has been down for 30 minutes
-                message: >-
-                  The broker connection, not the car. Credentials are
-                  {{ states('binary_sensor.xpeng_<vin6>_credentials_valid') }}.
-            - action: notify.send_message
-              continue_on_error: true
-              target:
-                entity_id: notify.oneplus13
-              data:
-                title: XPENG MQTT down 30 min
-                message: The broker connection was lost.
-        - conditions:
-            - condition: trigger
-              id: polling
-          sequence:
-            - action: persistent_notification.create
-              data:
-                notification_id: xpeng_health
-                title: XPENG polling is stuck
-                message: >-
-                  {{ states('sensor.xpeng_<vin6>_polling_status') }} for 45 minutes, with
-                  credentials
-                  {{ states('binary_sensor.xpeng_<vin6>_credentials_valid') }}.
-            - action: notify.send_message
-              continue_on_error: true
-              target:
-                entity_id: notify.oneplus13
-              data:
-                title: XPENG polling stuck
-                message: Reconnecting for 45 minutes.
-        - conditions:
-            - condition: trigger
-              id: renewal
-          sequence:
-            - action: persistent_notification.create
-              data:
-                notification_id: xpeng_health
-                title: XPENG renewal is failing
-                message: >-
-                  The renewal app has failed twice in a row. Its log is at
-                  /config/xpeng-renew-last-run.log, and /healthz on the app has the counters.
-            - action: notify.send_message
-              continue_on_error: true
-              target:
-                entity_id: notify.oneplus13
-              data:
-                title: XPENG renewal failing
-                message: Two consecutive failures.
-        - conditions:
-            - condition: trigger
-              id: [recovered, mqtt_recovered]
-          sequence:
-            - action: persistent_notification.dismiss
-              data:
-                notification_id: xpeng_health
-      default: []
+Or paste this URL into **Settings -> Automations -> Blueprints -> Import blueprint**:
+
+```
+https://github.com/xpengtoolkit/xpengtoolkit/blob/main/blueprints/automation/xpengtoolkit/health_check.yaml
 ```
 
-Three things worth knowing about it:
+Create an automation from it and answer five questions:
 
-* **The `notification_id` is reused deliberately.** A re-alert replaces the previous card
-  instead of stacking a new one, and recovery dismisses it. One card, always current.
-* **`continue_on_error` on the phone push is not laziness.** The persistent notification is
-  the channel that always works; if the phone is offline or the notifier is renamed, the
-  run must still finish so the card and the log both happen.
-* **The thresholds are choices, not measurements.** Twenty minutes tolerates a renewal
-  (about a minute, plus the app's own retry) and a session being replaced; the MQTT and
-  polling windows are wide enough that a parked car's normal quiet stays silent. Note that
-  a `for:` clock restarts on every Home Assistant restart or momentary `unavailable`, which
-  is fine here - it delays an alert rather than losing it.
+| Input | What to pick |
+|---|---|
+| Credentials valid | `binary_sensor.xpeng_<vin6>_credentials_valid` |
+| MQTT connected | `binary_sensor.xpeng_<vin6>_mqtt_connected` |
+| Polling status | `sensor.xpeng_<vin6>_polling_status` |
+| Action on a problem | your notifier, or leave the default |
+| Thresholds | 20 / 30 / 45 minutes, and whether to watch the renewal app |
 
-If the renewal app is not installed, delete the `persistent_notification` trigger: the other
-checks stand on their own.
+`<vin6>` is the last six characters of your VIN - the entity ids are built from it.
+
+### Notifications, including Pushover
+
+**The default needs nothing configured.** It writes a persistent notification, so the
+automation is useful on an install with no phone notifier at all - which is exactly what it
+was tested on. To send it to a phone, point the action input at your own notifier:
+
+```yaml
+- action: notify.send_message
+  target:
+    entity_id: notify.your_phone
+  data:
+    title: XPENG health
+    message: "{{ message }}"
+```
+
+**Pushover** works the same way, once Pushover itself is configured. It has no config flow,
+so it lives in `configuration.yaml`:
+
+```yaml
+notify:
+  - platform: pushover
+    name: pushover
+    api_key: !secret pushover_api_key
+    user_key: !secret pushover_user_key
+```
+
+Then set the blueprint's action to:
+
+```yaml
+- action: notify.pushover
+  data:
+    title: XPENG health
+    message: "{{ message }}"
+    priority: 0        # Pushover's own scale; -2 quietest, 2 needs acknowledgement
+```
+
+`{{ message }}` is what the blueprint works out from whichever check fired, and
+`{{ trigger.id }}` names it: `credentials`, `mqtt`, `polling`, `renewal`, `recovered` or
+`mqtt_recovered`. Both are available to any action you put there.
+
+### What it checks, and the version floor
+
+| Check | Fires when | Why that window |
+|---|---|---|
+| Credentials valid | `off` for 20 minutes | Covers a renewal (about a minute) and a session being replaced |
+| MQTT connected | `off` for 30 minutes | The broker, not the car: blips while parked are normal |
+| Polling status | `Reconnecting` for 45 minutes | `Parked` is the healthy idle state and stays silent |
+| The renewal app | its persistent notification appears | It posts that after two consecutive failed renewals, so this forwards it |
+
+Needs **Home Assistant 2026.6** or newer (the per-trigger `note:` fields) and integration
+**0.4.4+**, which is where the health binary sensors arrived. An older install carries
+`credential_age`, `last_data_update` and `polling_status` instead - on one of those, feed the
+blueprint the polling sensor and turn the renewal check off. A `for:` clock restarts on every
+Home Assistant restart or momentary `unavailable`, which is fine here: it delays an alert
+rather than losing it.
+
+### Two things learned the hard way
+
+* **Editing a blueprint needs a Home Assistant restart.** Blueprints are cached: an edited
+  file is not re-read for validation until then. A first draft of this one kept being
+  rejected for a fault that had already been fixed on disk until the box was restarted.
+* **An automation's entity id comes from its `alias`, not its `id`.** Two automations whose
+  aliases differ only in punctuation can surprise you when you go looking for one by id.
