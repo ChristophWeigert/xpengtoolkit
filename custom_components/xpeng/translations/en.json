@@ -90,7 +90,7 @@
           "allow_wake": "Allow the integration to wake the car"
         },
         "data_description": {
-          "command_mode": "Full access is what the integration has always done. Read only, Safe and Charging cover everything below Full access; pick Custom to choose per capability group instead.",
+          "command_mode": "Safe Plus is the default for a new install: status, climate, lights, locking and charging, with unlocking, the trunk and windows, OTA and raw commands left off. Read only and Safe are narrower; Full access is what the integration did before this option existed, and includes unlocking. Pick Custom to choose per capability group instead.",
           "allow_wake": "Waking a sleeping car costs a little of its 12V battery and is only used to fetch a fresh full state. Turning this off makes the integration strictly passive, at the price of staler sensors."
         }
       }
@@ -144,7 +144,7 @@
           "notification_poll_interval": "Message Centre poll interval (seconds)"
         },
         "data_description": {
-          "command_mode": "Read only, Safe and Charging are presets; Custom opens a second screen and lets you set each capability group to Full, Read only or Disabled.",
+          "command_mode": "Read only, Safe, Safe Plus and Full access are presets; Custom opens a second screen and lets you set each capability group to Full, Read only or Disabled. An install that has never been configured stays at Full access, so changing this cannot take a capability away from an automation by surprise.",
           "allow_wake": "Only affects waking a sleeping car for a full state update. Charge and drive polls are unaffected because the car is already awake.",
           "scan_interval": "How often to query the vehicle state via MQTT (10-3600 seconds)",
           "parked_scan_interval": "Query interval when vehicle is parked (60-7200 seconds). Reduces unnecessary polling.",

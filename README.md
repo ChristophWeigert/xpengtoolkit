@@ -502,7 +502,7 @@ Then configure the renewal app:
 | `solver_token` | the solver's token, if you set one |
 | `device_id` | leave blank and the first renewal pins it, or set it yourself. Do not change it afterwards - [it is the stale-client trap](#most-entities-are-unknown) |
 | `pair_dir` | `/config/xpeng-secrets` by default. `chmod 700` it |
-| `command_mode` | what the integration may do to the car, applied when the app creates the entry on a fresh install: `read_only`, `safe`, `charging` or `full` (default). See [Command permissions](#command-permissions---what-the-integration-may-do-to-the-car) |
+| `command_mode` | what the integration may do to the car, applied when the app creates the entry on a fresh install: `read_only`, `safe`, `safe_plus` (**default**), or `full` (`charging` is the old name for `safe_plus`). See [Command permissions](#command-permissions---what-the-integration-may-do-to-the-car) |
 
 The pair directory is live credentials on disk: `chmod 700`, and keep it out of any
 share.
@@ -515,7 +515,7 @@ that pair. Within a minute or so **Settings -> Devices & Services** shows
 `XPENG <last six of your VIN>` and the entities fill in.
 
 The entry is created with the command permissions the app was configured with
-(`command_mode`, Full access unless you changed it). Answering the same question by
+(`command_mode`, Safe Plus unless you changed it). Answering the same question by
 hand - **Settings -> Devices & Services -> XPENG -> Configure -> Command
 permissions** - asks it as a preset, with a *Custom* option for the per-group matrix.
 See [Command permissions](#command-permissions---what-the-integration-may-do-to-the-car).
@@ -810,15 +810,18 @@ That is usually not zero consumption but a restricted endpoint on a shared accou
 Every command this integration can send belongs to one **capability group**, and
 each group is set to **Full** (commands run), **Read only** (the entities and their
 state stay, commands are refused) or **Disabled** (the entities are not created at
-all). The setup screen asks which of four presets you want; **Configure -> Command
-permissions** changes it later, and *Custom* there opens the per-group matrix.
+all). The setup screen asks which of four presets you want (**Safe Plus** by default);
+**Configure -> Command permissions** changes it later, and *Custom* there opens the
+per-group matrix. An install that predates this option keeps **Full access** until
+someone changes it - the new default applies to new entries only, so an upgrade never
+takes a capability away from an existing automation.
 
 | Preset | What it allows |
 |---|---|
 | **Read only** | Status and queries only - nothing that actuates the car. |
 | **Safe** | The above, plus comfort and climate, lights, and the *securing* actions: locking, closing windows and the trunk, arming X-Guard. |
-| **Charging** | Safe, plus charging (start/stop, charge limit, both port doors) and the V2L outlet. |
-| **Full access** | Everything: unlocking, opening the trunk or windows, disarming X-Guard, firmware/OTA and raw commands. This is what the integration always did before this option existed, and it is the default. |
+| **Safe Plus** *(default)* | Safe, plus charging (start/stop, charge limit, both port doors) and the V2L outlet. This is what a new install starts at: the car can be watched, pre-conditioned and charged, but not unlocked, opened, re-flashed or commanded raw. |
+| **Full access** | Everything: unlocking, opening the trunk or windows, disarming X-Guard, firmware/OTA and raw commands. What the integration always did before this option existed. |
 
 Groups are split by **what an action does to the car**, not by subsystem. That is
 why the door lock, the windows, the trunk and X-Guard each appear twice: locking,
@@ -886,7 +889,8 @@ action:
 
 - **Certificate directory** - where your mTLS files live (defaults to the
   integration's `certs/` folder)
-- **Command permissions** - the presets or the per-group matrix described above
+- **Command permissions** - the presets (Safe Plus by default for a new entry, Full
+  access for an entry that predates the option) or the per-group matrix described above
 - **Allow wake** - whether the integration may wake a sleeping car
 
 ## Disclaimer

@@ -70,7 +70,7 @@ PAIR_DIR = _setting("pair_dir", "/config/xpeng-secrets")
 # integration asks the question (it must not be a step of its own: this app
 # requires `create_entry` back from the POST below). An older integration
 # ignores an unknown field; a newer one stores it.
-COMMAND_MODE = _setting("command_mode", "full") or "full"
+COMMAND_MODE = _setting("command_mode", "safe_plus") or "safe_plus"
 # An override for the VIN used to create a config entry on a fresh install. The
 # onboarding tool records one in the token file when the API gave it one, so this
 # is only needed for a pair written before that, or by hand.

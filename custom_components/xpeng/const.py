@@ -146,10 +146,17 @@ DEFAULT_PARKED_SCAN_INTERVAL: Final = 3600  # seconds (1 hour when parked)
 # (~87.5 kWh usable). Override in the integration options for other variants
 # (e.g. G6 Standard Range LFP ≈ 66 kWh).
 DEFAULT_USABLE_BATTERY_KWH: Final = 87.5
-#: An entry with no stored policy does what it always did. Deliberately FULL
-#: and not a restrictive mode: silently removing a capability on upgrade would
-#: be a breaking change for every existing automation.
-DEFAULT_COMMAND_MODE: Final = "full"
+#: What a **new** entry starts at - the default selection on the setup screen and
+#: in the renewal app. Safe Plus: it is what most installs are for (watch the car,
+#: charge it) while leaving unlocking, the trunk, OTA and raw commands off.
+#:
+#: This is NOT the fallback for an entry with no stored policy. That lives in
+#: command_policy.normalize_groups and is FULL, deliberately: an install that
+#: predates this option must not silently lose a capability its automations rely
+#: on. Two different questions - "what should a new one be?" and "what was this
+#: one already doing?" - and answering both with one constant would break the
+#: second.
+DEFAULT_COMMAND_MODE: Final = "safe_plus"
 
 # MQTT topics
 MQTT_SEND_TOPIC: Final = "Xmart/Send/User/{user_id}"

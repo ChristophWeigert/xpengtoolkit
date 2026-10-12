@@ -94,14 +94,24 @@ ALL_PERMISSIONS: tuple[str, ...] = (PERM_FULL, PERM_READ_ONLY, PERM_DISABLED)
 
 PRESET_READ_ONLY = "read_only"
 PRESET_SAFE = "safe"
-PRESET_CHARGING = "charging"
+PRESET_SAFE_PLUS = "safe_plus"
 PRESET_FULL = "full"
 PRESET_CUSTOM = "custom"
 
+#: Names this bundle has answered to before. ``command_mode`` values written by
+#: an older app (or an older options form) must keep resolving to the *same*
+#: permissions: an unknown preset falls back to FULL, so forgetting an alias
+#: would silently widen someone's ceiling rather than narrow it - the wrong
+#: direction for a permission to fail in.
+PRESET_ALIASES: Mapping[str, str] = {"charging": PRESET_SAFE_PLUS}
+
+#: The order the UI offers them in, narrowest first. ``preset_for`` walks this,
+#: so no two entries may carry the same group map or the reported mode would be
+#: whichever happened to come first.
 SELECTABLE_PRESETS: tuple[str, ...] = (
     PRESET_READ_ONLY,
     PRESET_SAFE,
-    PRESET_CHARGING,
+    PRESET_SAFE_PLUS,
     PRESET_FULL,
 )
 
@@ -122,13 +132,17 @@ def _preset(*full_groups: str) -> dict[str, str]:
 #: * ``safe`` adds the *securing* direction (lock, close windows, close trunk,
 #:   arm X-Guard). Those only reduce access, so they cannot compromise the car,
 #:   and leaving them out would mean a "safe" install cannot lock itself.
-#: * ``charging`` additionally allows charging and the V2L outlet.
-#: * ``full`` is today's behaviour, and the default for any entry that has no
-#:   stored policy.
+#: * ``safe_plus`` additionally allows charging and the V2L outlet. It is what
+#:   a **new** entry starts at (``const.DEFAULT_COMMAND_MODE``), because it is
+#:   what most installs are actually for - watching the car and charging it -
+#:   while leaving unlocking, the trunk, OTA and raw commands switched off.
+#: * ``full`` is everything. It is *not* the default for a new entry, but it is
+#:   what an entry with no stored policy resolves to, which is what keeps an
+#:   upgrade from silently removing capability from an existing install.
 PRESETS: Mapping[str, Mapping[str, str]] = {
     PRESET_READ_ONLY: _preset(GROUP_QUERIES),
     PRESET_SAFE: _preset(GROUP_QUERIES, GROUP_COMFORT, GROUP_LIGHTS, GROUP_SECURING),
-    PRESET_CHARGING: _preset(
+    PRESET_SAFE_PLUS: _preset(
         GROUP_QUERIES,
         GROUP_COMFORT,
         GROUP_LIGHTS,
@@ -304,7 +318,13 @@ class CommandPolicy:
 
     @classmethod
     def from_preset(cls, preset: str, allow_wake: bool = True) -> "CommandPolicy":
-        """Build from a preset name; unknown names fall back to FULL."""
+        """Build from a preset name; unknown names fall back to FULL.
+
+        Old names are resolved through ``PRESET_ALIASES`` first, so a stored
+        ``charging`` means what it always meant instead of falling through to
+        the FULL fallback.
+        """
+        preset = PRESET_ALIASES.get(preset, preset)
         table = PRESETS.get(preset, PRESETS[PRESET_FULL])
         return cls(groups=normalize_groups(table), allow_wake=allow_wake)
 

@@ -179,7 +179,7 @@ def _install_const_stub():
         "CONF_COMMAND_MODE": "command_mode",
         "CONF_ALLOW_WAKE": "allow_wake",
         "DEFAULT_SERVER": "iot-app-global.xiaopeng.com:8885",
-        "DEFAULT_COMMAND_MODE": "full",
+        "DEFAULT_COMMAND_MODE": "safe_plus",
     }
 
     def _default(name: str):
@@ -336,8 +336,8 @@ def main() -> int:
         google_fields = _form_fields(r)
         check("google form asks the command-permission question",
               {"command_mode", "allow_wake"} <= set(google_fields))
-        check("and it is optional, defaulting to Full access",
-              google_fields.get("command_mode") == "full"
+        check("and it is optional, defaulting to Safe Plus",
+              google_fields.get("command_mode") == "safe_plus"
               and google_fields.get("allow_wake") is True)
 
         # The renewal app's route, which is the one that must not break: it
@@ -356,7 +356,7 @@ def main() -> int:
         check("the app's form carries the question too",
               {"command_mode", "allow_wake"} <= set(import_fields))
         check("with a default, so an app that omits it still creates the entry",
-              import_fields.get("command_mode") == "full"
+              import_fields.get("command_mode") == "safe_plus"
               and import_fields.get("allow_wake") is True)
 
         # 3. a bad paste is rejected
@@ -379,8 +379,10 @@ def main() -> int:
         check("access refused", options.get("access") == "disabled")
         check("charging refused", options.get("charging") == "disabled")
         check("allow_wake recorded", options.get("allow_wake") is True)
-        check("an unanswered question means Full access",
-              cf._command_policy_from({}).mode == "full")
+        check("an unanswered question means Safe Plus",
+              cf._command_policy_from({}).mode == "safe_plus")
+        check("and Safe Plus leaves unlocking off",
+              cf._command_policy_from({}).allows("access") is False)
         data = r.get("data", {})
         check("auth_method recorded as google", data.get(const.CONF_AUTH_METHOD) == const.AUTH_METHOD_GOOGLE)
         check("no password stored", data.get(const.CONF_XPENG_PASSWORD) == "")
@@ -508,11 +510,15 @@ class CommandPermissionStepTests(unittest.TestCase):
         # import_tokens, email_code and google - one call each.
         self.assertEqual(self.CF.count("**_command_policy_fields(),"), 3)
 
-    def test_an_unanswered_question_means_full_access(self):
+    def test_an_unanswered_question_means_the_new_entry_default(self):
+        """A new entry gets Safe Plus; an entry with no policy keeps Full access."""
         start = self.CF.index("def _command_policy_from(")
         body = self.CF[start:start + 400]
         self.assertIn("DEFAULT_COMMAND_MODE", body)
         self.assertIn("CommandPolicy.from_preset(", body)
+        const = (PKG_DIR / "const.py").read_text()
+        defaults = const[const.index("# Defaults"):const.index("# MQTT topics")]
+        self.assertIn('DEFAULT_COMMAND_MODE: Final = "safe_plus"', defaults)
 
     def test_the_app_can_answer_it(self):
         """The app that creates the entry must be able to set the mode too."""
@@ -521,7 +527,8 @@ class CommandPermissionStepTests(unittest.TestCase):
         source = self.RENEW.read_text(encoding="utf-8")
         self.assertIn('"command_mode": COMMAND_MODE', source)
         config = (_component.ROOT / "xpeng_renew" / "config.yaml").read_text()
-        self.assertIn("command_mode: list(read_only|safe|charging|full)", config)
+        self.assertIn("command_mode: list(read_only|safe|safe_plus|charging|full)", config)
+        self.assertIn("command_mode: safe_plus", config)
 
     def test_the_options_flow_offers_a_matrix_for_a_custom_mode(self):
         self.assertIn("async def async_step_groups(", self.CF)

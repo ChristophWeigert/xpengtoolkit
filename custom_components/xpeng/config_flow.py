@@ -31,7 +31,7 @@ from .command_policy import (
     PERM_DISABLED,
     PERM_FULL,
     PERM_READ_ONLY,
-    PRESET_CHARGING,
+    PRESET_SAFE_PLUS,
     PRESET_CUSTOM,
     PRESET_FULL,
     PRESET_READ_ONLY,
@@ -365,7 +365,9 @@ def _preset_options() -> list[dict[str, str]]:
         PRESET_SAFE: (
             "Safe - read only, plus climate, lights, and locking/closing"
         ),
-        PRESET_CHARGING: "Charging - safe, plus charging and the V2L outlet",
+        PRESET_SAFE_PLUS: (
+            "Safe Plus - safe, plus charging and the V2L outlet (default)"
+        ),
         PRESET_FULL: "Full access - everything, including unlocking",
     }
     options = [

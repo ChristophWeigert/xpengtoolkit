@@ -240,12 +240,58 @@ class TestPolicyArithmetic(unittest.TestCase):
         self.assertTrue(p.exposes(policy.GROUP_SECURING))
         self.assertFalse(p.exposes(policy.GROUP_ACCESS))
 
-    def test_charging_adds_charging_and_the_outlet(self):
-        p = policy.CommandPolicy.from_preset(policy.PRESET_CHARGING)
+    def test_safe_plus_adds_charging_and_the_outlet(self):
+        p = policy.CommandPolicy.from_preset(policy.PRESET_SAFE_PLUS)
         self.assertTrue(p.allows(policy.GROUP_CHARGING))
         self.assertTrue(p.allows(policy.GROUP_POWER))
         self.assertFalse(p.allows(policy.GROUP_ACCESS))
         self.assertFalse(p.allows(policy.GROUP_ADVANCED))
+
+    def test_the_old_charging_name_still_means_safe_plus(self):
+        """An unknown preset falls back to FULL, so an alias is not cosmetic.
+
+        A stored or app-sent `charging` must resolve to the same bundle, not
+        silently widen the ceiling to everything.
+        """
+        old = policy.CommandPolicy.from_preset("charging")
+        new = policy.CommandPolicy.from_preset(policy.PRESET_SAFE_PLUS)
+        self.assertEqual(old.groups, new.groups)
+        self.assertEqual(old.mode, policy.PRESET_SAFE_PLUS)
+        self.assertNotEqual(old.groups, policy.PRESETS[policy.PRESET_FULL])
+        self.assertFalse(old.allows(policy.GROUP_ACCESS))
+
+    def test_no_two_presets_share_a_group_map(self):
+        """`preset_for` returns the first match, so a duplicate makes `mode` lie."""
+        seen = {}
+        for name in policy.SELECTABLE_PRESETS:
+            key = tuple(sorted(policy.PRESETS[name].items()))
+            self.assertNotIn(key, seen, f"{name} has the same map as {seen.get(key)}")
+            seen[key] = name
+
+    def test_a_new_entry_defaults_to_safe_plus_while_an_absent_policy_is_full(self):
+        """The pair that matters, and they are different questions.
+
+        ``DEFAULT_COMMAND_MODE`` answers "what should a new entry be?". An entry
+        with no stored policy must still answer "what was this one already
+        doing?" - and the only safe answer is Full access, or an upgrade would
+        take charging away from an automation.
+        """
+        const = (PKG / "const.py").read_text()
+        defaults = const[const.index("# Defaults"):const.index("# MQTT topics")]
+        self.assertIn(
+            'DEFAULT_COMMAND_MODE: Final = "safe_plus"',
+            defaults,
+            "a new entry must start at Safe Plus",
+        )
+
+        new_entry = policy.CommandPolicy.from_preset("safe_plus")
+        self.assertTrue(new_entry.allows(policy.GROUP_CHARGING))
+        self.assertFalse(new_entry.allows(policy.GROUP_ACCESS))
+
+        existing = policy.CommandPolicy.from_options(None)
+        self.assertEqual(existing.mode, policy.PRESET_FULL)
+        existing_partial = policy.CommandPolicy.from_options({"scan_interval": 60})
+        self.assertEqual(existing_partial.mode, policy.PRESET_FULL)
 
     def test_full_is_everything(self):
         p = policy.CommandPolicy.from_preset(policy.PRESET_FULL)
