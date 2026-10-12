@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""xpeng_vin.py — offline XPENG (小鹏) VIN decoder. Standard library only.
+"""vin_descriptor.py — offline XPENG (小鹏) VIN decoder. Standard library only.
+
+Renamed from ``xpeng_vin.py``; the module is shipped inside the integration, and
+there is no standalone ``xpeng_vin.py`` in the repository any more. Import it by
+its real name (``from .vin_descriptor import decode``, or by path for a
+checkout).
 
 WHY THIS EXISTS
 ---------------
@@ -57,24 +62,26 @@ returns ``seriesName`` / ``seriesCode`` / ``vehicleTypeCode`` / ``diagramVersion
 
 USAGE
 -----
-    >>> import xpeng_vin
-    >>> info = xpeng_vin.decode("L1NNSGHA1SB000001")
+    >>> import vin_descriptor
+    >>> info = vin_descriptor.decode("L1NNSGHA1SB000001")
     >>> info.model_name, info.model_year, info.plant
     ('XPENG G6', 2025, 'Guangzhou')
 
-    >>> print(xpeng_vin.explain("L1NNSGHA1SB000001"))
+    >>> print(vin_descriptor.explain("L1NNSGHA1SB000001"))
 
 CLI:
-    python xpeng_vin.py L1NNSGHA1SB000001
-    python xpeng_vin.py L1NNSGHA1SB000001 --json
-    python xpeng_vin.py --selftest
-    python xpeng_vin.py --learn L1NNSGHA1SB000001 --model "XPENG G6" --source manual
+    python3 custom_components/xpeng/vin_descriptor.py L1NNSGHA1SB000001
+    python3 custom_components/xpeng/vin_descriptor.py L1NNSGHA1SB000001 --json
+    python3 custom_components/xpeng/vin_descriptor.py --selftest
+    python3 custom_components/xpeng/vin_descriptor.py --learn L1NNSGHA1SB000001 \\
+            --model "XPENG G6" --source manual
 
 Grow the table from real observations:
-    overlay = xpeng_vin.load_overlay("my_overlay.json")   # {"NXXXX": {...}}
-    info = xpeng_vin.decode(vin, overlay=overlay)
-    xpeng_vin.save_overlay("my_overlay.json",
-                           xpeng_vin.learn(vin, model_name="XPENG G9")["overlay"])
+    overlay = vin_descriptor.load_overlay("my_overlay.json")   # {"NXXXX": {...}}
+    info = vin_descriptor.decode(vin, overlay=overlay)
+    vin_descriptor.save_overlay("my_overlay.json",
+                                vin_descriptor.learn(vin,
+                                                     model_name="XPENG G9")["overlay"])
 
 Author: built for the xpeng-mqtt / HA XPENG integration project.
 License: MIT.
@@ -153,6 +160,31 @@ VDS_TABLE: dict[str, dict[str, Any]] = {
             "pos 7 'H' = high-performance motor",
             "pos 8 'A' = trim / equipment level",
             "pos 5 'S' = body style",
+        ),
+    },
+    "NSGHB": {
+        "model_family": "G9",
+        "model_name": "XPENG G9",
+        "body_style": "SUV",
+        "miit_model_code": None,          # no MIIT announcement observed for this VDS
+        "powertrain": None,               # unknown — positions 4-8 do not encode it
+        "encodes": ["model_family"],
+        "confidence": "reported",         # one vehicle, owner-reported
+        "evidence": (
+            "EU G9 AWD Performance (Black Edition), MY2025, plant D (Magna Graz), "
+            "reported by its owner through the issue tracker",
+            "the API's own vehicleTypeName for that VIN is `E38b` (recorded as "
+            "observed; what E38 designates is not established here)",
+            "sits in the NSGH* series beside the confirmed NSGHA (G6) and NSGHC (X9)",
+        ),
+        "observed_variants": (
+            "one vehicle so far: AWD Performance, 93.1 kWh pack, tow bar — recorded "
+            "as an observation, not as something the VDS encodes",
+        ),
+        "caveat": (
+            "no MIIT or ROVER type approval has been seen for this VDS yet, and the "
+            "G9 ships at least four packs — none of that is separable from positions "
+            "4-8, so keep the pack size a setting (see usable_battery_kwh)"
         ),
     },
     "SPGHB": {
@@ -682,7 +714,8 @@ def decode(
     else:
         warnings.append(
             f"VDS {vds!r} is not in the table — model unknown. "
-            f"Contribute it with xpeng_vin.learn(vin, model_name=...)."
+            f"Report it (open an issue naming the model), or run "
+            f"`vin_descriptor.py --learn <vin> --model <name>` and contribute the overlay."
         )
 
     if vds_source == "overlay":
@@ -1012,7 +1045,7 @@ def lookup_rav(vin: str, timeout: float = 25.0) -> dict[str, Any]:
         url,
         headers={
             # Identify the client honestly; the endpoint is anonymous.
-            "User-Agent": f"xpeng_vin/{__version__} (+offline XPENG VIN decoder)",
+            "User-Agent": f"vin_descriptor/{__version__} (+offline XPENG VIN decoder)",
             "Accept": "text/html",
         },
     )
@@ -1125,7 +1158,7 @@ def selftest(verbose: bool = True) -> bool:
             print(f"  [{'PASS' if condition else 'FAIL'}] {label}")
 
     if verbose:
-        print(f"xpeng_vin {__version__} selftest (table {TABLE_VERSION})")
+        print(f"vin_descriptor {__version__} selftest (table {TABLE_VERSION})")
 
     # 1. Check digit must validate on every *complete* seed VIN.
     for observation in SEED_OBSERVATIONS:

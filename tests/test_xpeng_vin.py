@@ -142,6 +142,35 @@ class TestDecode(unittest.TestCase):
                 self.assertEqual(info.miit_model_code, miit)
                 self.assertTrue(info.valid)
 
+    def test_g9_vds_is_known(self):
+        """NSGHB: reported by a G9 owner, beside the confirmed NSGHA/NSGHC."""
+        info = xpeng_vin.decode("L1NNSGHB2SD000005")
+        self.assertTrue(info.valid)
+        self.assertEqual(info.model_family, "G9")
+        self.assertEqual(info.model_name, "XPENG G9")
+        self.assertEqual(info.vds_source, "builtin")
+        self.assertEqual(info.warnings, ())
+
+    def test_the_nsgh_series_is_recorded_whole(self):
+        """The G9 row rests on the series, so all three siblings must stay."""
+        for vds in ("NSGHA", "NSGHB", "NSGHC"):
+            with self.subTest(vds=vds):
+                self.assertIn(vds, xpeng_vin.VDS_TABLE)
+
+    def test_the_documented_cli_is_the_one_that_ships(self):
+        """The module was renamed; a user was told to run the old filename.
+
+        It shipped no such file, so the instruction could not be followed. The
+        banner names the module too, and both are easy to miss in a rename.
+        """
+        source = pathlib.Path(xpeng_vin.__file__).read_text(encoding="utf-8")
+        command_lines = [
+            line for line in source.splitlines()
+            if "xpeng_vin.py" in line and ("python" in line or "run" in line.lower())
+        ]
+        self.assertEqual(command_lines, [], "docs name an unshipped CLI")
+        self.assertIn("vin_descriptor.py --selftest", source)
+
     def test_vds_never_claims_trim_or_battery(self):
         """The core correctness guarantee of this module."""
         for vds, entry in xpeng_vin.VDS_TABLE.items():
