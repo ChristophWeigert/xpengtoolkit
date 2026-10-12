@@ -123,6 +123,13 @@ CONF_PARKED_SCAN_INTERVAL: Final = "parked_scan_interval"
 CONF_ICCID: Final = "iccid"
 CONF_USABLE_BATTERY_KWH: Final = "usable_battery_kwh"
 
+# Command permissions. The per-group option keys ARE the group names
+# ("access", "charging", ...) - see command_policy.ALL_GROUPS - so the shape
+# the options form writes and the shape the policy reads are the same one.
+# These two are the only keys that are not a group name.
+CONF_COMMAND_MODE: Final = "command_mode"
+CONF_ALLOW_WAKE: Final = "allow_wake"
+
 # Defaults
 DEFAULT_SCAN_INTERVAL: Final = 60
 DEFAULT_SERVER: Final = "iot-app-global.xiaopeng.com:8885"
@@ -139,6 +146,10 @@ DEFAULT_PARKED_SCAN_INTERVAL: Final = 3600  # seconds (1 hour when parked)
 # (~87.5 kWh usable). Override in the integration options for other variants
 # (e.g. G6 Standard Range LFP ≈ 66 kWh).
 DEFAULT_USABLE_BATTERY_KWH: Final = 87.5
+#: An entry with no stored policy does what it always did. Deliberately FULL
+#: and not a restrictive mode: silently removing a capability on upgrade would
+#: be a breaking change for every existing automation.
+DEFAULT_COMMAND_MODE: Final = "full"
 
 # MQTT topics
 MQTT_SEND_TOPIC: Final = "Xmart/Send/User/{user_id}"

@@ -54,6 +54,10 @@ class ConfigFlow:
             step_id=step_id,
             description_placeholders=description_placeholders,
             errors=errors or {},
+            # Kept so a check can prove a form carries the fields it should.
+            # The command-permission question is answered on an existing form,
+            # so "is the field there, and is it optional?" is the whole design.
+            data_schema=data_schema,
         )
 
     def async_create_entry(self, *, title, data, options=None):
@@ -136,6 +140,11 @@ def _install_voluptuous_stub():
     vol.All = lambda *a, **k: a[0] if a else None
     vol.Range = lambda **k: None
     vol.Coerce = lambda t: t
+    # The import_tokens schema passes extra=vol.REMOVE_EXTRA (it drops unknown
+    # keys rather than refusing the post, which is what lets the renewal app
+    # answer a form that has grown fields since the app was written).
+    vol.REMOVE_EXTRA = "remove_extra"
+    vol.PREVENT_EXTRA = "prevent_extra"
     sys.modules["voluptuous"] = vol
 
 
@@ -167,7 +176,10 @@ def _install_const_stub():
         "CONF_LOGIN_TOKENS": "login_tokens",
         "CONF_TENANT_DATA": "tenant_data",
         "CONF_CONFIGURED_DEVICE_ID": "configured_device_id",
+        "CONF_COMMAND_MODE": "command_mode",
+        "CONF_ALLOW_WAKE": "allow_wake",
         "DEFAULT_SERVER": "iot-app-global.xiaopeng.com:8885",
+        "DEFAULT_COMMAND_MODE": "full",
     }
 
     def _default(name: str):
@@ -268,6 +280,11 @@ def main() -> int:
         "uid": 999, "accessToken": "acc", "refreshToken": "ref",
     }
     fake_api.DEFAULT_APP_CONFIG = {}
+    # config_flow asks the REST layer where the certificates live (0.4.17 made
+    # a stored cert_dir untrusted). Without this the harness dies on import, so
+    # none of its checks ran - which is how the command-permission step went
+    # unnoticed here.
+    fake_api.resolve_cert_dir = lambda path: path or "/config/custom_components/xpeng/certs"
 
     fake_gl = types.ModuleType("custom_components.xpeng.google_login")
     fake_gl.extract_code = lambda text: "THECODE" if "code=" in text or len(text) > 16 else ""
@@ -294,6 +311,15 @@ def main() -> int:
         if not cond:
             failures.append(name)
 
+    def _form_fields(result):
+        """{field_name: default} for a shown form, from the voluptuous stub."""
+        schema = result.get("data_schema") or {}
+        fields = {}
+        for key in schema:
+            name = getattr(key, "key", key)
+            fields[name] = getattr(key, "default", None)
+        return fields
+
     async def run():
         flow = cf.XPengConfigFlow()
         flow.hass = _FakeHass()
@@ -307,14 +333,54 @@ def main() -> int:
         check("google step shows form with url placeholder",
               r.get("type") == "form" and r.get("step_id") == "google"
               and "accounts.google.com" in r["description_placeholders"]["url"])
+        google_fields = _form_fields(r)
+        check("google form asks the command-permission question",
+              {"command_mode", "allow_wake"} <= set(google_fields))
+        check("and it is optional, defaulting to Full access",
+              google_fields.get("command_mode") == "full"
+              and google_fields.get("allow_wake") is True)
+
+        # The renewal app's route, which is the one that must not break: it
+        # POSTs to import_tokens with only the two paths and the VIN and
+        # requires create_entry back. The question therefore has to be optional
+        # fields on that form, not a step.
+        flow2 = cf.XPengConfigFlow()
+        flow2.hass = _FakeHass()
+        r = await flow2.async_step_user({
+            const.CONF_VIN: "L1NNSGHA1SB000002",
+            const.CONF_AUTH_METHOD: const.AUTH_METHOD_IMPORT,
+        })
+        check("the import route reaches import_tokens",
+              r.get("type") == "form" and r.get("step_id") == "import_tokens")
+        import_fields = _form_fields(r)
+        check("the app's form carries the question too",
+              {"command_mode", "allow_wake"} <= set(import_fields))
+        check("with a default, so an app that omits it still creates the entry",
+              import_fields.get("command_mode") == "full"
+              and import_fields.get("allow_wake") is True)
 
         # 3. a bad paste is rejected
         r = await flow.async_step_google({"redirect_url": "no code here"})
         check("bad paste shows invalid_code", r.get("errors", {}).get("redirect_url") == "invalid_code")
 
-        # 4. a good paste creates the entry
-        r = await flow.async_step_google({"redirect_url": f"com.googleusercontent.apps.x:/oauth2redirect?code=THECODE"})
+        # 4. a good paste creates the entry. The command-permission question
+        #    travels as optional fields ON this form, never as a step of its own:
+        #    the renewal app POSTs here and requires `create_entry` back, so a
+        #    new mandatory step would strand a fresh install (the 0.4.16 bug).
+        r = await flow.async_step_google({
+            "redirect_url": f"com.googleusercontent.apps.x:/oauth2redirect?code=THECODE",
+            const.CONF_COMMAND_MODE: "safe",
+            const.CONF_ALLOW_WAKE: True,
+        })
         check("good paste creates entry", r.get("type") == "create_entry")
+        options = r.get("options", {})
+        check("mode recorded", options.get("command_mode") == "safe")
+        check("securing kept", options.get("securing") == "full")
+        check("access refused", options.get("access") == "disabled")
+        check("charging refused", options.get("charging") == "disabled")
+        check("allow_wake recorded", options.get("allow_wake") is True)
+        check("an unanswered question means Full access",
+              cf._command_policy_from({}).mode == "full")
         data = r.get("data", {})
         check("auth_method recorded as google", data.get(const.CONF_AUTH_METHOD) == const.AUTH_METHOD_GOOGLE)
         check("no password stored", data.get(const.CONF_XPENG_PASSWORD) == "")
@@ -418,6 +484,49 @@ class FirstScreenTests(unittest.TestCase):
         """Fallback for anyone who follows the older instructions anyway."""
         self.assertIn("default=default_tokens_path", self.CF)
         self.assertIn("default=default_tenant_path", self.CF)
+
+
+
+class CommandPermissionStepTests(unittest.TestCase):
+    """The permission question must not become a new mandatory flow step.
+
+    The renewal app creates the entry by POSTing to ``import_tokens`` and
+    requires ``type: create_entry`` back. A step of its own would answer with a
+    form instead and leave a fresh, app-driven install half-finished - which is
+    the 0.4.16 failure this project already paid for once.
+    """
+
+    CF = (PKG_DIR / "config_flow.py").read_text(encoding="utf-8")
+    RENEW = _component.ROOT / "xpeng_renew" / "renew_server.py"
+
+    def test_the_question_is_optional_fields_not_a_step(self):
+        self.assertNotIn("async_step_command_mode", self.CF)
+        self.assertIn("def _command_policy_fields()", self.CF)
+        self.assertIn("def _command_policy_from(", self.CF)
+
+    def test_every_route_that_creates_an_entry_asks_it(self):
+        # import_tokens, email_code and google - one call each.
+        self.assertEqual(self.CF.count("**_command_policy_fields(),"), 3)
+
+    def test_an_unanswered_question_means_full_access(self):
+        start = self.CF.index("def _command_policy_from(")
+        body = self.CF[start:start + 400]
+        self.assertIn("DEFAULT_COMMAND_MODE", body)
+        self.assertIn("CommandPolicy.from_preset(", body)
+
+    def test_the_app_can_answer_it(self):
+        """The app that creates the entry must be able to set the mode too."""
+        if not self.RENEW.is_file():
+            self.skipTest("renewal app not in this checkout")
+        source = self.RENEW.read_text(encoding="utf-8")
+        self.assertIn('"command_mode": COMMAND_MODE', source)
+        config = (_component.ROOT / "xpeng_renew" / "config.yaml").read_text()
+        self.assertIn("command_mode: list(read_only|safe|charging|full)", config)
+
+    def test_the_options_flow_offers_a_matrix_for_a_custom_mode(self):
+        self.assertIn("async def async_step_groups(", self.CF)
+        self.assertIn("for group in ALL_GROUPS:", self.CF)
+        self.assertIn("_permission_options()", self.CF)
 
 
 class NotificationIntervalOptionTests(unittest.TestCase):

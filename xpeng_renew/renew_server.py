@@ -65,6 +65,12 @@ SOLVER_URL = _setting("solver_url")
 SOLVER_TOKEN = _setting("solver_token")
 RENEW_TOKEN = _setting("renew_token")
 PAIR_DIR = _setting("pair_dir", "/config/xpeng-secrets")
+# What the integration may do to the car, applied when this app creates the
+# config entry. Sent as a field on the import_step form, which is where the
+# integration asks the question (it must not be a step of its own: this app
+# requires `create_entry` back from the POST below). An older integration
+# ignores an unknown field; a newer one stores it.
+COMMAND_MODE = _setting("command_mode", "full") or "full"
 # An override for the VIN used to create a config entry on a fresh install. The
 # onboarding tool records one in the token file when the API gave it one, so this
 # is only needed for a pair written before that, or by hand.
@@ -371,6 +377,10 @@ def _bootstrap_entry(pair_dir: str) -> tuple[bool, str]:
             "tokens_path": os.path.join(pair_dir, "xpeng_tokens.json"),
             "tenant_path": os.path.join(pair_dir, "xpeng_tenant.json"),
             "vin": vin,
+            # The integration's command-permission question travels as an
+            # optional field on this form, so a fresh install created here is
+            # not silently left at Full access.
+            "command_mode": COMMAND_MODE,
         },
     )
     if status != 200 or not isinstance(body, dict) or body.get("type") != "create_entry":

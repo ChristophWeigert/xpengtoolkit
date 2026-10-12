@@ -12,6 +12,7 @@ from homeassistant.core import CALLBACK_TYPE, HomeAssistant
 from homeassistant.helpers.event import async_call_later, async_track_time_interval
 
 from . import poll_status
+from .command_gate import policy_for_entry
 from .watchdog_policy import (
     ESCALATE_AFTER_SECONDS,
     ESCALATE_BACKOFF_SECONDS,
@@ -594,7 +595,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     api_available = has_entry_tokens or has_file_tokens
 
     # 1. Create coordinator (passive data store)
-    coordinator = XPengDataCoordinator(hass, vin=vin)
+    # The command policy is resolved once per setup from the entry's options
+    # and handed to the coordinator, which is how entities reach it.
+    coordinator = XPengDataCoordinator(
+        hass, vin=vin, command_policy=policy_for_entry(entry)
+    )
     # Which account these credentials belong to, for the account sensor. The
     # tokens cannot answer it (they are a tenant-sealed blob of teeId +
     # deviceId), so it comes from what the onboarding tool recorded, falling
@@ -874,11 +879,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # state query (msg_type=4), which a sleeping car answers with a ~248-byte
     # stub without waking. The periodic timer and watchdog never wake the car.
     query_timer_state: dict[str, float] = {"last_sent": time.time()}
-    if not hass.is_running:
+    if not hass.is_running and coordinator.command_policy.can_wake():
         _LOGGER.info("Cold start — one force-upload to wake the car for a full snapshot")
         await hass.async_add_executor_job(
             mqtt_client.send_command, vin, 19, {"cmd_type": 2}, 2
         )
+    elif not hass.is_running:
+        # Cold start with waking switched off (command permissions ->
+        # "allow wake"): a passive query still refreshes what the car will
+        # answer while asleep, it just will not produce a full snapshot.
+        _LOGGER.info(
+            "Cold start — waking is disabled by this integration's command "
+            "permissions, sending a passive query instead"
+        )
+        await hass.async_add_executor_job(mqtt_client.send_query, vin)
     else:
         _LOGGER.info("Reload while running — passive query only, not waking the car")
         await hass.async_add_executor_job(mqtt_client.send_query, vin)
@@ -1367,9 +1381,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         watchdog_state["last_escalation"] = now_ts
         watchdog_state["escalations"] += 1
         try:
-            await hass.async_add_executor_job(
-                mqtt_client.send_command, vin, 19, {"cmd_type": 2}, 2
-            )
+            if coordinator.command_policy.can_wake():
+                await hass.async_add_executor_job(
+                    mqtt_client.send_command, vin, 19, {"cmd_type": 2}, 2
+                )
+            else:
+                # Escalation exists to wake a sleeping car. With waking
+                # switched off, the passive query is the most this may do - it
+                # is still worth sending, because a car that is awake answers
+                # it, and that is the case the escalation is usually meeting.
+                _LOGGER.info(
+                    "Watchdog escalation limited to a passive query: waking is "
+                    "disabled by this integration's command permissions"
+                )
+                await hass.async_add_executor_job(mqtt_client.send_query, vin)
         except Exception:
             _LOGGER.exception("Watchdog escalation force-upload failed")
 
@@ -1423,6 +1448,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "coordinator": coordinator,
         "mqtt_client": mqtt_client,
         "entry": entry,
+        # Services read it from here (they have no entity to ask), entities
+        # read it from the coordinator. One object, resolved from one place.
+        "command_policy": coordinator.command_policy,
         "cancel_timer": cancel_timer,
         "cancel_api_refresh": cancel_api_refresh,
         "cancel_rest_timer": cancel_rest_timer,

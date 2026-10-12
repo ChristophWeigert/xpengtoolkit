@@ -17,6 +17,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
+from .command_policy import CommandPolicy, default_policy
 from .const import DOMAIN
 from .vin_descriptor import decode as decode_vin, mask_vin
 
@@ -58,6 +59,7 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self,
         hass: HomeAssistant,
         vin: str,
+        command_policy: CommandPolicy | None = None,
     ) -> None:
         """Initialize the coordinator (no update_interval — push only)."""
         super().__init__(
@@ -67,6 +69,12 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # No update_interval: we are push-based, not poll-based
         )
         self.vin = vin
+        # What this entry is allowed to do to the car (command_policy.py). It
+        # lives here because every command entity already holds a coordinator,
+        # and an entity command method needs the policy without having to know
+        # its own config entry id. Rebuilt from the entry's options on every
+        # reload, so a mode change takes effect with the reload it triggers.
+        self.command_policy = command_policy or default_policy()
         # What the pollers are doing, for the polling-status sensors. Never
         # pushed through async_set_updated_data: that would present diagnostics
         # as a fresh reading to the REST-merge and staleness logic, and a 60s

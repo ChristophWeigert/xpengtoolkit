@@ -11,6 +11,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from .command_policy import GROUP_ACCESS, GROUP_SECURING, default_policy
 from .const import DOMAIN
 from .coordinator import XPengDataCoordinator
 from .entity import XPengEntity
@@ -29,12 +30,20 @@ async def async_setup_entry(
     coordinator: XPengDataCoordinator = data["coordinator"]
     mqtt_client: XPengMQTTClient = data["mqtt_client"]
 
-    async_add_entities([XPengLock(coordinator, mqtt_client)])
+    policy = data.get("command_policy") or default_policy()
+    lock = XPengLock(coordinator, mqtt_client)
+    if lock._policy_visible(policy):
+        async_add_entities([lock])
 
 
 class XPengLock(XPengEntity, LockEntity):
     """Lock entity for the vehicle door lock."""
 
+    # Locking only removes access; unlocking hands the car over. The entity
+    # exists while either is exposed, so a "securing only" policy still shows
+    # and reports the lock state.
+    _policy_group = GROUP_SECURING
+    _policy_groups = (GROUP_SECURING, GROUP_ACCESS)
     _attr_name = "Door lock"
     _attr_translation_key = "door_lock"
     _attr_assumed_state = True  # optimistic — don't bounce on stale state
@@ -82,6 +91,7 @@ class XPengLock(XPengEntity, LockEntity):
 
     async def async_lock(self, **kwargs: Any) -> None:
         """Lock the vehicle."""
+        self._guard(group=GROUP_SECURING)
         self._optimistic_state = True
         self._optimistic_until = time.monotonic() + 30
         self.async_write_ha_state()
@@ -89,6 +99,7 @@ class XPengLock(XPengEntity, LockEntity):
 
     async def async_unlock(self, **kwargs: Any) -> None:
         """Unlock the vehicle."""
+        self._guard(group=GROUP_ACCESS)
         self._optimistic_state = False
         self._optimistic_until = time.monotonic() + 30
         self.async_write_ha_state()

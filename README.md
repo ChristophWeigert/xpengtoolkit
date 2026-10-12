@@ -502,6 +502,7 @@ Then configure the renewal app:
 | `solver_token` | the solver's token, if you set one |
 | `device_id` | leave blank and the first renewal pins it, or set it yourself. Do not change it afterwards - [it is the stale-client trap](#most-entities-are-unknown) |
 | `pair_dir` | `/config/xpeng-secrets` by default. `chmod 700` it |
+| `command_mode` | what the integration may do to the car, applied when the app creates the entry on a fresh install: `read_only`, `safe`, `charging` or `full` (default). See [Command permissions](#command-permissions---what-the-integration-may-do-to-the-car) |
 
 The pair directory is live credentials on disk: `chmod 700`, and keep it out of any
 share.
@@ -512,6 +513,12 @@ There is nothing to do here. When the app starts it looks for the integration, f
 no entry yet, mints a pair (the solver clears the slider), and creates the entry from
 that pair. Within a minute or so **Settings -> Devices & Services** shows
 `XPENG <last six of your VIN>` and the entities fill in.
+
+The entry is created with the command permissions the app was configured with
+(`command_mode`, Full access unless you changed it). Answering the same question by
+hand - **Settings -> Devices & Services -> XPENG -> Configure -> Command
+permissions** - asks it as a preset, with a *Custom* option for the per-group matrix.
+See [Command permissions](#command-permissions---what-the-integration-may-do-to-the-car).
 
 From then on it renews itself - every `renew_interval` (6000s by default, comfortably
 inside the two-hour cap), and sooner if Home Assistant reports the credentials are
@@ -798,10 +805,89 @@ with the old map.
 That is usually not zero consumption but a restricted endpoint on a shared account
 - see [Some data is gated to the owner account](#some-data-is-gated-to-the-owner-account).
 
+## Command permissions - what the integration may do to the car
+
+Every command this integration can send belongs to one **capability group**, and
+each group is set to **Full** (commands run), **Read only** (the entities and their
+state stay, commands are refused) or **Disabled** (the entities are not created at
+all). The setup screen asks which of four presets you want; **Configure -> Command
+permissions** changes it later, and *Custom* there opens the per-group matrix.
+
+| Preset | What it allows |
+|---|---|
+| **Read only** | Status and queries only - nothing that actuates the car. |
+| **Safe** | The above, plus comfort and climate, lights, and the *securing* actions: locking, closing windows and the trunk, arming X-Guard. |
+| **Charging** | Safe, plus charging (start/stop, charge limit, both port doors) and the V2L outlet. |
+| **Full access** | Everything: unlocking, opening the trunk or windows, disarming X-Guard, firmware/OTA and raw commands. This is what the integration always did before this option existed, and it is the default. |
+
+Groups are split by **what an action does to the car**, not by subsystem. That is
+why the door lock, the windows, the trunk and X-Guard each appear twice: locking,
+closing and arming only ever *reduce* access, so they are safe to allow, while
+unlocking, opening and disarming hand the car over. A "Safe" install can therefore
+lock itself, and a leaked token still cannot open the doors.
+
+| Capability group | Commands it covers |
+|---|---|
+| **Queries and data** | `capture_snapshot`, `check_ota`, `clear_stuck_commands`, `force_calendar_sync`, `force_update`, `list_hvac_schedules`, `send_navigation` |
+| **Comfort and climate** | `climate_off`, `climate_on`, `create_hvac_schedule`, `defrost_off`, `defrost_on`, `delete_hvac_schedule`, `update_hvac_schedule` |
+| **Lights and alerts** | `flash_lights`, `honk_horn` |
+| **Charging** | `close_charge_port`, `close_fast_charge_port`, `open_charge_port`, `open_fast_charge_port`, `set_charge_limit`, `start_charge`, `stop_charge` |
+| **Securing actions** | `close_trunk`, `close_windows`, `lock`, `sentinel_on` |
+| **Access actions** | `open_trunk`, `open_windows`, `sentinel_off`, `unlock`, `vent_windows` |
+| **Accessory power** | `trunk_power_off`, `trunk_power_on` |
+| **Firmware and OTA** | `auto_upgrade_off`, `auto_upgrade_on`, `cancel_ota`, `ota_feedback`, `trigger_ota` |
+| **Advanced and raw commands** | `execute_scene`, `send_raw_mqtt`, `toggle_scene` |
+
+**Allow wake** is a separate toggle. Waking a sleeping car costs a little of its 12V
+battery and is only used to pull a fresh full state; with it off the integration is
+strictly passive and sends queries only, at the price of staler sensors. The internal
+watchdog honours it too, degrading to a passive query instead of a force-upload.
+
+### What this does *not* protect against
+
+Be clear about the boundary, because the reassuring version would be a lie:
+
+- It does **not** stop an administrator. Whoever can open **Configure** can change
+  the mode, and whoever can read or write your Home Assistant configuration files
+  can change it without you.
+- It is **not** a per-user permission. Home Assistant's own user/groups permissions
+  cover entities you already expose; XPENG's commands are *target-less* services
+  (there is no `entity_id` in `xpeng.unlock` for Home Assistant to check), so the
+  integration also verifies that a logged-in caller may control at least one XPENG
+  entity. That check is what a non-admin user meets; the mode is what everything
+  else - automations, scripts, voice assistants, dashboards, long-lived tokens -
+  meets. A leaked token is the likeliest way in, which is why the ceiling applies to
+  callers with no user at all as well.
+- The **account credentials are the same at every level.** The mode limits what this
+  integration will *do*, not what the account *could* do.
+
+What it does buy: an assistant or dashboard that cannot unlock your car, an
+automation that cannot fire a raw command by accident, and a token that stops being
+a set of car keys.
+
+### A denied command is not silent
+
+Refusals log once per command and fire an event, so you can alert on an attempt
+instead of finding out later:
+
+```yaml
+trigger:
+  - platform: event
+    event_type: xpeng_command_denied
+action:
+  - service: notify.mobile_app_your_phone
+    data:
+      message: >-
+        Blocked {{ trigger.event.data.what }} ({{ trigger.event.data.group_label }},
+        mode {{ trigger.event.data.mode }})
+```
+
 ## Options
 
 - **Certificate directory** - where your mTLS files live (defaults to the
   integration's `certs/` folder)
+- **Command permissions** - the presets or the per-group matrix described above
+- **Allow wake** - whether the integration may wake a sleeping car
 
 ## Disclaimer
 

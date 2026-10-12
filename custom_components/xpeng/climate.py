@@ -16,6 +16,7 @@ from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from .command_policy import GROUP_COMFORT, default_policy
 from .const import DOMAIN
 from .coordinator import XPengDataCoordinator
 from .entity import XPengEntity
@@ -31,7 +32,9 @@ async def async_setup_entry(
     data = hass.data[DOMAIN][entry.entry_id]
     coordinator: XPengDataCoordinator = data["coordinator"]
     mqtt_client: XPengMQTTClient = data["mqtt_client"]
-    async_add_entities([XPengClimate(coordinator, mqtt_client)])
+    policy = data.get("command_policy") or default_policy()
+    if policy.exposes(GROUP_COMFORT):
+        async_add_entities([XPengClimate(coordinator, mqtt_client)])
 
 
 class XPengClimate(XPengEntity, ClimateEntity):
@@ -40,6 +43,7 @@ class XPengClimate(XPengEntity, ClimateEntity):
     _attr_name = "Climate"
     _attr_icon = "mdi:air-conditioner"
     _attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT_COOL]
+    _policy_group = GROUP_COMFORT
     _attr_supported_features = (
         ClimateEntityFeature.TARGET_TEMPERATURE
         | ClimateEntityFeature.TURN_ON
@@ -131,6 +135,20 @@ class XPengClimate(XPengEntity, ClimateEntity):
             return HVACAction.COOLING
         return HVACAction.IDLE
 
+    @property
+    def supported_features(self) -> ClimateEntityFeature:
+        """Withdraw the controls when this entity is read-only.
+
+        Climate is one of only two domains where Home Assistant can render
+        "no control" by *removing* the control instead of leaving a button that
+        raises, so read-only mode here gives the state without an actionable
+        card - which is exactly what the mode is for. The switch, number and
+        select platforms have no such API; they guard the command instead.
+        """
+        if self._policy.read_only(GROUP_COMFORT):
+            return ClimateEntityFeature(0)
+        return self._attr_supported_features
+
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set HVAC mode."""
         if hvac_mode == HVACMode.OFF:
@@ -139,6 +157,7 @@ class XPengClimate(XPengEntity, ClimateEntity):
             await self.async_turn_on()
 
     async def async_turn_on(self) -> None:
+        self._guard()
         """Turn climate on at current or default temperature."""
         target = self.target_temperature or 22.0
         self._optimistic_hvac_mode = HVACMode.HEAT_COOL
@@ -152,6 +171,7 @@ class XPengClimate(XPengEntity, ClimateEntity):
         )
 
     async def async_turn_off(self) -> None:
+        self._guard()
         """Turn climate off."""
         self._optimistic_hvac_mode = HVACMode.OFF
         self._optimistic_target_temp = None
@@ -165,6 +185,7 @@ class XPengClimate(XPengEntity, ClimateEntity):
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
         """Set target temperature (also turns on if off)."""
+        self._guard()
         temperature = kwargs.get(ATTR_TEMPERATURE)
         if temperature is None:
             return

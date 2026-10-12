@@ -9,6 +9,13 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from .command_policy import (
+    GROUP_CHARGING,
+    GROUP_COMFORT,
+    GROUP_POWER,
+    GROUP_SECURING,
+    default_policy,
+)
 from .const import DOMAIN
 from .coordinator import XPengDataCoordinator
 from .entity import XPengEntity
@@ -27,18 +34,26 @@ async def async_setup_entry(
     coordinator: XPengDataCoordinator = data["coordinator"]
     mqtt_client: XPengMQTTClient = data["mqtt_client"]
 
-    async_add_entities([
+    policy = data.get("command_policy") or default_policy()
+
+    entities = [
         XPengSentinelSensitivity(coordinator, mqtt_client),
         XPengTrunkPowerTimer(coordinator, mqtt_client),
         XPengChargeLimit(coordinator, mqtt_client),
         XPengFanSpeed(coordinator, mqtt_client),
-    ])
+    ]
+    # A number's value is state worth showing, so READ_ONLY keeps it and only
+    # DISABLED removes it; ``_guard`` refuses the set.
+    async_add_entities(
+        [entity for entity in entities if entity._policy_visible(policy)]
+    )
 
 
 
 class XPengSentinelSensitivity(XPengEntity, NumberEntity):
     """Number to set sentinel mode sensitivity level."""
 
+    _policy_group = GROUP_SECURING
     _attr_name = "Sentinel sensitivity"
     _attr_icon = "mdi:cctv"
     _attr_native_min_value = 1
@@ -66,6 +81,7 @@ class XPengSentinelSensitivity(XPengEntity, NumberEntity):
         return ext.get("sentinel_mode_sensitivity") if ext else None
 
     async def async_set_native_value(self, value: float) -> None:
+        self._guard()
         level = int(value)
         video = 1 if level > 0 else 0
         await self.hass.async_add_executor_job(
@@ -84,6 +100,7 @@ class XPengSentinelSensitivity(XPengEntity, NumberEntity):
 class XPengTrunkPowerTimer(XPengEntity, NumberEntity):
     """Number to set trunk power auto-off timer."""
 
+    _policy_group = GROUP_POWER
     _attr_name = "Trunk power timer"
     _attr_icon = "mdi:timer-outline"
     _attr_native_min_value = 0
@@ -112,6 +129,7 @@ class XPengTrunkPowerTimer(XPengEntity, NumberEntity):
         return tp.get("timeToPowerOffInMin") if tp else None
 
     async def async_set_native_value(self, value: float) -> None:
+        self._guard()
         minutes = int(value)
         if minutes == 0:
             await self.hass.async_add_executor_job(
@@ -130,6 +148,7 @@ class XPengTrunkPowerTimer(XPengEntity, NumberEntity):
 class XPengChargeLimit(XPengEntity, NumberEntity):
     """Number to set the charge limit (SOC %)."""
 
+    _policy_group = GROUP_CHARGING
     _attr_name = "Charge limit"
     _attr_translation_key = "charge_limit_control"
     _attr_icon = "mdi:battery-charging-100"
@@ -159,6 +178,7 @@ class XPengChargeLimit(XPengEntity, NumberEntity):
         return charge.get("max_range_charge") if charge else None
 
     async def async_set_native_value(self, value: float) -> None:
+        self._guard()
         limit = int(value)
         await self.hass.async_add_executor_job(
             self._mqtt_client.send_command,
@@ -174,6 +194,7 @@ class XPengFanSpeed(XPengEntity, NumberEntity):
     (val 0 is rejected as 'air volume could not be adjusted' — use climate_off to stop).
     """
 
+    _policy_group = GROUP_COMFORT
     _attr_name = "Fan speed"
     _attr_icon = "mdi:fan"
     _attr_native_min_value = 1
@@ -201,6 +222,7 @@ class XPengFanSpeed(XPengEntity, NumberEntity):
         return hvac.get("hvac_wind_speed") if hvac else None
 
     async def async_set_native_value(self, value: float) -> None:
+        self._guard()
         level = int(value)
         await self.hass.async_add_executor_job(
             self._mqtt_client.send_command,

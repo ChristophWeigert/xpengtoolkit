@@ -81,6 +81,18 @@
           "tenant_json": "The whole file - it carries the deviceId the tokens are sealed against",
           "vin": "Read from the token file when it carries one, so usually leave this blank"
         }
+      },
+      "command_mode": {
+        "title": "What may this integration do to the car?",
+        "description": "This is a ceiling for the whole integration, not a user permission: it applies to automations, scripts, voice assistants and access tokens too. The account credentials are the same at every level - the point is that a leaked token or a shared dashboard cannot unlock the car.\n\nIt does not stop an administrator (they can change this setting) and it does not stop anyone who can already read or write your Home Assistant configuration. You can change it later under Configure > Command permissions.",
+        "data": {
+          "command_mode": "Command permissions",
+          "allow_wake": "Allow the integration to wake the car"
+        },
+        "data_description": {
+          "command_mode": "Full access is what the integration has always done. Read only, Safe and Charging cover everything below Full access; pick Custom to choose per capability group instead.",
+          "allow_wake": "Waking a sleeping car costs a little of its 12V battery and is only used to fetch a fresh full state. Turning this off makes the integration strictly passive, at the price of staler sensors."
+        }
       }
     },
     "error": {
@@ -106,7 +118,8 @@
       "no_credentials": "No stored email/password. Please reconfigure the integration.",
       "login_failed": "Re-authentication failed: XPENG refused the sign-in attempt. Re-onboard with the onboarding tool, then remove this XPENG entry and add the vehicle again with the \"Import tokens from the onboarding tool\" method.",
       "captcha_gated": "XPENG requires its slider captcha to sign in, and that challenge cannot be solved inside Home Assistant. Run tools/onboard_email_login.py on a machine with a browser and drag the slider once, then remove this XPENG entry and add the vehicle again with the \"Import tokens from the onboarding tool\" method.",
-      "unknown": "Unknown error"
+      "unknown": "Unknown error",
+      "command_mode_unreachable": "This flow lost its place; start again from Add Integration."
     }
   },
   "options": {
@@ -114,6 +127,8 @@
       "init": {
         "title": "XPENG Options",
         "data": {
+          "command_mode": "Command permissions",
+          "allow_wake": "Allow the integration to wake the car",
           "scan_interval": "MQTT query interval (seconds)",
           "parked_scan_interval": "Parked query interval (seconds)",
           "mqtt_refresh_interval": "MQTT credential refresh interval (seconds)",
@@ -129,6 +144,8 @@
           "notification_poll_interval": "Message Centre poll interval (seconds)"
         },
         "data_description": {
+          "command_mode": "Read only, Safe and Charging are presets; Custom opens a second screen and lets you set each capability group to Full, Read only or Disabled.",
+          "allow_wake": "Only affects waking a sleeping car for a full state update. Charge and drive polls are unaffected because the car is already awake.",
           "scan_interval": "How often to query the vehicle state via MQTT (10-3600 seconds)",
           "parked_scan_interval": "Query interval when vehicle is parked (60-7200 seconds). Reduces unnecessary polling.",
           "mqtt_refresh_interval": "How often to refresh MQTT credentials via API (10-300 seconds)",
@@ -142,6 +159,32 @@
           "iccid": "TBox SIM ICCID. Read it on-device via the head-unit code *#9925*131# (no app API exposes it). Optional diagnostic sensor.",
           "usable_battery_kwh": "Usable pack size for the parked-consumption kWh estimate (10-150). G6 Long Range ≈ 87.5, G6 Standard Range ≈ 66.",
           "notification_poll_interval": "How often to poll XPENG's Message Centre for notifications. Six requests per poll, one per category; a notification cannot arrive sooner than this. The sensor records the real delay as `delay_s`."
+        }
+      },
+      "groups": {
+        "title": "Command permissions by capability group",
+        "description": "Each group is independent. Full allows its commands, Read only keeps its entities and their state but refuses every command, and Disabled does not create them at all.\n\nThe groups are split by what an action does to the car rather than by subsystem, which is why locking and unlocking are not in the same one: locking only removes access, unlocking hands the car over.",
+        "data": {
+          "queries": "Queries and data",
+          "comfort": "Comfort and climate",
+          "lights": "Lights and alerts",
+          "charging": "Charging",
+          "securing": "Securing actions",
+          "access": "Access actions",
+          "power": "Accessory power",
+          "firmware": "Firmware and OTA",
+          "advanced": "Advanced and raw commands"
+        },
+        "data_description": {
+          "queries": "State updates, wake, X-Guard query, OTA check, HVAC schedule listing, navigation cards, snapshot capture.",
+          "comfort": "Cabin climate, defrost, fan speed, seat and steering-wheel heating, HVAC schedules.",
+          "lights": "Flash lights, parking lights, horn.",
+          "charging": "Start and stop charging, charge limit, and both charge port doors.",
+          "securing": "Lock, close windows, close the trunk, arm X-Guard. These only ever reduce access to the car, so they cannot compromise it.",
+          "access": "Unlock, open the trunk, open or vent the windows, disarm X-Guard. This is the group that hands the car over.",
+          "power": "The V2L outlet in the trunk and its auto-off timer.",
+          "firmware": "Trigger, cancel and enable automatic OTA upgrades, and send upgrade feedback.",
+          "advanced": "send_raw_mqtt plus X-Combo scenes. Raw commands can express any other group, including unlock, and scenes are opaque server-side programs - keep these at Full access unless you know why."
         }
       }
     },

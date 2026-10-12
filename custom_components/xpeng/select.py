@@ -10,6 +10,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from .command_policy import GROUP_COMFORT, default_policy
 from .const import DOMAIN
 from .coordinator import XPengDataCoordinator
 from .entity import XPengEntity
@@ -73,7 +74,9 @@ async def async_setup_entry(
     coordinator: XPengDataCoordinator = data["coordinator"]
     mqtt_client: XPengMQTTClient = data["mqtt_client"]
 
-    async_add_entities([
+    policy = data.get("command_policy") or default_policy()
+
+    entities = [
         XPengSeatSelect(
             coordinator, mqtt_client,
             key="driver_seat_heat_select",
@@ -115,11 +118,17 @@ async def async_setup_entry(
             commands=SEAT_VENT_COMMANDS,
         ),
         XPengSteeringWheelHeatSelect(coordinator, mqtt_client),
-    ])
+    ]
+    # A select's current option is state worth showing, so READ_ONLY keeps the
+    # entity and only DISABLED removes it; ``_guard`` refuses the change.
+    async_add_entities(
+        [entity for entity in entities if entity._policy_visible(policy)]
+    )
 
 
 class XPengSeatSelect(XPengEntity, SelectEntity):
     """One seat function: its own state field, its own level options."""
+    _policy_group = GROUP_COMFORT
 
     def __init__(
         self,
@@ -163,6 +172,7 @@ class XPengSeatSelect(XPengEntity, SelectEntity):
         return None
 
     async def async_select_option(self, option: str) -> None:
+        self._guard()
         mode, cmd_value = self._commands.get(option, (0, 1))
 
         # These are momentary switches, not level setters, which took measuring twice
@@ -192,6 +202,7 @@ class XPengSeatSelect(XPengEntity, SelectEntity):
 class XPengSteeringWheelHeatSelect(XPengEntity, SelectEntity):
     """Select entity for steering wheel heating level."""
 
+    _policy_group = GROUP_COMFORT
     _attr_name = "Steering wheel heating"
     _attr_translation_key = "steering_wheel_heat_select"
     _attr_icon = "mdi:steering"
@@ -214,6 +225,7 @@ class XPengSteeringWheelHeatSelect(XPengEntity, SelectEntity):
         return STEER_REVERSE_MAP.get(val, "Off")
 
     async def async_select_option(self, option: str) -> None:
+        self._guard()
         value = STEER_VALUE_MAP.get(option, 0)
         await self.hass.async_add_executor_job(
             self._mqtt_client.send_command,

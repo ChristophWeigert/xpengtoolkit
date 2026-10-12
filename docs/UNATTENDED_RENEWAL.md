@@ -43,6 +43,7 @@ Configure the worker:
 | `solver_token` | the solver's `solver_token`, if you set one. |
 | `renew_token` | what the automation presents to `POST /renew`. **Set this** — the worker holds your password. |
 | `pair_dir` | where the fresh pair is written for Home Assistant to read; `/config/xpeng-secrets` by default. |
+| `command_mode` | what the integration may do to the car when this app creates the entry (`read_only`, `safe`, `charging`, `full`). Defaults to `full` - see the README's Command permissions section |
 
 Give the pair directory a second thought: it is live credentials on disk, readable
 by the Core process. `chmod 700` on the directory, and do not put it in a share.

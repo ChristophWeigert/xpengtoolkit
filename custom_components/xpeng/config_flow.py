@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any, Final
+from typing import Any, Final, Mapping
 
 import voluptuous as vol
 
@@ -24,13 +24,29 @@ from homeassistant.helpers.selector import (
     TextSelectorConfig,
 )
 
+from .command_policy import (
+    ALL_GROUPS,
+    CommandPolicy,
+    GROUP_LABELS,
+    PERM_DISABLED,
+    PERM_FULL,
+    PERM_READ_ONLY,
+    PRESET_CHARGING,
+    PRESET_CUSTOM,
+    PRESET_FULL,
+    PRESET_READ_ONLY,
+    PRESET_SAFE,
+    SELECTABLE_PRESETS,
+)
 from .xpeng_api import resolve_cert_dir
 from .const import (
     AUTH_METHOD_EMAIL,
     AUTH_METHOD_GOOGLE,
     AUTH_METHOD_IMPORT,
+    CONF_ALLOW_WAKE,
     CONF_AUTH_METHOD,
     CONF_CERT_DIR,
+    CONF_COMMAND_MODE,
     CONF_CLIENT_ID,
     CONF_CONFIGURED_DEVICE_ID,
     CONF_ICCID,
@@ -53,6 +69,7 @@ from .const import (
     CONF_XPENG_EMAIL,
     CONF_XPENG_PASSWORD,
     DEFAULT_CERT_DIR,
+    DEFAULT_COMMAND_MODE,
     DEFAULT_MQTT_REFRESH_INTERVAL,
     DEFAULT_NOTIFICATION_POLL_INTERVAL,
     DEFAULT_PARKED_SCAN_INTERVAL,
@@ -300,6 +317,76 @@ def _read_text_file(path: str, key: str) -> str:
             return handle.read()
     except OSError:
         raise _TokenImportError(key, "the file could not be read") from None
+
+
+def _command_policy_fields() -> dict[Any, Any]:
+    """The command-permission question, as form fields.
+
+    Deliberately *optional fields on the forms that already exist* rather than a
+    step of its own. The renewal app creates the entry by POSTing to
+    ``import_tokens`` and requires ``type: create_entry`` back (see
+    ``xpeng_renew/renew_server.py``); a new mandatory step would answer with a
+    form instead, and a fresh install driven by the app would stop half-finished
+    - which is exactly the 0.4.16 bug. An optional field with a default is
+    answered by the app too (it sends the mode it was configured with) and by
+    anyone who leaves it alone.
+    """
+    return {
+        vol.Optional(
+            CONF_COMMAND_MODE, default=DEFAULT_COMMAND_MODE
+        ): SelectSelector(
+            SelectSelectorConfig(
+                options=_preset_options(),
+                mode=SelectSelectorMode.DROPDOWN,
+            )
+        ),
+        vol.Optional(CONF_ALLOW_WAKE, default=True): bool,
+    }
+
+
+def _command_policy_from(user_input: Mapping[str, Any] | None) -> CommandPolicy:
+    """The policy a submitted form asked for. Absent means Full access."""
+    user_input = user_input or {}
+    return CommandPolicy.from_preset(
+        str(user_input.get(CONF_COMMAND_MODE, DEFAULT_COMMAND_MODE)),
+        allow_wake=bool(user_input.get(CONF_ALLOW_WAKE, True)),
+    )
+
+
+def _preset_options() -> list[dict[str, str]]:
+    """Preset choices, with the groups each one includes spelled out.
+
+    The label is the whole point of the step: "Safe" means nothing until it
+    says which capabilities it leaves on, and the user is the one who has to
+    decide whether unlocking a car over the internet is acceptable.
+    """
+    labels = {
+        PRESET_READ_ONLY: "Read only - status and queries, no commands",
+        PRESET_SAFE: (
+            "Safe - read only, plus climate, lights, and locking/closing"
+        ),
+        PRESET_CHARGING: "Charging - safe, plus charging and the V2L outlet",
+        PRESET_FULL: "Full access - everything, including unlocking",
+    }
+    options = [
+        {"value": preset, "label": labels[preset]} for preset in SELECTABLE_PRESETS
+    ]
+    options.append(
+        {
+            "value": PRESET_CUSTOM,
+            "label": "Custom - choose per capability group",
+        }
+    )
+    return options
+
+
+def _permission_options() -> list[dict[str, str]]:
+    """The three per-group states, as the options flow offers them."""
+    return [
+        {"value": PERM_FULL, "label": "Full - allow commands"},
+        {"value": PERM_READ_ONLY, "label": "Read only - show state, refuse commands"},
+        {"value": PERM_DISABLED, "label": "Disabled - do not create these entities"},
+    ]
 
 
 class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -562,7 +649,14 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
                     or (user_input.get(CONF_XPENG_EMAIL) or "").strip()
                 ).strip()
                 return await self._finish_import(
-                    tokens, tenant, vin, mqtt, account_email
+                    tokens,
+                    tenant,
+                    vin,
+                    mqtt,
+                    account_email,
+                    # Only used when this creates an entry; a reauth keeps the
+                    # policy the entry already has.
+                    command_policy=_command_policy_from(user_input),
                 )
 
         # The renewal app writes the pair to a fixed directory. When it is already
@@ -603,6 +697,7 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
                     ),
                     vol.Optional("tenant_path", default=default_tenant_path): str,
                     vol.Optional(CONF_VIN, default=self._vin): str,
+                    **_command_policy_fields(),
                     # Which account the pair belongs to. Normally the onboarding
                     # tool already recorded this in the token file and this can
                     # be left blank - it exists so an entry imported before that
@@ -625,6 +720,7 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
         vin: str,
         mqtt: tuple[str, str, str],
         account_email: str = "",
+        command_policy: CommandPolicy | None = None,
     ) -> ConfigFlowResult:
         """Create (or, in reauth, update) the entry from an imported pair."""
         client_id, password, server = mqtt
@@ -684,6 +780,9 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
 
         await self.async_set_unique_id(vin)
         self._abort_if_unique_id_configured()
+
+        if command_policy is not None:
+            options = {**options, **command_policy.to_options()}
 
         return self.async_create_entry(
             title=f"XPENG {vin[-6:]}",
@@ -761,6 +860,7 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
                             CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL,
                             CONF_MQTT_REFRESH_INTERVAL: DEFAULT_MQTT_REFRESH_INTERVAL,
                             CONF_REST_SCAN_INTERVAL: DEFAULT_REST_SCAN_INTERVAL,
+                            **_command_policy_from(user_input).to_options(),
                         },
                     )
 
@@ -780,6 +880,7 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Required("email_code"): str,
+                    **_command_policy_fields(),
                 }
             ),
             description_placeholders={"email": self._email},
@@ -840,7 +941,13 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
                     tokens = await self.hass.async_add_executor_job(
                         gl.google_auth_login, xpeng_api, api_config, tenant, id_token
                     )
-                    return await self._finish_google(xpeng_api, tenant, tokens, id_token)
+                    return await self._finish_google(
+                        xpeng_api,
+                        tenant,
+                        tokens,
+                        id_token,
+                        command_policy=_command_policy_from(user_input),
+                    )
                 except gl.GoogleLoginError as err:
                     if _login_captcha_gate(err):
                         _LOGGER.warning("Google sign-in is captcha-gated: %s", err)
@@ -878,6 +985,7 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Required("redirect_url"): str,
+                    **_command_policy_fields(),
                     vol.Optional("code_verifier", default=""): str,
                 }
             ),
@@ -885,7 +993,9 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def _finish_google(self, xpeng_api, tenant, tokens, id_token) -> ConfigFlowResult:
+    async def _finish_google(
+        self, xpeng_api, tenant, tokens, id_token, command_policy=None
+    ) -> ConfigFlowResult:
         """Mint MQTT credentials and create (or, in reauth, update) the entry."""
         from . import google_login as gl
 
@@ -952,6 +1062,11 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL,
                 CONF_MQTT_REFRESH_INTERVAL: DEFAULT_MQTT_REFRESH_INTERVAL,
                 CONF_REST_SCAN_INTERVAL: DEFAULT_REST_SCAN_INTERVAL,
+                **(
+                    command_policy.to_options()
+                    if command_policy is not None
+                    else {}
+                ),
             },
         )
 
@@ -1249,16 +1364,50 @@ class XPengOptionsFlow(OptionsFlow):
                 )
                 errors[CONF_CERT_DIR] = "cert_files_missing"
             else:
-                return self.async_create_entry(title="", data=user_input)
+                mode = str(
+                    user_input.get(
+                        CONF_COMMAND_MODE,
+                        CommandPolicy.from_options(
+                            self.config_entry.options
+                        ).mode,
+                    )
+                )
+                if mode == PRESET_CUSTOM:
+                    # Keep what was just submitted and ask for the matrix; the
+                    # entry is created by async_step_groups, not here.
+                    self._pending_options = user_input
+                    return await self.async_step_groups()
+                policy = CommandPolicy.from_preset(
+                    mode,
+                    allow_wake=bool(user_input.get(CONF_ALLOW_WAKE, True)),
+                )
+                # The group keys are written from the preset, never typed by
+                # the user, so the stored policy and the preset can never drift.
+                return self.async_create_entry(
+                    title="", data={**user_input, **policy.to_options()}
+                )
 
         # On a failed submit, re-render what the user typed so the cert dir can
         # be corrected without retyping the rest of the form.
         current = {**self.config_entry.options, **(user_input or {})}
 
+        current_policy = CommandPolicy.from_options(current)
+
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
                 {
+                    vol.Required(
+                        CONF_COMMAND_MODE, default=current_policy.mode
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=_preset_options(),
+                            mode=SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_ALLOW_WAKE, default=current_policy.allow_wake
+                    ): bool,
                     vol.Optional(
                         CONF_SCAN_INTERVAL,
                         default=current.get(
@@ -1349,6 +1498,47 @@ class XPengOptionsFlow(OptionsFlow):
             errors=errors,
         )
 
+    async def async_step_groups(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Per-group permissions, for a mode that is not one of the presets.
+
+        Three states rather than a checkbox, because "off" and "visible but not
+        controllable" are different answers and users want the second one:
+        a read-only charge limit, climate card or door-lock state is useful, and
+        it is exactly what someone who does not trust their voice assistant
+        with a car wants to keep.
+        """
+        if user_input is not None:
+            pending = getattr(self, "_pending_options", None) or {}
+            return self.async_create_entry(
+                title="",
+                data={**pending, **user_input},
+            )
+
+        base = CommandPolicy.from_options(
+            getattr(self, "_pending_options", None) or self.config_entry.options
+        )
+        schema: dict[Any, Any] = {}
+        for group in ALL_GROUPS:
+            schema[
+                vol.Required(group, default=base.permission(group))
+            ] = SelectSelector(
+                SelectSelectorConfig(
+                    options=_permission_options(),
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            )
+
+        return self.async_show_form(
+            step_id="groups",
+            data_schema=vol.Schema(schema),
+            description_placeholders={
+                "groups": ", ".join(
+                    GROUP_LABELS[group] for group in ALL_GROUPS
+                )
+            },
+        )
 
 def _serialize_tenant(tenant: dict[str, Any]) -> dict[str, Any]:
     """Serialize tenant data for storage in config entry.

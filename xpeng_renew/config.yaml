@@ -1,5 +1,5 @@
 name: XPENG credential renewal
-version: "0.1.15"
+version: "0.1.16"
 slug: xpeng_renew
 description: >-
   Renews XPENG credentials unattended. Solves the login slider through the solver
@@ -50,6 +50,13 @@ options:
   solver_token: ""
   renew_token: ""
   pair_dir: "/config/xpeng-secrets"
+  # What the integration is allowed to do to the car, set when this app creates
+  # the config entry on a fresh install (Home Assistant's own setup form asks
+  # the same question when a person does it). One of: read_only, safe, charging,
+  # full. `full` is what the integration has always done; `safe` keeps climate,
+  # lights and locking but refuses unlocking, opening the trunk/windows, charging
+  # and raw commands. Change it later under the integration's Configure screen.
+  command_mode: full
 schema:
   email: email
   password: password
@@ -61,3 +68,4 @@ schema:
   solver_token: password
   renew_token: password
   pair_dir: str
+  command_mode: list(read_only|safe|charging|full)

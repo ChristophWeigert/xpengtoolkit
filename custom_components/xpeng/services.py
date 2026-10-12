@@ -12,6 +12,8 @@ import voluptuous as vol
 from homeassistant.core import Event, HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import config_validation as cv
 
+from .command_gate import async_guard_service
+from .command_policy import default_policy, service_group
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
@@ -884,88 +886,74 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         except Exception as err:
             _LOGGER.warning("force_calendar_sync failed: %s", err)
 
-    hass.services.async_register(
-        DOMAIN, SERVICE_CLIMATE_ON, handle_climate_on, schema=CLIMATE_ON_SCHEMA
-    )
-    hass.services.async_register(DOMAIN, SERVICE_CLIMATE_OFF, handle_climate_off)
-    hass.services.async_register(DOMAIN, SERVICE_CLOSE_WINDOWS, handle_close_windows)
-    hass.services.async_register(DOMAIN, SERVICE_VENT_WINDOWS, handle_vent_windows)
-    hass.services.async_register(
-        DOMAIN, SERVICE_SENTINEL_ON, handle_sentinel_on, schema=SENTINEL_ON_SCHEMA
-    )
-    hass.services.async_register(DOMAIN, SERVICE_SENTINEL_OFF, handle_sentinel_off)
-    hass.services.async_register(
-        DOMAIN, SERVICE_TRUNK_POWER_ON, handle_trunk_power_on, schema=TRUNK_POWER_ON_SCHEMA
-    )
-    hass.services.async_register(DOMAIN, SERVICE_TRUNK_POWER_OFF, handle_trunk_power_off)
-    hass.services.async_register(DOMAIN, SERVICE_FLASH_LIGHTS, handle_flash_lights)
-    hass.services.async_register(DOMAIN, SERVICE_HONK_HORN, handle_honk_horn)
-    hass.services.async_register(DOMAIN, SERVICE_FORCE_UPDATE, handle_force_update)
-    hass.services.async_register(DOMAIN, SERVICE_LOCK, handle_lock)
-    hass.services.async_register(DOMAIN, SERVICE_UNLOCK, handle_unlock)
-    hass.services.async_register(DOMAIN, SERVICE_START_CHARGE, handle_start_charge)
-    hass.services.async_register(DOMAIN, SERVICE_STOP_CHARGE, handle_stop_charge)
-    hass.services.async_register(DOMAIN, SERVICE_OPEN_TRUNK, handle_open_trunk)
-    hass.services.async_register(DOMAIN, SERVICE_CLOSE_TRUNK, handle_close_trunk)
-    hass.services.async_register(DOMAIN, SERVICE_OPEN_CHARGE_PORT, handle_open_charge_port)
-    hass.services.async_register(DOMAIN, SERVICE_CLOSE_CHARGE_PORT, handle_close_charge_port)
-    hass.services.async_register(DOMAIN, SERVICE_OPEN_FAST_CHARGE_PORT, handle_open_fast_charge_port)
-    hass.services.async_register(DOMAIN, SERVICE_CLOSE_FAST_CHARGE_PORT, handle_close_fast_charge_port)
-    hass.services.async_register(
-        DOMAIN, SERVICE_SET_CHARGE_LIMIT, handle_set_charge_limit, schema=SET_CHARGE_LIMIT_SCHEMA
-    )
-    hass.services.async_register(DOMAIN, SERVICE_DEFROST_ON, handle_defrost_on)
-    hass.services.async_register(DOMAIN, SERVICE_DEFROST_OFF, handle_defrost_off)
-    hass.services.async_register(DOMAIN, SERVICE_OPEN_WINDOWS, handle_open_windows)
-    hass.services.async_register(
-        DOMAIN, SERVICE_EXECUTE_SCENE, handle_execute_scene, schema=EXECUTE_SCENE_SCHEMA
-    )
-    hass.services.async_register(
-        DOMAIN, SERVICE_TOGGLE_SCENE, handle_toggle_scene, schema=TOGGLE_SCENE_SCHEMA
-    )
-    hass.services.async_register(
-        DOMAIN, SERVICE_CLEAR_STUCK_COMMANDS, handle_clear_stuck_commands
-    )
-    hass.services.async_register(
-        DOMAIN, SERVICE_CAPTURE_SNAPSHOT, handle_capture_snapshot
-    )
-    hass.services.async_register(DOMAIN, SERVICE_CHECK_OTA, handle_check_ota)
-    hass.services.async_register(
-        DOMAIN, SERVICE_TRIGGER_OTA, handle_trigger_ota, schema=TRIGGER_OTA_SCHEMA
-    )
-    hass.services.async_register(
-        DOMAIN, SERVICE_CANCEL_OTA, handle_cancel_ota, schema=CANCEL_OTA_SCHEMA
-    )
-    hass.services.async_register(DOMAIN, SERVICE_AUTO_UPGRADE_ON, handle_auto_upgrade_on)
-    hass.services.async_register(DOMAIN, SERVICE_AUTO_UPGRADE_OFF, handle_auto_upgrade_off)
-    hass.services.async_register(
-        DOMAIN, SERVICE_OTA_FEEDBACK, handle_ota_feedback, schema=OTA_FEEDBACK_SCHEMA
-    )
-    hass.services.async_register(
-        DOMAIN, SERVICE_SEND_RAW_MQTT, handle_send_raw_mqtt, schema=SEND_RAW_MQTT_SCHEMA
-    )
-    hass.services.async_register(
-        DOMAIN, SERVICE_CREATE_HVAC_SCHEDULE, handle_create_hvac_schedule,
-        schema=CREATE_HVAC_SCHEDULE_SCHEMA,
-    )
-    hass.services.async_register(
-        DOMAIN, SERVICE_UPDATE_HVAC_SCHEDULE, handle_update_hvac_schedule,
-        schema=UPDATE_HVAC_SCHEDULE_SCHEMA,
-    )
-    hass.services.async_register(
-        DOMAIN, SERVICE_DELETE_HVAC_SCHEDULE, handle_delete_hvac_schedule,
-        schema=DELETE_HVAC_SCHEDULE_SCHEMA,
-    )
-    hass.services.async_register(
-        DOMAIN, SERVICE_LIST_HVAC_SCHEDULES, handle_list_hvac_schedules,
-    )
-    hass.services.async_register(
-        DOMAIN, SERVICE_SEND_NAVIGATION, handle_send_navigation,
-        schema=SEND_NAVIGATION_SCHEMA,
-    )
-    hass.services.async_register(
-        DOMAIN, SERVICE_FORCE_CALENDAR_SYNC, handle_force_calendar_sync,
-    )
+    def _register(service: str, handler: Any, schema: Any = None) -> None:
+        """Register a vehicle command behind the command policy.
+
+        Every command service is registered through here, so there is exactly
+        one place a new service can forget to declare its group. It cannot stay
+        forgotten: ``tests/test_command_policy.py`` enumerates the registered
+        services and fails on any name that ``command_policy.SERVICE_GROUPS``
+        does not cover.
+
+        The group is looked up once at registration; the *decision* is made per
+        call, against the entry's current options, so changing the mode takes
+        effect on reload without re-registering anything.
+        """
+        group = service_group(service)
+
+        async def _gated(call: ServiceCall) -> None:
+            entry_data = _get_entry_data(hass) or {}
+            policy = entry_data.get("command_policy") or default_policy()
+            await async_guard_service(hass, call, service, group, policy)
+            await handler(call)
+
+        if schema is None:
+            hass.services.async_register(DOMAIN, service, _gated)
+        else:
+            hass.services.async_register(DOMAIN, service, _gated, schema=schema)
+
+    _register(SERVICE_CLIMATE_ON, handle_climate_on, CLIMATE_ON_SCHEMA)
+    _register(SERVICE_CLIMATE_OFF, handle_climate_off)
+    _register(SERVICE_CLOSE_WINDOWS, handle_close_windows)
+    _register(SERVICE_VENT_WINDOWS, handle_vent_windows)
+    _register(SERVICE_SENTINEL_ON, handle_sentinel_on, SENTINEL_ON_SCHEMA)
+    _register(SERVICE_SENTINEL_OFF, handle_sentinel_off)
+    _register(SERVICE_TRUNK_POWER_ON, handle_trunk_power_on, TRUNK_POWER_ON_SCHEMA)
+    _register(SERVICE_TRUNK_POWER_OFF, handle_trunk_power_off)
+    _register(SERVICE_FLASH_LIGHTS, handle_flash_lights)
+    _register(SERVICE_HONK_HORN, handle_honk_horn)
+    _register(SERVICE_FORCE_UPDATE, handle_force_update)
+    _register(SERVICE_LOCK, handle_lock)
+    _register(SERVICE_UNLOCK, handle_unlock)
+    _register(SERVICE_START_CHARGE, handle_start_charge)
+    _register(SERVICE_STOP_CHARGE, handle_stop_charge)
+    _register(SERVICE_OPEN_TRUNK, handle_open_trunk)
+    _register(SERVICE_CLOSE_TRUNK, handle_close_trunk)
+    _register(SERVICE_OPEN_CHARGE_PORT, handle_open_charge_port)
+    _register(SERVICE_CLOSE_CHARGE_PORT, handle_close_charge_port)
+    _register(SERVICE_OPEN_FAST_CHARGE_PORT, handle_open_fast_charge_port)
+    _register(SERVICE_CLOSE_FAST_CHARGE_PORT, handle_close_fast_charge_port)
+    _register(SERVICE_SET_CHARGE_LIMIT, handle_set_charge_limit, SET_CHARGE_LIMIT_SCHEMA)
+    _register(SERVICE_DEFROST_ON, handle_defrost_on)
+    _register(SERVICE_DEFROST_OFF, handle_defrost_off)
+    _register(SERVICE_OPEN_WINDOWS, handle_open_windows)
+    _register(SERVICE_EXECUTE_SCENE, handle_execute_scene, EXECUTE_SCENE_SCHEMA)
+    _register(SERVICE_TOGGLE_SCENE, handle_toggle_scene, TOGGLE_SCENE_SCHEMA)
+    _register(SERVICE_CLEAR_STUCK_COMMANDS, handle_clear_stuck_commands)
+    _register(SERVICE_CAPTURE_SNAPSHOT, handle_capture_snapshot)
+    _register(SERVICE_CHECK_OTA, handle_check_ota)
+    _register(SERVICE_TRIGGER_OTA, handle_trigger_ota, TRIGGER_OTA_SCHEMA)
+    _register(SERVICE_CANCEL_OTA, handle_cancel_ota, CANCEL_OTA_SCHEMA)
+    _register(SERVICE_AUTO_UPGRADE_ON, handle_auto_upgrade_on)
+    _register(SERVICE_AUTO_UPGRADE_OFF, handle_auto_upgrade_off)
+    _register(SERVICE_OTA_FEEDBACK, handle_ota_feedback, OTA_FEEDBACK_SCHEMA)
+    _register(SERVICE_SEND_RAW_MQTT, handle_send_raw_mqtt, SEND_RAW_MQTT_SCHEMA)
+    _register(SERVICE_CREATE_HVAC_SCHEDULE, handle_create_hvac_schedule, CREATE_HVAC_SCHEDULE_SCHEMA)
+    _register(SERVICE_UPDATE_HVAC_SCHEDULE, handle_update_hvac_schedule, UPDATE_HVAC_SCHEDULE_SCHEMA)
+    _register(SERVICE_DELETE_HVAC_SCHEDULE, handle_delete_hvac_schedule, DELETE_HVAC_SCHEDULE_SCHEMA)
+    _register(SERVICE_LIST_HVAC_SCHEDULES, handle_list_hvac_schedules)
+    _register(SERVICE_SEND_NAVIGATION, handle_send_navigation, SEND_NAVIGATION_SCHEMA)
+    _register(SERVICE_FORCE_CALENDAR_SYNC, handle_force_calendar_sync)
 
 
 async def async_unload_services(hass: HomeAssistant) -> None:

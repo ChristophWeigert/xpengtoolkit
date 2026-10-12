@@ -11,6 +11,15 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from .command_policy import (
+    GROUP_ACCESS,
+    GROUP_COMFORT,
+    GROUP_FIRMWARE,
+    GROUP_LIGHTS,
+    GROUP_POWER,
+    GROUP_SECURING,
+    default_policy,
+)
 from .const import DOMAIN
 from .coordinator import XPengDataCoordinator
 from .entity import XPengEntity
@@ -29,15 +38,21 @@ async def async_setup_entry(
     coordinator: XPengDataCoordinator = data["coordinator"]
     mqtt_client: XPengMQTTClient = data["mqtt_client"]
 
+    policy = data.get("command_policy") or default_policy()
+
     entities = [
         XPengSentinelSwitch(coordinator, mqtt_client),
         XPengTrunkPowerSwitch(coordinator, mqtt_client),
         XPengDefrostSwitch(coordinator, mqtt_client),
         XPengParkingLightsSwitch(coordinator, mqtt_client),
     ]
+    # A switch keeps a meaningful state under READ_ONLY (X-Guard armed, defrost
+    # on), so READ_ONLY creates it and only DISABLED removes it; the command
+    # itself is refused by ``_guard`` above.
+    entities = [entity for entity in entities if entity._policy_visible(policy)]
 
     # Add auto-upgrade switch if API is available
-    if data.get("entry"):
+    if data.get("entry") and policy.exposes(GROUP_FIRMWARE):
         entities.append(XPengAutoUpgradeSwitch(coordinator, entry))
 
     async_add_entities(entities)
@@ -47,6 +62,8 @@ async def async_setup_entry(
 
     def _discover_schedule_switches() -> None:
         new_entities: list[SwitchEntity] = []
+        if not policy.exposes(GROUP_COMFORT):
+            return
         for item in coordinator.hvac_schedules:
             if not isinstance(item, dict):
                 continue
@@ -71,6 +88,8 @@ async def async_setup_entry(
 class XPengSentinelSwitch(XPengEntity, SwitchEntity):
     """Switch to toggle X-Guard / sentinel (sentry) mode."""
 
+    _policy_group = GROUP_SECURING
+    _policy_groups = (GROUP_SECURING, GROUP_ACCESS)
     _attr_name = "X-Guard"
     _attr_icon = "mdi:cctv"
     _attr_assumed_state = True  # optimistic — don't bounce on stale state
@@ -113,6 +132,7 @@ class XPengSentinelSwitch(XPengEntity, SwitchEntity):
         )
 
     async def async_turn_on(self, **kwargs: Any) -> None:
+        self._guard(group=GROUP_SECURING)
         self._optimistic_state = True
         self._optimistic_until = time.monotonic() + 30
         self.async_write_ha_state()
@@ -125,6 +145,7 @@ class XPengSentinelSwitch(XPengEntity, SwitchEntity):
         })
 
     async def async_turn_off(self, **kwargs: Any) -> None:
+        self._guard(group=GROUP_ACCESS)
         self._optimistic_state = False
         self._optimistic_until = time.monotonic() + 30
         self.async_write_ha_state()
@@ -140,6 +161,7 @@ class XPengSentinelSwitch(XPengEntity, SwitchEntity):
 class XPengTrunkPowerSwitch(XPengEntity, SwitchEntity):
     """Switch to toggle trunk power outlet (V2L)."""
 
+    _policy_group = GROUP_POWER
     _attr_name = "Trunk power"
     _attr_icon = "mdi:power-plug"
     _attr_assumed_state = True
@@ -169,6 +191,7 @@ class XPengTrunkPowerSwitch(XPengEntity, SwitchEntity):
         return tp.get("powerSwitch") == 1 if tp else None
 
     async def async_turn_on(self, **kwargs: Any) -> None:
+        self._guard()
         self._optimistic_state = True
         self._optimistic_until = time.monotonic() + 30
         self.async_write_ha_state()
@@ -179,6 +202,7 @@ class XPengTrunkPowerSwitch(XPengEntity, SwitchEntity):
         )
 
     async def async_turn_off(self, **kwargs: Any) -> None:
+        self._guard()
         self._optimistic_state = False
         self._optimistic_until = time.monotonic() + 30
         self.async_write_ha_state()
@@ -192,6 +216,7 @@ class XPengTrunkPowerSwitch(XPengEntity, SwitchEntity):
 class XPengDefrostSwitch(XPengEntity, SwitchEntity):
     """Switch to toggle front defrost."""
 
+    _policy_group = GROUP_COMFORT
     _attr_name = "Front defrost"
     _attr_translation_key = "defrost_switch"
     _attr_icon = "mdi:car-defrost-front"
@@ -222,6 +247,7 @@ class XPengDefrostSwitch(XPengEntity, SwitchEntity):
         return hvac.get("hvac_defrost") == 1 if hvac else None
 
     async def async_turn_on(self, **kwargs: Any) -> None:
+        self._guard()
         self._optimistic_state = True
         self._optimistic_until = time.monotonic() + 30
         self.async_write_ha_state()
@@ -231,6 +257,7 @@ class XPengDefrostSwitch(XPengEntity, SwitchEntity):
         )
 
     async def async_turn_off(self, **kwargs: Any) -> None:
+        self._guard()
         self._optimistic_state = False
         self._optimistic_until = time.monotonic() + 30
         self.async_write_ha_state()
@@ -243,6 +270,7 @@ class XPengDefrostSwitch(XPengEntity, SwitchEntity):
 class XPengParkingLightsSwitch(XPengEntity, SwitchEntity):
     """Switch to toggle parking lights."""
 
+    _policy_group = GROUP_LIGHTS
     _attr_name = "Parking lights"
     _attr_translation_key = "parking_lights_switch"
     _attr_icon = "mdi:car-parking-lights"
@@ -265,6 +293,7 @@ class XPengParkingLightsSwitch(XPengEntity, SwitchEntity):
         return None  # no known MQTT state field
 
     async def async_turn_on(self, **kwargs: Any) -> None:
+        self._guard()
         self._optimistic_state = True
         self._optimistic_until = time.monotonic() + 30
         self.async_write_ha_state()
@@ -274,6 +303,7 @@ class XPengParkingLightsSwitch(XPengEntity, SwitchEntity):
         )
 
     async def async_turn_off(self, **kwargs: Any) -> None:
+        self._guard()
         self._optimistic_state = False
         self._optimistic_until = time.monotonic() + 30
         self.async_write_ha_state()
@@ -286,6 +316,7 @@ class XPengParkingLightsSwitch(XPengEntity, SwitchEntity):
 class XPengAutoUpgradeSwitch(XPengEntity, SwitchEntity):
     """Switch to toggle OTA auto-upgrade setting via REST API."""
 
+    _policy_group = GROUP_FIRMWARE
     _attr_name = "OTA auto-upgrade"
     _attr_translation_key = "auto_upgrade_switch"
     _attr_icon = "mdi:cellphone-arrow-down"
@@ -345,12 +376,14 @@ class XPengAutoUpgradeSwitch(XPengEntity, SwitchEntity):
         )
 
     async def async_turn_on(self, **kwargs: Any) -> None:
+        self._guard()
         self._optimistic_state = True
         self._optimistic_until = time.monotonic() + 30
         self.async_write_ha_state()
         await self._set_auto_upgrade(True)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
+        self._guard()
         self._optimistic_state = False
         self._optimistic_until = time.monotonic() + 30
         self.async_write_ha_state()
@@ -360,6 +393,7 @@ class XPengAutoUpgradeSwitch(XPengEntity, SwitchEntity):
 class XPengHvacScheduleSwitch(XPengEntity, SwitchEntity):
     """One switch per HVAC scheduled appointment — enable/disable that schedule."""
 
+    _policy_group = GROUP_COMFORT
     _attr_has_entity_name = True
     _attr_icon = "mdi:calendar-clock"
     _attr_assumed_state = True
@@ -452,12 +486,14 @@ class XPengHvacScheduleSwitch(XPengEntity, SwitchEntity):
         )
 
     async def async_turn_on(self, **kwargs: Any) -> None:
+        self._guard()
         self._optimistic_state = True
         self._optimistic_until = time.monotonic() + 30
         self.async_write_ha_state()
         await self._update_validity(True)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
+        self._guard()
         self._optimistic_state = False
         self._optimistic_until = time.monotonic() + 30
         self.async_write_ha_state()
