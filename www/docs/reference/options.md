@@ -257,11 +257,15 @@ number each pack is commonly known by (source of record: EV Database):
 | `87.5` | 92.0 | **87.5** *(default)* | G6 LR (MY24) NMC |
 | `78.2` | 78.2 | **75.8** | G9 SR (MY23) LFP |
 | `79.0` | 79.0 | **78.2** | G9 SR (MY25) LFP |
-| `93.1` | 93.1 | **92.2** | G9 LR (MY25) LFP |
-| `98.0` | 98.0 | **93.1** | G9 LR (MY23) NMC |
+| `93.1` | 93.1 | **92.2** | G9 LR (MY25 on) LFP |
+| `98.0` | 98.0 | **93.1** | G9 LR (MY23-24) NMC |
 
 The default is this project's own car (a G6 LR on the MY24 NMC pack), which is why
-it is not a G9 figure. A value that is too high overstates parked drain and one
+it is not a G9 figure. Model years are the ones each pack is commonly sold under, and the
+G9's NMC pack ran from launch - so it is labelled MY23-24 rather than pinned to one year,
+since which year a car is called depends on the market it was sold in. **The figure your
+car is quoted with is the reliable discriminator**: a G9 sold as `98 kWh` wants 93.1, one
+sold as `93.1 kWh` wants 92.2. A value that is too high overstates parked drain and one
 that is too low understates it; nothing else in the integration depends on the figure, and the
 estimate is also bounded per hour and per step in the coordinator so that a
 mis-set value cannot produce an absurd reading.
