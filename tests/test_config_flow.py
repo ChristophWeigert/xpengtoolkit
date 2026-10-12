@@ -74,8 +74,9 @@ class ConfigFlow:
 
 
 class ConfigEntry:
-    def __init__(self, data=None, entry_id="entry-1"):
+    def __init__(self, data=None, entry_id="entry-1", options=None):
         self.data = data or {}
+        self.options = options or {}
         self.entry_id = entry_id
 
 
@@ -210,10 +211,13 @@ class _FakeConfigEntries:
     def async_get_entry(self, entry_id):
         return self._entry
 
-    def async_update_entry(self, entry, *, data=None, **kw):
+    def async_update_entry(self, entry, *, data=None, options=None, **kw):
         if data:
             entry.data.update(data)
+        if options is not None:
+            entry.options = dict(options)
         self.updated = data
+        self.updated_options = options
 
     async def async_reload(self, entry_id):
         self.reloaded = True
@@ -423,6 +427,44 @@ def main() -> int:
         check("google reauth wrote fresh tokens", flow2.hass.config_entries.updated is not None)
         check("google reauth reloaded the entry", flow2.hass.config_entries.reloaded)
 
+        # 5b. A reauth must APPLY the answers the form was given. Reported by a
+        #     user: choosing Safe Plus during a reauth was accepted and then
+        #     discarded, so the entry stayed on Full access.
+        read_only = dict(
+            cf._command_policy_from({const.CONF_COMMAND_MODE: "read_only"}).to_options()
+        )
+        entry_ro = ConfigEntry(
+            data={
+                const.CONF_AUTH_METHOD: const.AUTH_METHOD_GOOGLE,
+                const.CONF_VIN: "L1NNSGHA1SB000003",
+            },
+            options=read_only,
+        )
+        flow4 = cf.XPengConfigFlow()
+        flow4.hass = _FakeHass(entry_ro)
+        flow4.context["entry_id"] = entry_ro.entry_id
+        r = await flow4.async_step_reauth()
+        check("reauth form pre-fills the entry's own mode",
+              _form_fields(r).get("command_mode") == "read_only")
+        await flow4.async_step_google({
+            "redirect_url": "x:/cb?code=THECODE",
+            const.CONF_COMMAND_MODE: "safe",
+        })
+        check("reauth applies the mode it was given",
+              entry_ro.options.get("command_mode") == "safe"
+              and entry_ro.options.get("access") == "disabled"
+              and entry_ro.options.get("queries") == "full")
+
+        # ...and one that says nothing about them must leave them alone
+        flow5 = cf.XPengConfigFlow()
+        flow5.hass = _FakeHass(entry_ro)
+        flow5.context["entry_id"] = entry_ro.entry_id
+        await flow5.async_step_reauth()
+        before = dict(entry_ro.options)
+        await flow5.async_step_google({"redirect_url": "x:/cb?code=THECODE"})
+        check("a partial reauth leaves permissions untouched",
+              entry_ro.options == before)
+
         # 6. an email entry still reauths via the email path
         flow3 = cf.XPengConfigFlow()
         entry2 = ConfigEntry(data={
@@ -503,12 +545,33 @@ class CommandPermissionStepTests(unittest.TestCase):
 
     def test_the_question_is_optional_fields_not_a_step(self):
         self.assertNotIn("async_step_command_mode", self.CF)
-        self.assertIn("def _command_policy_fields()", self.CF)
+        self.assertIn("def _command_policy_fields(", self.CF)
         self.assertIn("def _command_policy_from(", self.CF)
 
+    def test_the_answers_are_applied_on_a_reauth_too(self):
+        """The bug this fixes: reauth accepted the answer and discarded it."""
+        self.assertIn("_submitted_option_writes(form)", self.CF)
+        self.assertIn("def _submitted_option_writes(", self.CF)
+        # create keeps the new-install defaults; update only writes what was sent
+        self.assertIn("def _setup_option_writes(", self.CF)
+        start = self.CF.index("def _submitted_option_writes(")
+        body = self.CF[start:start + 700]
+        self.assertIn("if CONF_COMMAND_MODE in user_input", body)
+
     def test_every_route_that_creates_an_entry_asks_it(self):
-        # import_tokens, email_code and google - one call each.
-        self.assertEqual(self.CF.count("**_command_policy_fields(),"), 3)
+        # import_tokens, email_code and google - one call each, through the flow
+        # method so a reauth can pre-fill the entry's own answers.
+        self.assertEqual(self.CF.count("**self._policy_fields(),"), 3)
+        self.assertEqual(self.CF.count("**self._capacity_field(),"), 3)
+
+    def test_a_reauth_prefills_from_the_entry_not_the_new_install_default(self):
+        """Otherwise submitting a reauth form untouched would narrow the install."""
+        self.assertIn("def _policy_fields(self)", self.CF)
+        self.assertIn("def _entry(self)", self.CF)
+        start = self.CF.index("def _policy_fields(self)")
+        body = self.CF[start:start + 300]
+        self.assertIn("CommandPolicy.from_options", body)
+        self.assertIn("_entry()", body)
 
     def test_an_unanswered_question_means_the_new_entry_default(self):
         """A new entry gets Safe Plus; an entry with no policy keeps Full access."""

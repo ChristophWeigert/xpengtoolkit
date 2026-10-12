@@ -1712,6 +1712,11 @@ def _fetch_rest_data_sync(
                 if value not in (None, ""):
                     result.setdefault(result_key, value)
             appearance = v.get("vehicleAppearance") or {}
+            if isinstance(appearance, dict) and appearance:
+                # Kept whole for diagnostics: the picture we choose is only one
+                # of the keys the API offers, and the app may be rendering from
+                # another (or from trim data this block does not carry).
+                result["vehicle_appearance"] = appearance
             pic = appearance.get("pictureLeft") or appearance.get("picture") or ""
             if pic:
                 result["vehicle_image_url"] = pic

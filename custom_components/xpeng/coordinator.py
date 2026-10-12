@@ -97,6 +97,11 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # REST API polled data
         self._rest_data: dict[str, Any] = {}
         self.vehicle_image_url: str | None = None
+        # The whole `vehicleAppearance` block, not just the picture we picked.
+        # The official app renders the car's own trim (wheels, colour) and this
+        # entity cannot always match it; keeping the raw block is what makes the
+        # difference diagnosable instead of guesswork - it goes into snapshots.
+        self.vehicle_appearance: dict[str, Any] = {}
         self.xos_version: str | None = None
         self.vehicle_type_code: str | None = None
         # Manufacturer self-reported identity, from the v2/myVehicles response.
@@ -555,6 +560,8 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 )
         if "vehicle_image_url" in data:
             self.vehicle_image_url = data["vehicle_image_url"]
+        if "vehicle_appearance" in data:
+            self.vehicle_appearance = data["vehicle_appearance"]
         if "vehicle_type_code" in data:
             self.vehicle_type_code = data["vehicle_type_code"]
         # Manufacturer identity (v2/myVehicles). series_name is the only

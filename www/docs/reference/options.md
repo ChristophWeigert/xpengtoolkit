@@ -240,15 +240,29 @@ estimate while the car is parked and idle. Default **87.5** kWh, accepted
 parked-consumption sensors.
 
 The car reports a percentage, not kilowatt-hours, so this number is what makes
-`sensor.xpeng_<vehicle>_parked_consumption` meaningful for your trim:
+`sensor.xpeng_<vehicle>_parked_consumption` meaningful for your trim. It is asked
+on the setup screen too, so a new install can set it without opening Configure.
 
-| Model | Approximate usable capacity |
-| --- | --- |
-| G6 Long Range | `87.5` |
-| G6 Standard Range | `66` |
+**A VIN cannot pick this for you.** A XPENG VIN encodes the model *family* only
+(see [Entities](./entities)), and the family is not the pack: the G6 has been sold
+with four, the G9 with four more. Pick the row you own — the figures are the
+**usable** capacity, which is what this option means, and they are keyed by the
+number each pack is commonly known by (source of record: EV Database):
 
-A value that is too high overstates parked drain and a value that is too low
-understates it; nothing else in the integration depends on the figure, and the
+| Known as | Installed | Usable — use this | Variant |
+| --- | --- | --- | --- |
+| `66.0` | 66.0 | **65.3** | G6 SR (MY24) LFP |
+| `68.5` | 68.5 | **67.8** | G6 SR (MY25) LFP |
+| `80.8` | 80.8 | **80.0** | G6 LR / Performance (MY25) LFP |
+| `87.5` | 92.0 | **87.5** *(default)* | G6 LR (MY24) NMC |
+| `78.2` | 78.2 | **75.8** | G9 SR (MY23) LFP |
+| `79.0` | 79.0 | **78.2** | G9 SR (MY25) LFP |
+| `93.1` | 93.1 | **92.2** | G9 LR (MY25) LFP |
+| `98.0` | 98.0 | **93.1** | G9 LR (MY23) NMC |
+
+The default is this project's own car (a G6 LR on the MY24 NMC pack), which is why
+it is not a G9 figure. A value that is too high overstates parked drain and one
+that is too low understates it; nothing else in the integration depends on the figure, and the
 estimate is also bounded per hour and per step in the coordinator so that a
 mis-set value cannot produce an absurd reading.
 

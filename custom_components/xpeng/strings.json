@@ -17,10 +17,16 @@
         "title": "Email Verification",
         "description": "A verification code has been sent to {email}. Enter the code below.",
         "data": {
-          "email_code": "Verification code"
+          "email_code": "Verification code",
+          "usable_battery_kwh": "Usable battery capacity (kWh)",
+          "command_mode": "Command permissions",
+          "allow_wake": "Allow the integration to wake the car"
         },
         "data_description": {
-          "email_code": "6-digit code sent to your email"
+          "email_code": "6-digit code sent to your email",
+          "usable_battery_kwh": "Set this to your car's pack, from the figure it is known by. A VIN gives the model family only, so nothing can pick this for you. Usable kWh: G6 66.0 pack = 65.3 | G6 68.5 = 67.8 | G6 80.8 = 80.0 | G6 87.5 (MY24 NMC) = 87.5 | G9 78.2 = 75.8 | G9 79.0 = 78.2 | G9 93.1 = 92.2 | G9 98.0 (MY23 NMC) = 93.1. Only the parked-consumption estimate uses it.",
+          "command_mode": "Safe Plus is the default for a new install: status, climate, lights, locking and charging, with unlocking, the trunk and windows, OTA and raw commands left off. Read only and Safe are narrower; Full access includes unlocking. Custom is offered under Configure.",
+          "allow_wake": "Waking a sleeping car costs a little of its 12V battery and is only used to fetch a fresh full state. Charge and drive polls are unaffected."
         }
       },
       "reauth_confirm": {
@@ -47,11 +53,17 @@
         "description": "Sign in with Google to renew XPENG credentials.\n\n**This path is not captcha-free.** XPENG applies the same slider captcha to the account after the Google sign-in, and that challenge cannot be solved from inside Home Assistant. If the sign-in is refused with a captcha error, run tools/onboard_email_login.py instead and use the \"Import tokens from the onboarding tool\" method.\n\n**If a browser cannot deliver the callback** (on a Mac with the XPENG app installed the link opens the app; without it Google bounces to the homepage and the code is lost), run the helper instead:\n\n`swift tools/oauth_capture.swift`\n\nIt opens the system sign-in window, captures the callback, and prints `VERIFIER:` and `CALLBACK:`. Paste the callback URL below and the verifier into the second field.\n\n**Otherwise**, open this link and sign in, then paste the redirect URL:\n\n{url}",
         "data": {
           "redirect_url": "Paste the redirect URL here",
-          "code_verifier": "PKCE verifier (from tools/oauth_capture.swift)"
+          "code_verifier": "PKCE verifier (from tools/oauth_capture.swift)",
+          "usable_battery_kwh": "Usable battery capacity (kWh)",
+          "command_mode": "Command permissions",
+          "allow_wake": "Allow the integration to wake the car"
         },
         "data_description": {
           "redirect_url": "The full callback URL, or the code on its own",
-          "code_verifier": "Leave blank unless you captured the callback with the system sign-in helper"
+          "code_verifier": "Leave blank unless you captured the callback with the system sign-in helper",
+          "usable_battery_kwh": "Set this to your car's pack, from the figure it is known by. A VIN gives the model family only, so nothing can pick this for you. Usable kWh: G6 66.0 pack = 65.3 | G6 68.5 = 67.8 | G6 80.8 = 80.0 | G6 87.5 (MY24 NMC) = 87.5 | G9 78.2 = 75.8 | G9 79.0 = 78.2 | G9 93.1 = 92.2 | G9 98.0 (MY23 NMC) = 93.1. Only the parked-consumption estimate uses it.",
+          "command_mode": "Safe Plus is the default for a new install: status, climate, lights, locking and charging, with unlocking, the trunk and windows, OTA and raw commands left off. Read only and Safe are narrower; Full access includes unlocking. Custom is offered under Configure.",
+          "allow_wake": "Waking a sleeping car costs a little of its 12V battery and is only used to fetch a fresh full state. Charge and drive polls are unaffected."
         }
       },
       "email_password": {
@@ -74,12 +86,18 @@
           "tokens_path": "xpeng_tokens.json path (instead of pasting)",
           "tenant_json": "xpeng_tenant.json contents",
           "tenant_path": "xpeng_tenant.json path (instead of pasting)",
-          "vin": "Vehicle Identification Number (VIN)"
+          "vin": "Vehicle Identification Number (VIN)",
+          "usable_battery_kwh": "Usable battery capacity (kWh)",
+          "command_mode": "Command permissions",
+          "allow_wake": "Allow the integration to wake the car"
         },
         "data_description": {
           "tokens_json": "The whole file, json wrapper included",
           "tenant_json": "The whole file - it carries the deviceId the tokens are sealed against",
-          "vin": "Read from the token file when it carries one, so usually leave this blank"
+          "vin": "Read from the token file when it carries one, so usually leave this blank",
+          "usable_battery_kwh": "Set this to your car's pack, from the figure it is known by. A VIN gives the model family only, so nothing can pick this for you. Usable kWh: G6 66.0 pack = 65.3 | G6 68.5 = 67.8 | G6 80.8 = 80.0 | G6 87.5 (MY24 NMC) = 87.5 | G9 78.2 = 75.8 | G9 79.0 = 78.2 | G9 93.1 = 92.2 | G9 98.0 (MY23 NMC) = 93.1. Only the parked-consumption estimate uses it.",
+          "command_mode": "Safe Plus is the default for a new install: status, climate, lights, locking and charging, with unlocking, the trunk and windows, OTA and raw commands left off. Read only and Safe are narrower; Full access includes unlocking. Custom is offered under Configure.",
+          "allow_wake": "Waking a sleeping car costs a little of its 12V battery and is only used to fetch a fresh full state. Charge and drive polls are unaffected."
         }
       },
       "command_mode": {
@@ -156,8 +174,8 @@
           "token_file": "Path to login tokens JSON from CLI login script. Only needed if not using in-HA login.",
           "tenant_file": "Path to cached tenant data. Auto-fetched if missing.",
           "cert_dir": "Absolute path to the directory holding ca-chain.crt, client-cert-0.pem and client-key.pem. Default: /config/custom_components/xpeng/certs.",
-          "iccid": "TBox SIM ICCID. Read it on-device via the head-unit code *#9925*131# (no app API exposes it). Optional diagnostic sensor.",
-          "usable_battery_kwh": "Usable pack size for the parked-consumption kWh estimate (10-150). G6 Long Range ≈ 87.5, G6 Standard Range ≈ 66.",
+          "iccid": "TBox SIM ICCID. Optional: leave it blank and this sensor is not created; set it and the integration adds one diagnostic sensor showing the value. No app-tier API exposes it, so read it on the car's screen by entering *#9925*131# in the head-unit dialler.",
+          "usable_battery_kwh": "Set this to your car's pack, from the figure it is known by. A VIN gives the model family only, so nothing can pick this for you. Usable kWh: G6 66.0 pack = 65.3 | G6 68.5 = 67.8 | G6 80.8 = 80.0 | G6 87.5 (MY24 NMC) = 87.5 | G9 78.2 = 75.8 | G9 79.0 = 78.2 | G9 93.1 = 92.2 | G9 98.0 (MY23 NMC) = 93.1. Only the parked-consumption estimate uses it.",
           "notification_poll_interval": "How often to poll XPENG's Message Centre for notifications. Six requests per poll, one per category; a notification cannot arrive sooner than this. The sensor records the real delay as `delay_s`."
         }
       },

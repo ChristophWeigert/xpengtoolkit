@@ -143,9 +143,12 @@ The integration **adopts** the device id from the imported tenant rather than
 minting a new one. If you ever see it mint a fresh one instead, the tenant did not
 come through, and the credentials will be rejected.
 
-The screen ends with two more fields, **Command permissions** and **Allow the
+The screen ends with three more fields: **Command permissions** and **Allow the
 integration to wake the car**, which decide what the integration is allowed to do to
-the car - independent of who is asking. A new install starts at **Safe Plus**: watch,
+the car - independent of who is asking - and **Usable battery capacity (kWh)**, the
+pack size behind the parked-consumption estimate. Set that one for your car if it is
+not a G6 Long Range: a VIN gives the model family, and the G6 and G9 have four packs
+each ([the table](../reference/options#usable_battery_kwh)). A new install starts at **Safe Plus**: watch,
 pre-condition and charge, but not unlock, open, re-flash or command raw. Accept it, or
 pick **Full access** if you want what the integration did before 0.4.20; it can be
 changed at any time under **Configure**. See

@@ -319,8 +319,12 @@ def _read_text_file(path: str, key: str) -> str:
         raise _TokenImportError(key, "the file could not be read") from None
 
 
-def _command_policy_fields() -> dict[Any, Any]:
+def _command_policy_fields(policy: CommandPolicy | None = None) -> dict[Any, Any]:
     """The command-permission question, as form fields.
+
+    ``policy`` is what the form should be *pre-filled* with. A new install gets
+    ``DEFAULT_COMMAND_MODE``; a reauth gets the entry's own current policy, so
+    submitting the form without touching it cannot change anything.
 
     Deliberately *optional fields on the forms that already exist* rather than a
     step of its own. The renewal app creates the entry by POSTing to
@@ -331,17 +335,76 @@ def _command_policy_fields() -> dict[Any, Any]:
     answered by the app too (it sends the mode it was configured with) and by
     anyone who leaves it alone.
     """
+    current = policy or CommandPolicy.from_preset(DEFAULT_COMMAND_MODE)
     return {
         vol.Optional(
-            CONF_COMMAND_MODE, default=DEFAULT_COMMAND_MODE
+            CONF_COMMAND_MODE, default=current.mode
         ): SelectSelector(
             SelectSelectorConfig(
                 options=_preset_options(),
                 mode=SelectSelectorMode.DROPDOWN,
             )
         ),
-        vol.Optional(CONF_ALLOW_WAKE, default=True): bool,
+        vol.Optional(CONF_ALLOW_WAKE, default=current.allow_wake): bool,
     }
+
+
+def _capacity_fields(
+    default_kwh: float = DEFAULT_USABLE_BATTERY_KWH,
+) -> dict[Any, Any]:
+    """The pack size, as a form field.
+
+    The parked-consumption estimate turns a percentage drop into kWh with this
+    number, so a wrong one produces a plausible-looking wrong figure. It is a
+    *choice* rather than something derived: a XPENG VIN encodes the model family
+    only (see vin_descriptor.py), the G6 alone has four packs and the G9 four
+    more, and nothing in the car's identity picks between them.
+    """
+    return {
+        vol.Optional(
+            CONF_USABLE_BATTERY_KWH, default=default_kwh
+        ): vol.All(vol.Coerce(float), vol.Range(min=10, max=150)),
+    }
+
+
+def _capacity_write(user_input: Mapping[str, Any] | None) -> dict[str, Any]:
+    """The pack size the form carried, if it carried one."""
+    kwh = (user_input or {}).get(CONF_USABLE_BATTERY_KWH)
+    if kwh in (None, ""):
+        return {}
+    try:
+        return {CONF_USABLE_BATTERY_KWH: float(kwh)}
+    except (TypeError, ValueError):
+        return {}
+
+
+def _setup_option_writes(user_input: Mapping[str, Any] | None) -> dict[str, Any]:
+    """What a form contributes when it *creates* an entry.
+
+    Absent fields fall back to the new-install defaults here, because a new
+    entry has to start somewhere - Safe Plus, which is what the setup screen
+    offers and what the renewal app sends.
+    """
+    return {
+        **_command_policy_from(user_input).to_options(),
+        **_capacity_write(user_input),
+    }
+
+
+def _submitted_option_writes(user_input: Mapping[str, Any] | None) -> dict[str, Any]:
+    """What a form contributes when it *updates* an existing entry.
+
+    Only what the form actually carried. An absent field has to mean "leave it
+    alone" rather than "apply the new-install default", or a caller posting a
+    partial form would silently narrow an existing install - the same mistake as
+    dropping the answer, pointing the other way.
+    """
+    user_input = user_input or {}
+    writes: dict[str, Any] = {}
+    if CONF_COMMAND_MODE in user_input or CONF_ALLOW_WAKE in user_input:
+        writes.update(_command_policy_from(user_input).to_options())
+    writes.update(_capacity_write(user_input))
+    return writes
 
 
 def _command_policy_from(user_input: Mapping[str, Any] | None) -> CommandPolicy:
@@ -413,6 +476,38 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
         # the tenant key pool is sealed against whatever id fetches it, so the
         # id used for the tenant MUST be the id the entry ends up storing.
         self._device_id: str = ""
+
+    def _entry(self) -> ConfigEntry | None:
+        """The entry this flow is reauthenticating, if it is one."""
+        if not self._reauth_mode:
+            return None
+        return self.hass.config_entries.async_get_entry(
+            self.context.get("entry_id", "")
+        )
+
+    def _policy_fields(self) -> dict[Any, Any]:
+        """Permission fields, pre-filled from the entry on a reauth."""
+        entry = self._entry()
+        return _command_policy_fields(
+            CommandPolicy.from_options(getattr(entry, "options", None))
+            if entry is not None
+            else None
+        )
+
+    def _capacity_field(self) -> dict[Any, Any]:
+        """Pack-size field, pre-filled from the entry on a reauth."""
+        entry = self._entry()
+        current = DEFAULT_USABLE_BATTERY_KWH
+        if entry is not None:
+            try:
+                current = float(
+                    _entry_options(entry).get(
+                        CONF_USABLE_BATTERY_KWH, DEFAULT_USABLE_BATTERY_KWH
+                    )
+                )
+            except (TypeError, ValueError):
+                current = DEFAULT_USABLE_BATTERY_KWH
+        return _capacity_fields(current)
 
     def _ensure_device_id(self) -> str:
         """This flow's device id, minted once and reused by every API call."""
@@ -656,9 +751,7 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
                     vin,
                     mqtt,
                     account_email,
-                    # Only used when this creates an entry; a reauth keeps the
-                    # policy the entry already has.
-                    command_policy=_command_policy_from(user_input),
+                    form=user_input,
                 )
 
         # The renewal app writes the pair to a fixed directory. When it is already
@@ -699,7 +792,8 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
                     ),
                     vol.Optional("tenant_path", default=default_tenant_path): str,
                     vol.Optional(CONF_VIN, default=self._vin): str,
-                    **_command_policy_fields(),
+                    **self._policy_fields(),
+                    **self._capacity_field(),
                     # Which account the pair belongs to. Normally the onboarding
                     # tool already recorded this in the token file and this can
                     # be left blank - it exists so an entry imported before that
@@ -722,7 +816,7 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
         vin: str,
         mqtt: tuple[str, str, str],
         account_email: str = "",
-        command_policy: CommandPolicy | None = None,
+        form: Mapping[str, Any] | None = None,
     ) -> ConfigFlowResult:
         """Create (or, in reauth, update) the entry from an imported pair."""
         client_id, password, server = mqtt
@@ -766,7 +860,14 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
             self.hass.config_entries.async_update_entry(
                 entry,
                 data={**entry.data, **data},
-                options={**_entry_options(entry), **options},
+                # The reauth form asks the same questions setup does, so its
+                # answers are applied here too. Every field is pre-filled from
+                # this entry, so an untouched submit writes back what it read.
+                options={
+                    **_entry_options(entry),
+                    **options,
+                    **_submitted_option_writes(form),
+                },
             )
             # A fresh pair means the "credentials need re-onboarding" Repairs
             # card is stale; clear it rather than leave the user staring at a
@@ -783,8 +884,7 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
         await self.async_set_unique_id(vin)
         self._abort_if_unique_id_configured()
 
-        if command_policy is not None:
-            options = {**options, **command_policy.to_options()}
+        options = {**options, **_setup_option_writes(form)}
 
         return self.async_create_entry(
             title=f"XPENG {vin[-6:]}",
@@ -882,7 +982,8 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Required("email_code"): str,
-                    **_command_policy_fields(),
+                    **self._policy_fields(),
+                    **self._capacity_field(),
                 }
             ),
             description_placeholders={"email": self._email},
@@ -948,7 +1049,7 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
                         tenant,
                         tokens,
                         id_token,
-                        command_policy=_command_policy_from(user_input),
+                        form=user_input,
                     )
                 except gl.GoogleLoginError as err:
                     if _login_captcha_gate(err):
@@ -987,7 +1088,8 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Required("redirect_url"): str,
-                    **_command_policy_fields(),
+                    **self._policy_fields(),
+                    **self._capacity_field(),
                     vol.Optional("code_verifier", default=""): str,
                 }
             ),
@@ -996,7 +1098,7 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
     async def _finish_google(
-        self, xpeng_api, tenant, tokens, id_token, command_policy=None
+        self, xpeng_api, tenant, tokens, id_token, form=None
     ) -> ConfigFlowResult:
         """Mint MQTT credentials and create (or, in reauth, update) the entry."""
         from . import google_login as gl
@@ -1037,6 +1139,7 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
                 options={
                     **_entry_options(entry),
                     CONF_CONFIGURED_DEVICE_ID: device_id,
+                    **_submitted_option_writes(form),
                 },
             )
             await self.hass.config_entries.async_reload(entry.entry_id)
@@ -1064,11 +1167,7 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL,
                 CONF_MQTT_REFRESH_INTERVAL: DEFAULT_MQTT_REFRESH_INTERVAL,
                 CONF_REST_SCAN_INTERVAL: DEFAULT_REST_SCAN_INTERVAL,
-                **(
-                    command_policy.to_options()
-                    if command_policy is not None
-                    else {}
-                ),
+                **_setup_option_writes(form),
             },
         )
 

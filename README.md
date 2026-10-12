@@ -887,6 +887,12 @@ on rather than discovered later. The event fields and a ready-made automation ar
 - **Command permissions** - the presets (Safe Plus by default for a new entry, Full
   access for an entry that predates the option) or the per-group matrix described above
 - **Allow wake** - whether the integration may wake a sleeping car
+- **Usable battery capacity** - the pack size behind the parked-consumption estimate,
+  in kWh, asked on the setup screen as well. A VIN identifies the model *family*, not
+  the pack, so this is a choice: G6 65.3 / 67.8 / 80.0 / **87.5 (default)** and
+  G9 75.8 / 78.2 / 92.2 / 93.1 usable kWh. The
+  [options page](https://xpengtoolkit.github.io/xpengtoolkit/reference/options#usable_battery_kwh)
+  carries the same table with each pack's installed figure and variant
 
 ## Disclaimer
 

@@ -236,6 +236,7 @@ def _build_snapshot(coordinator: Any, reason: str) -> dict[str, Any]:
         "beta_popup": coordinator.beta_popup,
         "xcombos": coordinator.xcombos,
         "vehicle_image_url": coordinator.vehicle_image_url,
+        "vehicle_appearance": coordinator.vehicle_appearance,
     }
 
 
