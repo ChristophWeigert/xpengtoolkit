@@ -542,47 +542,52 @@ class TestEveryCommandIsGated(unittest.TestCase):
                 )
 
 
-class TestReadmeMatchesPolicy(unittest.TestCase):
-    """The README's group table is the user-facing form of SERVICE_GROUPS.
+class TestDocsMatchPolicy(unittest.TestCase):
+    """The reference doc's group table is the user-facing form of SERVICE_GROUPS.
 
     A table nobody can regenerate rots the moment a command moves group, and a
     stale security table is worse than none: it tells the user something is
-    blocked when it is not.
+    blocked when it is not. The doc moved out of the README into
+    docs/COMMAND_PERMISSIONS.md so the README could stay a summary - this test
+    moved with it.
     """
 
-    README = _component.ROOT / "README.md"
+    DOC = _component.ROOT / "docs" / "COMMAND_PERMISSIONS.md"
 
     def _rows(self) -> dict[str, list[str]]:
-        text = self.README.read_text(encoding="utf-8")
-        start = text.index("| Capability group | Commands it covers |")
+        text = self.DOC.read_text(encoding="utf-8")
+        start = text.index("| Capability group | Services | Entities you will see |")
         rows: dict[str, list[str]] = {}
         for line in text[start:].splitlines():
             if not line.startswith("| **"):
                 continue
             cells = [c.strip() for c in line.strip("|").split("|")]
             label = cells[0].strip("* ")
-            services = re.findall(r"`([a-z_]+)`", "|".join(cells[1:]))
+            # Only the services cell is authoritative - the entity column is
+            # prose and deliberately not parsed.
+            services = re.findall(r"`([a-z_]+)`", cells[1])
             rows[label] = sorted(services)
         return rows
 
-    def test_every_group_is_documented(self):
+    def test_the_doc_exists_and_has_every_group(self):
+        self.assertTrue(self.DOC.is_file(), "docs/COMMAND_PERMISSIONS.md is missing")
         rows = self._rows()
-        self.assertEqual(
-            sorted(rows), sorted(policy.GROUP_LABELS.values())
-        )
+        self.assertEqual(sorted(rows), sorted(policy.GROUP_LABELS.values()))
 
     def test_each_row_lists_the_services_the_policy_assigns_it(self):
-        rows = self._rows()
         for group in policy.ALL_GROUPS:
             expected = sorted(
                 s for s, g in policy.SERVICE_GROUPS.items() if g == group
             )
             self.assertEqual(
-                rows[policy.GROUP_LABELS[group]],
+                self._rows()[policy.GROUP_LABELS[group]],
                 expected,
-                f"README row for {group} does not match SERVICE_GROUPS",
+                f"docs row for {group} does not match SERVICE_GROUPS",
             )
 
+    def test_the_readme_points_at_the_doc(self):
+        readme = (_component.ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("docs/COMMAND_PERMISSIONS.md", readme)
 
 
 # ── 3. the gate ───────────────────────────────────────────────────────────

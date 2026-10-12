@@ -6,6 +6,8 @@ description: >-
   add-on, then imports the fresh pair - and on an install with no config entry yet it
   creates that entry itself by driving the config flow, because
   xpeng.import_credentials does not exist until an entry does. Nothing needs a human.
+  When it creates the entry it also sets the integration's command permissions from the
+  `command_mode` option below - Safe Plus by default, so nothing can unlock the car.
 url: https://github.com/xpengtoolkit/xpengtoolkit
 arch:
   - amd64

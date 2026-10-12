@@ -194,6 +194,13 @@ climate, select, number, switch, button, calendar and image - battery and range,
 charging state and charge limits, doors/windows/tyres, location, climate and
 seat heating, sentinel/X-Guard, OTA state, and a set of remote commands.
 
+The sensors, binary sensors, tracker, calendar and image are always created. The
+**command** entities - lock, climate, select, number, switch and button - depend on
+[Command permissions](#command-permissions---what-the-integration-may-do-to-the-car):
+a group that is Disabled is not created at all, and one that is Read only keeps its
+state but refuses its commands. A new install starts at **Safe Plus**, so OTA, the V2L
+outlet and unlocking are absent until you widen it.
+
 ### Notifications
 
 XPENG's notifications do **not** arrive over MQTT and are not pushed to this
@@ -816,6 +823,10 @@ per-group matrix. An install that predates this option keeps **Full access** unt
 someone changes it - the new default applies to new entries only, so an upgrade never
 takes a capability away from an existing automation.
 
+The full reference - every group, the services and entities it covers, how to set it,
+and what it does *not* protect against - is in
+**[docs/COMMAND_PERMISSIONS.md](docs/COMMAND_PERMISSIONS.md)**.
+
 | Preset | What it allows |
 |---|---|
 | **Read only** | Status and queries only - nothing that actuates the car. |
@@ -829,17 +840,11 @@ closing and arming only ever *reduce* access, so they are safe to allow, while
 unlocking, opening and disarming hand the car over. A "Safe" install can therefore
 lock itself, and a leaked token still cannot open the doors.
 
-| Capability group | Commands it covers |
-|---|---|
-| **Queries and data** | `capture_snapshot`, `check_ota`, `clear_stuck_commands`, `force_calendar_sync`, `force_update`, `list_hvac_schedules`, `send_navigation` |
-| **Comfort and climate** | `climate_off`, `climate_on`, `create_hvac_schedule`, `defrost_off`, `defrost_on`, `delete_hvac_schedule`, `update_hvac_schedule` |
-| **Lights and alerts** | `flash_lights`, `honk_horn` |
-| **Charging** | `close_charge_port`, `close_fast_charge_port`, `open_charge_port`, `open_fast_charge_port`, `set_charge_limit`, `start_charge`, `stop_charge` |
-| **Securing actions** | `close_trunk`, `close_windows`, `lock`, `sentinel_on` |
-| **Access actions** | `open_trunk`, `open_windows`, `sentinel_off`, `unlock`, `vent_windows` |
-| **Accessory power** | `trunk_power_off`, `trunk_power_on` |
-| **Firmware and OTA** | `auto_upgrade_off`, `auto_upgrade_on`, `cancel_ota`, `ota_feedback`, `trigger_ota` |
-| **Advanced and raw commands** | `execute_scene`, `send_raw_mqtt`, `toggle_scene` |
+The groups are: queries and data; comfort and climate; lights and alerts; charging;
+securing actions; access actions; accessory power; firmware and OTA; and advanced and raw
+commands. [docs/COMMAND_PERMISSIONS.md](docs/COMMAND_PERMISSIONS.md#capability-groups)
+lists which services and entities fall in each - the table there is generated from the
+code and a test fails if the two disagree.
 
 **Allow wake** is a separate toggle. Waking a sleeping car costs a little of its 12V
 battery and is only used to pull a fresh full state; with it off the integration is
@@ -870,20 +875,10 @@ a set of car keys.
 
 ### A denied command is not silent
 
-Refusals log once per command and fire an event, so you can alert on an attempt
-instead of finding out later:
-
-```yaml
-trigger:
-  - platform: event
-    event_type: xpeng_command_denied
-action:
-  - service: notify.mobile_app_your_phone
-    data:
-      message: >-
-        Blocked {{ trigger.event.data.what }} ({{ trigger.event.data.group_label }},
-        mode {{ trigger.event.data.mode }})
-```
+Refusals raise with the group, the state and where to change it, log one warning per
+command, and fire an `xpeng_command_denied` event - so a blocked attempt can be alerted
+on rather than discovered later. The event fields and a ready-made automation are in
+[docs/COMMAND_PERMISSIONS.md](docs/COMMAND_PERMISSIONS.md#when-a-command-is-refused).
 
 ## Options
 
