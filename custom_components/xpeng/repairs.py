@@ -29,14 +29,19 @@ from homeassistant.helpers.selector import (
 
 from . import DOMAIN, _REAUTH_ISSUE_ID, _clear_reauth_repair
 from .config_flow import (
+    _capacity_fields,
+    _command_policy_fields,
+    _entry_capacity,
     _import_mqtt_credentials,
     _read_text_file,
     _serialize_tenant,
     _tenant_from_text,
     _TokenImportError,
     _tokens_from_text,
+    _submitted_option_writes,
     _vin_from_tokens,
 )
+from .command_policy import CommandPolicy
 from .const import (
     AUTH_METHOD_IMPORT,
     CONF_AUTH_METHOD,
@@ -154,11 +159,17 @@ class ReauthRequiredRepairFlow(RepairsFlow):
                     },
                     # The tenant carries the device identity the pair was
                     # sealed to, so it wins over any previously stored id.
+                    #
+                    # This form asks the same permission and pack-size questions
+                    # the setup screen does, so they are applied here as well -
+                    # only the answers it actually carried, so the card cannot
+                    # narrow an install it was only meant to re-credential.
                     options={
                         **entry.options,
                         "configured_device_id": str(
                             tenant.get("deviceId") or ""
                         ).strip(),
+                        **_submitted_option_writes(user_input),
                     },
                 )
                 _clear_reauth_repair(self.hass, entry)
@@ -171,6 +182,15 @@ class ReauthRequiredRepairFlow(RepairsFlow):
                 vol.Optional("tokens_path", default=""): str,
                 vol.Optional("tenant_json", default=""): _MULTILINE,
                 vol.Optional("tenant_path", default=""): str,
+                # Pre-filled from the entry: this card is a recovery path, and
+                # the last thing it should do is change a setting the user did
+                # not come here to change.
+                **_command_policy_fields(
+                    CommandPolicy.from_options(entry.options)
+                ),
+                **_capacity_fields(
+                    _entry_capacity(entry)
+                ),
             }
         )
         return self.async_show_form(

@@ -367,6 +367,18 @@ def _capacity_fields(
     }
 
 
+def _entry_capacity(entry: Any) -> float:
+    """The pack size an entry has stored, or the default."""
+    try:
+        return float(
+            (getattr(entry, "options", None) or {}).get(
+                CONF_USABLE_BATTERY_KWH, DEFAULT_USABLE_BATTERY_KWH
+            )
+        )
+    except (TypeError, ValueError):
+        return DEFAULT_USABLE_BATTERY_KWH
+
+
 def _capacity_write(user_input: Mapping[str, Any] | None) -> dict[str, Any]:
     """The pack size the form carried, if it carried one."""
     kwh = (user_input or {}).get(CONF_USABLE_BATTERY_KWH)
@@ -497,17 +509,10 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
     def _capacity_field(self) -> dict[Any, Any]:
         """Pack-size field, pre-filled from the entry on a reauth."""
         entry = self._entry()
-        current = DEFAULT_USABLE_BATTERY_KWH
-        if entry is not None:
-            try:
-                current = float(
-                    _entry_options(entry).get(
-                        CONF_USABLE_BATTERY_KWH, DEFAULT_USABLE_BATTERY_KWH
-                    )
-                )
-            except (TypeError, ValueError):
-                current = DEFAULT_USABLE_BATTERY_KWH
-        return _capacity_fields(current)
+        return _capacity_fields(
+            _entry_capacity(entry) if entry is not None
+            else DEFAULT_USABLE_BATTERY_KWH
+        )
 
     def _ensure_device_id(self) -> str:
         """This flow's device id, minted once and reused by every API call."""

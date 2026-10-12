@@ -593,6 +593,15 @@ class CommandPermissionStepTests(unittest.TestCase):
         self.assertIn("command_mode: list(read_only|safe|safe_plus|charging|full)", config)
         self.assertIn("command_mode: safe_plus", config)
 
+    def test_the_repairs_card_asks_the_same_questions(self):
+        """The documented recovery path is a form too, and it must apply them."""
+        repairs = (PKG_DIR / "repairs.py").read_text(encoding="utf-8")
+        self.assertIn("_command_policy_fields(", repairs)
+        self.assertIn("_capacity_fields(", repairs)
+        # pre-filled from the entry, and able to write the answer back
+        self.assertIn("CommandPolicy.from_options(entry.options)", repairs)
+        self.assertIn("_submitted_option_writes(user_input)", repairs)
+
     def test_the_options_flow_offers_a_matrix_for_a_custom_mode(self):
         self.assertIn("async def async_step_groups(", self.CF)
         self.assertIn("for group in ALL_GROUPS:", self.CF)
