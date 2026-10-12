@@ -331,6 +331,11 @@ says nothing while things are well - every trigger carries a `for:` window, beca
 renewal takes about a minute and an MQTT client reconnecting while the car is parked is not
 news.
 
+**Needs 0.4.4 or newer**, which is where the health binary sensors arrived. An older
+install carries `credential_age`, `last_data_update` and `polling_status` instead - on one of
+those, drop the `credentials_valid` and `mqtt_connected` triggers and keep the
+`polling_status` one, which is the check that still means something there.
+
 Set `<vin6>` to the last six characters of your VIN (the entity ids are built from it) and
 replace the notify target with your own. Home Assistant validates this when you paste it
 into **Settings -> Automations -> Create automation -> Edit in YAML**; there are no helpers
