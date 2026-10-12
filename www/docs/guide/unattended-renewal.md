@@ -322,3 +322,168 @@ The worker raises a persistent notification after **two consecutive failures**.
 Home Assistant 2026.10 no longer exposes persistent notifications as
 `persistent_notification.*` entities, so look in the notifications panel in the UI
 rather than in the state list.
+
+## Being told, instead of looking
+
+Everything above is something you go and read. This is the version that comes to you. It
+watches the integration's own verdict on itself and the renewal app's failure notice, and
+says nothing while things are well - every trigger carries a `for:` window, because a
+renewal takes about a minute and an MQTT client reconnecting while the car is parked is not
+news.
+
+Set `<vin6>` to the last six characters of your VIN (the entity ids are built from it) and
+replace the notify target with your own. Home Assistant validates this when you paste it
+into **Settings -> Automations -> Create automation -> Edit in YAML**; there are no helpers
+to create and nothing to add to `configuration.yaml`.
+
+```yaml
+- id: xpeng_health_check
+  alias: XPENG health check
+  description: >-
+    Watches the integration's own verdict and the renewal app's failure notice, and speaks
+    only when a problem has persisted.
+  mode: single
+  max_exceeded: silent
+  triggers:
+    - trigger: state
+      entity_id: binary_sensor.xpeng_<vin6>_credentials_valid
+      to: "off"
+      for: "00:20:00"
+      id: credentials
+      note: >-
+        Off means no working credentials. The `reason` attribute says which way: "no
+        successful refresh yet", "N consecutive failures", or "no successful refresh for Ns".
+    - trigger: state
+      entity_id: binary_sensor.xpeng_<vin6>_mqtt_connected
+      to: "off"
+      for: "00:30:00"
+      id: mqtt
+      note: The broker connection, not the car. Blips are normal; half an hour is not.
+    - trigger: state
+      entity_id: sensor.xpeng_<vin6>_polling_status
+      to: Reconnecting
+      for: "00:45:00"
+      id: polling
+      note: >-
+        Parked is the healthy idle state and stays silent. Stuck on Reconnecting is what an
+        unreachable cloud looks like from here.
+    - trigger: persistent_notification
+      update_type: [added, updated]
+      notification_id: xpeng_renewal
+      id: renewal
+      note: >-
+        The renewal app posts this after two consecutive failed renewals, so this forwards
+        its own alarm to a phone. `updated` matters as much as `added`: the app re-posts
+        under the same id, which since 2026.9 fires `updated` and not `added`.
+    - trigger: state
+      entity_id: binary_sensor.xpeng_<vin6>_credentials_valid
+      to: "on"
+      id: recovered
+    - trigger: state
+      entity_id: binary_sensor.xpeng_<vin6>_mqtt_connected
+      to: "on"
+      id: mqtt_recovered
+  conditions: []
+  actions:
+    - choose:
+        - conditions:
+            - condition: trigger
+              id: credentials
+          sequence:
+            - action: persistent_notification.create
+              data:
+                notification_id: xpeng_health
+                title: XPENG credentials are invalid
+                message: >-
+                  {{ state_attr('binary_sensor.xpeng_<vin6>_credentials_valid', 'reason')
+                     or 'no reason given' }}. Last data update:
+                  {{ states('sensor.xpeng_<vin6>_last_data_update') }}.
+            - action: notify.send_message
+              continue_on_error: true
+              target:
+                entity_id: notify.oneplus13        # <- your notifier
+              data:
+                title: XPENG credentials are invalid
+                message: >-
+                  {{ state_attr('binary_sensor.xpeng_<vin6>_credentials_valid', 'reason')
+                     or 'no reason given' }}
+        - conditions:
+            - condition: trigger
+              id: mqtt
+          sequence:
+            - action: persistent_notification.create
+              data:
+                notification_id: xpeng_health
+                title: XPENG MQTT has been down for 30 minutes
+                message: >-
+                  The broker connection, not the car. Credentials are
+                  {{ states('binary_sensor.xpeng_<vin6>_credentials_valid') }}.
+            - action: notify.send_message
+              continue_on_error: true
+              target:
+                entity_id: notify.oneplus13
+              data:
+                title: XPENG MQTT down 30 min
+                message: The broker connection was lost.
+        - conditions:
+            - condition: trigger
+              id: polling
+          sequence:
+            - action: persistent_notification.create
+              data:
+                notification_id: xpeng_health
+                title: XPENG polling is stuck
+                message: >-
+                  {{ states('sensor.xpeng_<vin6>_polling_status') }} for 45 minutes, with
+                  credentials
+                  {{ states('binary_sensor.xpeng_<vin6>_credentials_valid') }}.
+            - action: notify.send_message
+              continue_on_error: true
+              target:
+                entity_id: notify.oneplus13
+              data:
+                title: XPENG polling stuck
+                message: Reconnecting for 45 minutes.
+        - conditions:
+            - condition: trigger
+              id: renewal
+          sequence:
+            - action: persistent_notification.create
+              data:
+                notification_id: xpeng_health
+                title: XPENG renewal is failing
+                message: >-
+                  The renewal app has failed twice in a row. Its log is at
+                  /config/xpeng-renew-last-run.log, and /healthz on the app has the counters.
+            - action: notify.send_message
+              continue_on_error: true
+              target:
+                entity_id: notify.oneplus13
+              data:
+                title: XPENG renewal failing
+                message: Two consecutive failures.
+        - conditions:
+            - condition: trigger
+              id: [recovered, mqtt_recovered]
+          sequence:
+            - action: persistent_notification.dismiss
+              data:
+                notification_id: xpeng_health
+      default: []
+```
+
+Three things worth knowing about it:
+
+* **The `notification_id` is reused deliberately.** A re-alert replaces the previous card
+  instead of stacking a new one, and recovery dismisses it. One card, always current.
+* **`continue_on_error` on the phone push is not laziness.** The persistent notification is
+  the channel that always works; if the phone is offline or the notifier is renamed, the
+  run must still finish so the card and the log both happen.
+* **The thresholds are choices, not measurements.** Twenty minutes tolerates a renewal
+  (about a minute, plus the app's own retry) and a session being replaced; the MQTT and
+  polling windows are wide enough that a parked car's normal quiet stays silent. Note that
+  a `for:` clock restarts on every Home Assistant restart or momentary `unavailable`, which
+  is fine here - it delays an alert rather than losing it.
+
+If the renewal app is not installed, delete the `persistent_notification` trigger: the other
+checks stand on their own.
