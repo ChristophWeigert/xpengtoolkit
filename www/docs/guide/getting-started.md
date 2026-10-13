@@ -191,11 +191,12 @@ come up empty, that is the stale-client case in
 [Fault finding](./fault-finding#most-entities-are-unknown), not a missing app
 login.
 
-## Three things that are easy to miss
+## Things that are easy to miss
 
 | Thing | What to know |
 | --- | --- |
 | **The first run creates the entry itself** | On a fresh install there is nothing to import into, so the renewal app drives the config flow and creates the entry from the pair it just minted. Nothing is pasted, and there is no failure to expect. An answer of `400: No XPENG config entry to import credentials into` means the entry disappeared between the app's check and its call — run it again. |
+| **Disabling an entry is not removing it** | Home Assistant hides disabled entries from **Settings → Devices & services**, but the flow still counts them, and a disabled entry keeps the VIN as its `unique_id` — so it answers `already_configured` and refuses to create the replacement. The app's own *is there an entry?* check counted it too, which is why 0.1.17 treats a disabled entry as no entry. Delete an old entry; do not just switch it off. |
 | **`solver_url` may need setting** | The default names the solver's container hostname as installed from the store. A local-folder install, and the bare host address, are different — see the [`solver_url` table](./unattended-renewal#if-solver_url-does-not-resolve). |
 | **Keep one `device_id`** | Set it once and leave it. Changing it on a live install changes the MQTT client id, and the stale client left behind is the failure in [Fault finding](./fault-finding#most-entities-are-unknown). |
 | **A new install starts at Safe Plus** | Since 0.4.20 the integration carries a ceiling on what it may do to the car, and a *new* entry starts at **Safe Plus** - so the OTA switch, the trunk-power outlet, unlocking, the trunk and the windows are not created until you widen it under **Configure**. An entry that predates the option keeps **Full access**, so an update changes nothing. If a control you expected is missing, that is [the reason](./fault-finding#a-control-is-missing), not a broken install. |

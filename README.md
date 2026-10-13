@@ -521,6 +521,12 @@ no entry yet, mints a pair (the solver clears the slider), and creates the entry
 that pair. Within a minute or so **Settings -> Devices & Services** shows
 `XPENG <last six of your VIN>` and the entities fill in.
 
+**Moving from an older copy? Remove its entry rather than disabling it.** Home Assistant
+hides disabled entries from **Settings -> Devices & Services**, but the disabled entry
+still holds the VIN as its `unique_id`, so the flow refuses to create the replacement -
+and the app's own *is there an entry?* check counted it too, which is why 0.1.17 of the
+app treats a disabled entry as no entry and bootstraps anyway.
+
 The entry is created with the command permissions the app was configured with
 (`command_mode`, Safe Plus unless you changed it). Answering the same question by
 hand - **Settings -> Devices & Services -> XPENG -> Configure -> Command

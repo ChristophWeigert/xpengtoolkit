@@ -109,16 +109,38 @@ the service for every renewal after the first one.
 
 ### The VIN
 
-The flow requires a VIN, and it decides the entity ids. The onboarding tool records
-it in the token file — read from the vehicle list straight after the login — so
-normally there is nothing to think about. For a pair written before that, or by
-hand, set the app's **`vin`** option, or add the integration once by hand and
-import the pair with **Import tokens**.
+The VIN decides the entry's entity ids, and the imported pair carries it: the onboarding
+tool records it in the token file — read from the vehicle list straight after the login —
+so normally there is nothing to set. A pair written before that, or by hand, carries none:
+the flow's import form then asks for it, or set the app's **`vin`** option and let the app
+supply it.
+
+Signing in inside Home Assistant is the case that genuinely needs it typed, because there
+is no pair to read one from. Only the **Google** and **email** screens ask for a VIN; the
+first screen asks the sign-in method alone.
+
+### A disabled entry is not an install
+
+**Delete an old entry; disabling it is not removing it.** Home Assistant hides disabled
+entries from **Settings → Devices & services**, but the app's own check still sees them
+and the flow still counts them, so an install that disabled its old entry looks finished:
+
+* the bootstrap is skipped, and `/healthz` reports the next renewal an interval away
+  rather than a failure that never happened;
+* the disabled entry keeps its `unique_id`, which is the VIN, so the flow answers
+  `already_configured` and refuses to create the replacement. The VIN is unique to one
+  car, and an entry that is merely switched off keeps its claim on it.
+
+App **0.1.17** counts a disabled entry as no entry, so the first run bootstraps anyway.
+That does not make disabling safe: the flow still refuses while the old entry owns the
+VIN, so remove the entry (the three-dot menu on it → **Delete**) when moving between
+installs.
 
 ### When it does not work
 
 | Message | What it means |
 | --- | --- |
+| `the entry was not created` … `already_configured` | An entry for this VIN already exists, usually an older one that was **disabled** rather than deleted. Home Assistant hides it; the flow still counts it. Remove it and run again. |
 | `no VIN to create the config entry with` | As above: set `vin`, or add the integration by hand once. |
 | `could not start the config flow` / `the entry was not created` | The response names the step that refused. The usual cause is `pair_dir` not being under `/config`: the flow reads those paths **inside the Home Assistant container**, which cannot see the app's own filesystem. |
 | `import_credentials returned 400: No XPENG config entry to import credentials into` | The app only calls that service when an entry already exists, so this means the entry disappeared between the check and the call. Run it again. |

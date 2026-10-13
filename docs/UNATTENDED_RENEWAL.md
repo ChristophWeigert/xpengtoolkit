@@ -86,14 +86,38 @@ the component and registers the service for every renewal after the first one.
 
 ### The VIN
 
-The flow requires one, and it decides the entity ids. The onboarding tool now records
-it in the token file - read from `/biz/v5/vehicle/v2/myVehicles` straight after the
-login - so normally there is nothing to think about. For a pair written before that, or
-by hand, set the app's **`vin`** option, or add the integration once by hand and import
-the pair with **Import tokens**.
+The VIN decides the entity ids, and the imported pair carries it: the onboarding tool
+records it in the token file - read from `/biz/v5/vehicle/v2/myVehicles` straight after
+the login - so normally there is nothing to set. A pair written before that, or by
+hand, carries none: the flow's import form then asks for it, or set the app's **`vin`**
+option and let the app supply it.
+
+Signing in inside Home Assistant is the case that genuinely needs it typed, because
+there is no pair to read one from. Only the **Google** and **email** screens ask for a
+VIN; the first screen asks the sign-in method alone (0.4.25).
+
+### A disabled entry is not an install
+
+**Delete an old entry; disabling it is not removing it.** Home Assistant hides disabled
+entries from **Settings -> Devices & services**, but the app's own check still sees them
+and the flow still counts them, so an install that disabled its old entry looks finished:
+
+* the bootstrap is skipped, and `/healthz` reports the next renewal an interval away
+  rather than a failure that never happened;
+* the disabled entry keeps its `unique_id`, which is the VIN, so the flow answers
+  `already_configured` and refuses to create the replacement. The VIN is unique to one
+  car, and an entry that is merely switched off keeps its claim on it.
+
+App **0.1.17** counts a disabled entry as no entry, so the first run bootstraps anyway.
+That does not make disabling safe: the flow still refuses while the old entry owns the
+VIN, so remove the entry (the three-dot menu on it -> **Delete**) when moving between
+installs.
 
 ### When it does not
 
+* `the entry was not created` with `already_configured` in the response - an entry for
+  this VIN already exists, usually an older one that was **disabled** rather than
+  deleted. Home Assistant hides it; the flow still counts it. Remove it and run again.
 * `no VIN to create the config entry with` - as above: set `vin`, or add the
   integration by hand once.
 * `could not start the config flow` / `the entry was not created` - the response names
