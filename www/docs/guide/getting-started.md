@@ -30,7 +30,7 @@ app asks — but do not leave the official app signed in as that account.
 
 | # | Step | Where | Roughly how long |
 | --- | --- | --- | --- |
-| **1** | [Install the integration](#installation) — add the HACS custom repository, install, restart Home Assistant | Home Assistant | 2 min |
+| **1** | [Download the integration](#installation) — add the HACS custom repository, install, and **restart Home Assistant**. This adds nothing under Settings | Home Assistant | 2 min |
 | **2** | [Extract the certificates](./certificates) from an XPENG APK **3.7.0–3.12.0** | Any computer | 5 min |
 | **3** | [Copy the three PEM files onto the Home Assistant host](./certificates#where-to-put-them) | Home Assistant | 2 min |
 | **4** | [Install the two apps](./unattended-renewal#install-the-two-apps) (slider solver + credential renewal) and set their tokens | Home Assistant | 5 min |
@@ -43,6 +43,44 @@ which the solver app clears.
 Steps 4–5 are what make the install unattended. Without them the integration still
 works, but only until XPENG retires the session about two hours later, and then a
 fresh pair has to be pasted in by hand.
+
+**Step 1 puts the files on the host; it does not add the integration.** The restart is
+what registers it. Going to **Settings → Devices & Services → Add Integration** at that
+point opens a setup form asking for a token pair that does not exist until step 5 —
+which is exactly the trap this note exists for. Adding the entry is either automatic —
+the renewal app in step 4 drives that same flow and creates it — or, on
+[the manual route](#the-manual-route), the last thing you do once you have a pair to
+paste.
+
+## Installation
+
+This is step 1 of the process above; steps 2–5 are under
+[Certificates](./certificates) and [Unattended renewal](./unattended-renewal). It
+downloads the code and restarts Home Assistant; **it adds nothing to Settings** — the
+entry appears in step 5, or you add it yourself on
+[the manual route](#the-manual-route).
+
+### HACS (custom repository)
+
+![Adding the custom repository in HACS](../images/hacs-repository.png)
+
+Once it is listed, the repository has its own page in HACS:
+
+![The Xpengtk page in HACS](../images/hacs-download.png)
+
+
+1. HACS → Integrations → three-dot menu → **Custom repositories**
+2. Add `https://github.com/xpengtoolkit/xpengtoolkit` as an **Integration**
+3. Install **Xpengtk**, then restart Home Assistant
+
+![Adding the custom repository in HACS](../images/hacs-repository.png)
+
+### Manual install
+
+Copy `custom_components/xpeng/` into your Home Assistant `config/custom_components/`
+directory and restart. That is step 1 by hand, and like the HACS route it adds nothing
+to Settings: the entry appears in step 5 when the app creates it, or
+[by hand](#adding-it-by-hand) once you have a pair.
 
 ## The manual route
 
@@ -65,9 +103,10 @@ slider drag.
    HACS replaces the component directory on every update and would take the pair with
    it.
 
-2. **Add the integration and import the pair.** **Settings → Devices & Services →
-   Add Integration → Xpengtk**, then choose **Import tokens** and paste the
-   contents of both files — the whole thing, JSON wrapper and all. The paths are
+2. **[Add the integration by hand](#adding-it-by-hand), then import the pair.**
+   **Settings → Devices & Services → Add Integration → Xpengtk**, choose
+   **Import tokens**, and paste the contents of both files — the whole thing, JSON
+   wrapper and all. The paths are
    read inside the Home Assistant container, so they cannot see a file on your
    desktop; pasting is what works here.
 
@@ -86,42 +125,14 @@ slider and gets the same `validate` a human drag would produce. The service is
 self-hosted and separate — see
 [xpengtoolkit/slider-solver](https://github.com/xpengtoolkit/slider-solver).
 
-## Optional: let Home Assistant drive renewals
+## Adding it by hand
 
-The renewal app renews on its own timer, so no automation is needed. If you would
-rather Home Assistant drove it — for a last-run helper you can put on a dashboard,
-or to trigger renewals yourself — set **`renew_interval: 0`** on the app first, so
-the two are not both renewing, and use the
-[optional automation](./unattended-renewal#home-assistant-side-optional).
+**Most installs never come here.** On the app route, step 4 creates the entry by driving
+this same flow — and adding it by hand first is what leaves you looking at the
+**Connect your XPENG vehicle** screen with no pair to give it.
 
-## Installation
-
-This is step 1 of the process above; steps 2–5 are under
-[Certificates](./certificates) and [Unattended renewal](./unattended-renewal).
-
-### HACS (custom repository)
-
-![Adding the custom repository in HACS](../images/hacs-repository.png)
-
-Once it is listed, the repository has its own page in HACS:
-
-![The Xpengtk page in HACS](../images/hacs-download.png)
-
-
-1. HACS → Integrations → three-dot menu → **Custom repositories**
-2. Add `https://github.com/xpengtoolkit/xpengtoolkit` as an **Integration**
-3. Install **Xpengtk**, then restart Home Assistant
-
-![Adding the custom repository in HACS](../images/hacs-repository.png)
-
-### Manual install
-
-Copy `custom_components/xpeng/` into your Home Assistant `config/custom_components/`
-directory and restart.
-
-Then: **Settings → Devices & Services → Add Integration → Xpengtk**.
-
-## Add the integration
+Read on if you minted the pair yourself with [the manual route](#the-manual-route), or if
+the entry has to be added again later; the Repairs card opens the same import form.
 
 ![Add integration, searching for Xpengtk](../images/ha-add-integration.png)
 
@@ -161,6 +172,14 @@ pre-condition and charge, but not unlock, open, re-flash or command raw. Accept 
 pick **Full access** if you want what the integration did before 0.4.20; it can be
 changed at any time under **Configure**. See
 [Command permissions](../reference/command-permissions).
+
+## Optional: let Home Assistant drive renewals
+
+The renewal app renews on its own timer, so no automation is needed. If you would
+rather Home Assistant drove it — for a last-run helper you can put on a dashboard,
+or to trigger renewals yourself — set **`renew_interval: 0`** on the app first, so
+the two are not both renewing, and use the
+[optional automation](./unattended-renewal#home-assistant-side-optional).
 
 ## Use a dedicated account
 

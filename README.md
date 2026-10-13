@@ -57,7 +57,7 @@ official app signed in as that account**, for the reason given just above.
 
 | # | Step | Where | Roughly how long |
 |---|---|---|---|
-| **1** | [Install the integration](#installation) - add the HACS custom repository, install, restart HA | Home Assistant | 2 min |
+| **1** | [Download the integration](#installation) - add the HACS custom repository, install, and **restart HA**. This adds nothing under Settings | Home Assistant | 2 min |
 | **2** | [Download the repository ZIP](https://github.com/xpengtoolkit/xpengtoolkit) and [extract the certificates](#step-2---extract-the-certificates-outside-home-assistant) from an XPENG APK **3.7.0-3.12.0** | Any computer | 5 min |
 | **3** | [Copy the three PEM files onto the Home Assistant host](#step-3---copy-the-certificates-onto-the-home-assistant-host) | Home Assistant | 2 min |
 | **4** | [Install the two apps](#step-4---install-the-two-apps) (slider solver + credential renewal) and set their tokens | Home Assistant | 5 min |
@@ -77,6 +77,14 @@ not hand them the account password before you have seen the integration work,
 [the alternative](#alternative-mint-the-first-pair-yourself) mints the
 pair on a desktop instead and replaces steps 4-5 - it needs Chrome, Node and one
 manual slider drag.
+
+**Step 1 puts the files on the host; it does not add the integration.** The restart is
+what registers it, and going to **Settings -> Devices & Services -> Add Integration**
+at that point opens a setup form asking for a token pair that does not exist until step
+5 - the trap this note exists for. Adding the entry is either automatic (the renewal app
+in step 4 drives that same flow and creates it) or, on
+[the alternative route](#create-the-entry-from-those-files), the last thing you do once
+you have a pair to paste.
 
 Before you start, two things that catch people out:
 
@@ -305,7 +313,9 @@ remove the entry and add it again with the dedicated one.
 ## Installation
 
 This is step 1 of [the process above](#the-steps). The other four steps are
-under [Setup](#setup).
+under [Setup](#setup). It downloads the code and restarts Home Assistant; **it adds
+nothing under Settings** - the entry appears in step 5, or you add it yourself on
+[the alternative route](#alternative-mint-the-first-pair-yourself).
 
 ### HACS (custom repository)
 
@@ -316,9 +326,9 @@ under [Setup](#setup).
 ### Manual
 
 Copy `custom_components/xpeng/` into your Home Assistant `config/custom_components/`
-directory and restart.
-
-Then: **Settings -> Devices & Services -> Add Integration -> Xpengtk**.
+directory and restart. That is step 1 by hand, and like the HACS route it adds nothing
+under Settings: the entry appears in step 5 when the app creates it, or
+[by hand](#create-the-entry-from-those-files) once you have a pair.
 
 ## Setup
 
