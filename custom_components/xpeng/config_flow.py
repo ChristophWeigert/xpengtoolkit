@@ -97,13 +97,29 @@ _LOGGER = logging.getLogger(__name__)
 #: rather than imported because xpeng_api pulls in cryptography/paho, and this
 #: module has to stay importable where the integration's requirements are not
 #: installed (the repo's stubbed test harness does exactly that).
+_CAPTCHA_GATE_CODES: Final = frozenset({12040101, 12040106})
+
 #: Where the renewal app writes its pair by default - its own `pair_dir` option.
-#: Named here only so the import form can offer the paths as defaults when the
-#: pair is already on this host; if the app's `pair_dir` was changed, the two
-#: files simply will not be found and the fields stay blank.
 _DEFAULT_PAIR_DIR: Final = "/config/xpeng-secrets"
 
-_CAPTCHA_GATE_CODES: Final = frozenset({12040101, 12040106})
+#: The two filenames a pair is made of, in the order the form asks for them.
+_PAIR_FILES: Final = ("xpeng_tokens.json", "xpeng_tenant.json")
+
+#: Every directory a token + tenant pair may already be sitting in, most
+#: specific first. A list rather than the single pair_dir it used to be, because
+#: this project itself writes the pair in two different places: the renewal app
+#: publishes it to its `pair_dir`, while `tools/onboard_email_login.py --save`
+#: writes it beside the component. A pair in that second place was invisible to
+#: a flow that only looked in pair_dir, so the form asked for files that were
+#: already on the host and offered no sign the search had happened - reported
+#: 2026-10-13 on an install whose HACS download had been removed and replaced,
+#: which is also what empties the component directory. `xpeng_api._default_cert_dir()`
+#: already solves exactly this for the mTLS files; this is that idea for the pair.
+_PAIR_SEARCH_DIRS: Final = (
+    _DEFAULT_PAIR_DIR,                             # the renewal app's pair_dir
+    os.path.dirname(os.path.abspath(__file__)),    # --save's destination
+    "/config",                                     # hand-copied next to configuration.yaml
+)
 
 #: Substrings that identify the gate when it arrives as an exception message
 #: instead of a parsed business code — xpeng_api.login_password() raises a
@@ -166,15 +182,77 @@ def _parse_json_object(text: str, *, key: str, what: str) -> dict[str, Any]:
     return parsed
 
 
-def _pair_on_host() -> bool:
-    """Whether the renewal app's pair is already sitting on this host.
+def _pair_in_dir(directory: str) -> tuple[str, str] | None:
+    """The two paths of the pair in *directory*, when both halves are there.
 
-    True means the import has nothing to ask: the paths are known, the VIN comes out
-    of the pair, and no sign-in method needs choosing.
+    Both or neither: the tenant carries the deviceId the tokens are sealed
+    against, so offering one half on its own can only produce a rejection later.
     """
-    return os.path.isfile(
-        os.path.join(_DEFAULT_PAIR_DIR, "xpeng_tokens.json")
-    ) and os.path.isfile(os.path.join(_DEFAULT_PAIR_DIR, "xpeng_tenant.json"))
+    tokens_name, tenant_name = _PAIR_FILES
+    tokens = os.path.join(directory, tokens_name)
+    tenant = os.path.join(directory, tenant_name)
+    if os.path.isfile(tokens) and os.path.isfile(tenant):
+        return tokens, tenant
+    return None
+
+
+def _pair_from_entry_options(entry: ConfigEntry | None) -> tuple[str, str] | None:
+    """The pair a legacy entry was configured to read, if both files remain.
+
+    Entries created before the credentials were kept in the entry data record
+    only these two paths (`token_file` / `tenant_file`, still offered as
+    "legacy" on the Configure screen). Those paths are the entry's own answer to
+    where its pair is, so they win over the search: a legacy entry whose files
+    sit somewhere unusual must not be silently handed a different pair that
+    happens to be in one of the usual directories.
+    """
+    if entry is None:
+        return None
+    options = _entry_options(entry)
+    tokens = str(options.get(CONF_TOKEN_FILE, "") or "").strip()
+    tenant = str(options.get(CONF_TENANT_FILE, "") or "").strip()
+    if tokens and tenant and os.path.isfile(tokens) and os.path.isfile(tenant):
+        return tokens, tenant
+    return None
+
+
+def _host_pair_paths(entry: ConfigEntry | None = None) -> tuple[str, str] | None:
+    """Where a token + tenant pair that is already on this host can be read from.
+
+    Returns ``(tokens_path, tenant_path)``, or ``None`` when there is nothing to
+    offer. *entry* is the entry being reauthenticated when there is one; its own
+    recorded paths are checked before the usual directories.
+    """
+    found = _pair_from_entry_options(entry)
+    if found:
+        return found
+    for directory in _PAIR_SEARCH_DIRS:
+        found = _pair_in_dir(directory)
+        if found:
+            return found
+    return None
+
+
+def _pair_search_note(found: tuple[str, str] | None) -> str:
+    """What the import form says about the search, so it is never silent.
+
+    Blank path boxes with no explanation are what made the first report read as
+    a broken install: the pair was on the host, in the component directory, and
+    the screen said nothing about having looked for it.
+    """
+    if found:
+        return (
+            f"Found an existing pair in `{os.path.dirname(found[0])}` - the two "
+            "path boxes below are filled in with it, so submitting this form "
+            "unchanged is enough."
+        )
+    looked = ", ".join(f"`{directory}`" for directory in _PAIR_SEARCH_DIRS)
+    return (
+        f"No token + tenant pair was found in {looked}. Certificates in place are "
+        "not a substitute for it: the pair is the credential. A pair kept inside the "
+        "integration folder does not survive a HACS update - put it in "
+        "`/config/xpeng-secrets`, or paste both files below."
+    )
 
 
 def _tokens_from_text(text: str) -> dict[str, Any]:
@@ -601,7 +679,7 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
         """
         errors: dict[str, str] = {}
 
-        if user_input is None and _pair_on_host():
+        if user_input is None and _host_pair_paths() is not None:
             return await self.async_step_import_tokens()
 
         if user_input is not None:
@@ -797,17 +875,15 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
                     form=user_input,
                 )
 
-        # The renewal app writes the pair to a fixed directory. When it is already
-        # sitting there, offer those paths as the defaults, so the documented
-        # bootstrap is "accept the form" rather than "type two container paths
-        # correctly". Filled in only when BOTH files are present, and only on the
-        # first show, so an install whose pair is elsewhere - or on a desktop, to
-        # be pasted - still gets blank fields.
-        default_tokens_path = ""
-        default_tenant_path = ""
-        if user_input is None and _pair_on_host():
-            default_tokens_path = os.path.join(_DEFAULT_PAIR_DIR, "xpeng_tokens.json")
-            default_tenant_path = os.path.join(_DEFAULT_PAIR_DIR, "xpeng_tenant.json")
+        # A pair that is already on this host is the whole answer to this form, so
+        # its paths become the defaults and the documented bootstrap stays "accept
+        # the form" rather than "type two container paths correctly". Searched in
+        # every directory this project writes a pair to (see _PAIR_SEARCH_DIRS);
+        # an install whose pair is elsewhere - or on a desktop, to be pasted - gets
+        # blank fields and a note saying where the search looked.
+        host_pair = _host_pair_paths(self._entry())
+        default_tokens_path = host_pair[0] if host_pair else ""
+        default_tenant_path = host_pair[1] if host_pair else ""
 
         return self.async_show_form(
             step_id="import_tokens",
@@ -850,6 +926,12 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
                 extra=vol.REMOVE_EXTRA,
             ),
             errors=errors,
+            # Where a pair was looked for, and found or not. Passed on every show,
+            # including the one after a failed submit, so the line always matches
+            # the boxes underneath it.
+            description_placeholders={
+                "pair_search": _pair_search_note(host_pair),
+            },
         )
 
     async def _finish_import(

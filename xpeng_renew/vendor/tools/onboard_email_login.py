@@ -68,6 +68,41 @@ def _find_component() -> Path:
 
 COMP = _find_component()
 
+#: Home Assistant's own copy of this component, when there is one. HACS replaces
+#: that whole directory on update or reinstall, so anything written inside it -
+#: live credentials included - does not survive, which is what turned "update the
+#: integration" into "onboard the car again" (reported 2026-10-13).
+_LIVE_COMPONENT: Final = Path("/config/custom_components/xpeng")
+
+#: Where the renewal app publishes the pair, and what the import form looks in
+#: first. Durable, and already the documented home for these two files.
+_DURABLE_PAIR_DIR: Final = Path("/config/xpeng-secrets")
+
+
+def _save_dir(override: str) -> tuple[Path, str]:
+    """Where ``--save`` writes the pair, and a phrase saying why.
+
+    Next to the component is right for the documented desktop flow: unzip the
+    repository somewhere, this tool writes the two files beside the copy it just
+    used, and their contents get pasted into Home Assistant. Nothing here
+    outlives a HACS update in that flow because nothing here *is* the installed
+    integration.
+
+    It is the wrong place when the component is Home Assistant's own: HACS
+    replaces that directory, so the pair is gone by the next update - and the
+    import form then asks for a pair the user already had. In that one layout
+    the pair goes to the durable directory instead, which is also where the
+    renewal app puts its own. ``--out-dir`` overrides both.
+    """
+    if override:
+        return Path(override).expanduser(), "from --out-dir"
+    if COMP.resolve() == _LIVE_COMPONENT.resolve():
+        return _DURABLE_PAIR_DIR, (
+            "Home Assistant's own integration directory, which HACS replaces on "
+            "every update (use --out-dir to choose somewhere else)"
+        )
+    return COMP, "next to the integration files this run used"
+
 #: The captcha / anti-bot helpers are Node scripts that live in the repository's
 #: top-level tools/ directory. This script is shipped from xpeng-google/tools/,
 #: so that directory is located relative to this file instead of being
@@ -196,7 +231,15 @@ def main() -> int:
     # history, which is where a --password '...' argument ends up.
     ap.add_argument("--password", default="")
     ap.add_argument("--save", action="store_true",
-                    help="write xpeng_tokens.json + xpeng_tenant.json into the component")
+                    help="write xpeng_tokens.json + xpeng_tenant.json "
+                         "(where: see --out-dir)")
+    ap.add_argument(
+        "--out-dir",
+        default="",
+        help="where --save writes the pair (default: next to the integration files, "
+             "or /config/xpeng-secrets when those files are Home Assistant's own "
+             "HACS-managed copy, which an update would wipe)",
+    )
     ap.add_argument("--mqtt", action="store_true", help="also call createMqttAccount")
     ap.add_argument("--playwright-dir", default="/tmp/pwdir")
     ap.add_argument("--headless", action="store_true")
@@ -439,13 +482,16 @@ def main() -> int:
             "json": tokens,
             "jsonText": json.dumps(tokens, separators=(",", ":")),
         }
-        (COMP / "xpeng_tokens.json").write_text(json.dumps(wrapper, indent=2))
-        api.save_tenant_cache(str(COMP / "xpeng_tenant.json"), tenant)
+        save_dir, why = _save_dir(args.out_dir)
+        save_dir.mkdir(parents=True, exist_ok=True)
+        (save_dir / "xpeng_tokens.json").write_text(json.dumps(wrapper, indent=2))
+        api.save_tenant_cache(str(save_dir / "xpeng_tenant.json"), tenant)
         # these are live account credentials
-        os.chmod(COMP / "xpeng_tokens.json", 0o600)
-        os.chmod(COMP / "xpeng_tenant.json", 0o600)
-        print(f"[7] saved {COMP/'xpeng_tokens.json'} (wrapper: json + jsonText)")
-        print(f"[7] saved {COMP/'xpeng_tenant.json'} (teeId={str(tenant.get('teeId'))[:20]})")
+        os.chmod(save_dir / "xpeng_tokens.json", 0o600)
+        os.chmod(save_dir / "xpeng_tenant.json", 0o600)
+        print(f"[7] pair directory: {save_dir} ({why})")
+        print(f"[7] saved {save_dir/'xpeng_tokens.json'} (wrapper: json + jsonText)")
+        print(f"[7] saved {save_dir/'xpeng_tenant.json'} (teeId={str(tenant.get('teeId'))[:20]})")
         Path(args.device_id_out).write_text(device_id)
         print(f"[7] device id -> {args.device_id_out}")
     else:

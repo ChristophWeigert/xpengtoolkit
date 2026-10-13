@@ -81,8 +81,18 @@ python3 tools/onboard_email_login.py \
 
 A browser window opens; **the user drags the slider once**. The script prints a
 live `createMqttAccount` clientId on success and writes
-`xpeng_tokens.json` (note the plural) and `xpeng_tenant.json` into
-`custom_components/xpeng/` with mode `0600`.
+`xpeng_tokens.json` (note the plural) and `xpeng_tenant.json` beside the
+integration files the run used, mode `0600` - `custom_components/xpeng/` in a
+checkout, which is what this route pastes from.
+
+The one layout that is not a checkout is a run **on the Home Assistant host
+against the HACS-managed copy** (`/config/custom_components/xpeng`). HACS replaces
+that directory on every update, so a pair written into it is gone at the next one -
+and the integration then asks for a pair the user already had. The script detects
+that directory and writes to `/config/xpeng-secrets/` instead, where the renewal
+app publishes its own and what the integration's import form looks in first.
+`--out-dir PATH` chooses a directory explicitly; the script prints where it wrote
+either way.
 
 > `--mqtt` requires `--save`: the MQTT account must be minted with the same
 > tenant that was used for the login, never a re-loaded cache.

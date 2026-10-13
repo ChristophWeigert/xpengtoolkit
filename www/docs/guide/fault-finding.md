@@ -203,3 +203,29 @@ See [Getting Started](./getting-started#the-manual-route) for the command, and
 you. The certificates from [Certificates](./certificates) do **not** need redoing
 unless XPENG rotates them, which shows up as a TLS or broker authentication failure
 rather than a login failure.
+
+### "It is asking me to import the tokens again"
+
+The import screen says what it found, and where it looked, at the bottom of the
+description. Read that line before anything else:
+
+* **"Found an existing pair in …"** — the paths below it are filled in, and submitting
+  the form unchanged imports that pair.
+* **"No token + tenant pair was found in …"** — the credential is *not* on the host, and
+  the certificates being in place does not change that. The three `.pem` files are the
+  device's mTLS identity; the token + tenant pair is the login. A pair is only ever
+  somewhere the integration can read it if the renewal app published it to
+  `/config/xpeng-secrets`, or the onboarding tool was told to write there.
+
+A pair that was written **inside the integration directory** is the usual way to end up
+here: HACS replaces that directory on install, update and reinstall, so a pair saved
+next to the component is gone the next time HACS touches it — and re-downloading the
+integration restores code, not credentials. Removing the HACS download as a
+troubleshooting step does the same thing deliberately. The onboarding tool now writes
+the pair to `/config/xpeng-secrets/` whenever the component it finds *is* Home
+Assistant's own, and takes `--out-dir` otherwise.
+
+Nothing on disk can bring a deleted pair back, and an expired session cannot be
+revived: re-mint it. The renewal app does that on its own and creates the entry, and
+the manual route is one run of the onboarding tool plus a paste. Certificates kept in
+`/config/xpeng-certs` are reused either way.

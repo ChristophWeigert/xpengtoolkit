@@ -59,7 +59,11 @@ slider drag.
    ```
 
    Drag the slider once when the window opens. It writes `xpeng_tokens.json` and
-   `xpeng_tenant.json` (note the plural) into `custom_components/xpeng/`.
+   `xpeng_tenant.json` (note the plural) beside the integration files in this
+   checkout, which is what step 2 pastes. Run it on the Home Assistant host against
+   the HACS-installed copy instead and it writes to `/config/xpeng-secrets/`, because
+   HACS replaces the component directory on every update and would take the pair with
+   it.
 
 2. **Add the integration and import the pair.** **Settings → Devices & Services →
    Add Integration → Xpengtk**, then choose **Import tokens** and paste the

@@ -419,8 +419,14 @@ python3 tools/onboard_email_login.py \
     --email YOUR_SECONDARY_EMAIL --save --mqtt
 ```
 
-It writes **`xpeng_tokens.json`** and **`xpeng_tenant.json`** into
-`custom_components/xpeng/`. Note the plural - `xpeng_tokens.json`.
+It writes **`xpeng_tokens.json`** and **`xpeng_tenant.json`** next to the integration
+files the run used - `custom_components/xpeng/` in a checkout. Note the plural -
+`xpeng_tokens.json`. The exception is a run **on the Home Assistant host against the
+HACS-managed copy**: HACS replaces `/config/custom_components/xpeng` on every update, so
+a pair written there would not survive one. The tool detects that directory and writes
+to `/config/xpeng-secrets/` instead - the same directory the renewal app publishes to,
+and the first one the import form looks in. `--out-dir PATH` chooses the destination
+explicitly, and the tool prints where it wrote either way.
 
 See [`tools/README.md`](tools/README.md) for dependencies and options.
 

@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
+import os
 import sys
+import tempfile
 import types
 import pathlib
 import unittest
@@ -374,6 +376,74 @@ def main() -> int:
               import_fields.get("command_mode") == "safe_plus"
               and import_fields.get("allow_wake") is True)
 
+        # 2c. A pair that is already on the host is offered wherever it lives, not
+        #     only in the renewal app's pair_dir. Reported 2026-10-13: an install
+        #     whose pair sat in the component directory - where `--save` writes it -
+        #     got the import form with both path boxes blank and no sign that a
+        #     search had happened, so a pair that was on disk read as a missing one.
+        real_dirs = cf._PAIR_SEARCH_DIRS
+        with tempfile.TemporaryDirectory() as pair_dir, \
+                tempfile.TemporaryDirectory() as wrong_dir:
+            for name in ("xpeng_tokens.json", "xpeng_tenant.json"):
+                (Path(pair_dir) / name).write_text("{}", encoding="utf-8")
+            cf._PAIR_SEARCH_DIRS = (str(wrong_dir), pair_dir)
+
+            flow6 = cf.XPengConfigFlow()
+            flow6.hass = _FakeHass()
+            r = await flow6.async_step_user()
+            check("a pair in any searched directory skips the chooser",
+                  r.get("type") == "form" and r.get("step_id") == "import_tokens")
+            fields = _form_fields(r)
+            check("and its paths are the defaults, not blank",
+                  fields.get("tokens_path") == os.path.join(pair_dir, "xpeng_tokens.json")
+                  and fields.get("tenant_path") == os.path.join(pair_dir, "xpeng_tenant.json"))
+            check("and the form says where it found it",
+                  pair_dir in r["description_placeholders"]["pair_search"])
+
+            # Half a pair is not a pair: the tenant carries the deviceId the
+            # tokens are sealed against, so one file alone can only be refused.
+            os.remove(os.path.join(pair_dir, "xpeng_tenant.json"))
+            flow7 = cf.XPengConfigFlow()
+            flow7.hass = _FakeHass()
+            r = await flow7.async_step_user()
+            check("half a pair does not count as one on the host",
+                  r.get("type") == "form" and r.get("step_id") == "user")
+            r = await flow7.async_step_import_tokens()
+            check("and the form says the search found nothing, and where it looked",
+                  _form_fields(r).get("tokens_path") == ""
+                  and "No token + tenant pair was found" in r["description_placeholders"]["pair_search"]
+                  and pair_dir in r["description_placeholders"]["pair_search"])
+
+        # The entry's own recorded paths win over the directories: a legacy
+        # file-based entry whose pair sits somewhere unusual must be offered its
+        # own files, not whichever pair happens to be in a usual directory.
+        with tempfile.TemporaryDirectory() as legacy_dir:
+            legacy = {
+                name: os.path.join(legacy_dir, name)
+                for name in ("xpeng_tokens.json", "xpeng_tenant.json")
+            }
+            for path in legacy.values():
+                Path(path).write_text("{}", encoding="utf-8")
+            entry_legacy = ConfigEntry(
+                data={const.CONF_AUTH_METHOD: const.AUTH_METHOD_IMPORT},
+                options={
+                    const.CONF_TOKEN_FILE: legacy["xpeng_tokens.json"],
+                    const.CONF_TENANT_FILE: legacy["xpeng_tenant.json"],
+                },
+            )
+            found = cf._host_pair_paths(entry_legacy)
+            check("a legacy entry's own pair paths are used first",
+                  found == (legacy["xpeng_tokens.json"], legacy["xpeng_tenant.json"]))
+            check("and are ignored when the files are gone",
+                  cf._host_pair_paths(
+                      ConfigEntry(data={}, options={
+                          const.CONF_TOKEN_FILE: os.path.join(legacy_dir, "gone.json"),
+                          const.CONF_TENANT_FILE: os.path.join(legacy_dir, "gone2.json"),
+                      })
+                  ) is None)
+
+        cf._PAIR_SEARCH_DIRS = real_dirs
+
         # 3. a bad paste is rejected
         r = await flow.async_step_google({"redirect_url": "no code here"})
         check("bad paste shows invalid_code", r.get("errors", {}).get("redirect_url") == "invalid_code")
@@ -529,8 +599,8 @@ class FirstScreenTests(unittest.TestCase):
         return self.CF[start: nxt if nxt != -1 else len(self.CF)]
 
     def test_the_questions_are_skipped_when_a_pair_is_already_here(self):
-        self.assertIn("def _pair_on_host()", self.CF)
-        marker = "if user_input is None and _pair_on_host():"
+        self.assertIn("def _host_pair_paths(", self.CF)
+        marker = "if user_input is None and _host_pair_paths() is not None:"
         self.assertIn(marker, self.CF)
         start = self.CF.index(marker)
         self.assertIn("async_step_import_tokens()", self.CF[start:start + 200])
@@ -581,6 +651,71 @@ class FirstScreenTests(unittest.TestCase):
         """Fallback for anyone who follows the older instructions anyway."""
         self.assertIn("default=default_tokens_path", self.CF)
         self.assertIn("default=default_tenant_path", self.CF)
+
+
+class PairDiscoveryTests(unittest.TestCase):
+    """A pair already on the host must be found wherever this project put it.
+
+    Two writers, two directories: the renewal app publishes to its `pair_dir`,
+    while `tools/onboard_email_login.py --save` writes beside the component it
+    used. The flow only looked in the first, so on 2026-10-13 an install whose
+    download had been removed and re-added - which empties the component
+    directory HACS manages - was handed a form asking for a pair, with blank
+    path boxes and nothing saying a search had even happened. Source pins,
+    because the failure was a search that never ran.
+    """
+
+    CF = (PKG_DIR / "config_flow.py").read_text(encoding="utf-8")
+    TOOL = (_component.ROOT / "tools" / "onboard_email_login.py").read_text(
+        encoding="utf-8"
+    )
+    STRINGS = (PKG_DIR / "strings.json").read_text(encoding="utf-8")
+    EN = (PKG_DIR / "translations" / "en.json").read_text(encoding="utf-8")
+
+    def test_the_search_covers_both_directories_this_project_writes_to(self):
+        start = self.CF.index("_PAIR_SEARCH_DIRS: Final = (")
+        block = self.CF[start:self.CF.index("\n)", start)]
+        self.assertIn("_DEFAULT_PAIR_DIR", block)
+        self.assertIn("os.path.dirname(os.path.abspath(__file__))", block)
+
+    def test_a_legacy_entry_is_asked_for_its_own_paths_first(self):
+        self.assertIn("def _pair_from_entry_options(", self.CF)
+        start = self.CF.index("def _pair_from_entry_options(")
+        body = self.CF[start:start + 900]
+        self.assertIn("CONF_TOKEN_FILE", body)
+        self.assertIn("CONF_TENANT_FILE", body)
+        # ...and the search falls back to the directories only after that
+        search = self.CF.index("def _host_pair_paths(")
+        self.assertLess(search, self.CF.index("for directory in _PAIR_SEARCH_DIRS:"))
+
+    def test_the_form_says_where_it_looked(self):
+        """Blank boxes with no explanation are what made this look like a bug."""
+        self.assertIn("def _pair_search_note(", self.CF)
+        self.assertIn('description_placeholders={\n                "pair_search"', self.CF)
+        for name, text in (("strings.json", self.STRINGS), ("en.json", self.EN)):
+            with self.subTest(name):
+                self.assertIn("{pair_search}", text)
+
+    def test_the_tool_does_not_default_credentials_into_the_hacs_copy(self):
+        self.assertIn('_LIVE_COMPONENT: Final = Path("/config/custom_components/xpeng")', self.TOOL)
+        self.assertIn('_DURABLE_PAIR_DIR: Final = Path("/config/xpeng-secrets")', self.TOOL)
+        self.assertIn("def _save_dir(", self.TOOL)
+        self.assertIn('"--out-dir"', self.TOOL)
+        # the old unconditional write into the component is what has to be gone
+        self.assertNotIn('(COMP / "xpeng_tokens.json").write_text', self.TOOL)
+        self.assertNotIn("os.chmod(COMP /", self.TOOL)
+
+    def test_the_vendored_copy_carries_the_same_change(self):
+        """The renewal app runs the copy, so a stale one would write into its image."""
+        vendor = _component.ROOT / "xpeng_renew" / "vendor" / "tools" / "onboard_email_login.py"
+        if not vendor.is_file():
+            self.skipTest("renewal app not in this checkout")
+        self.assertIn("def _save_dir(", vendor.read_text(encoding="utf-8"))
+
+    def test_the_docs_name_the_durable_directory(self):
+        readme = (_component.ROOT / "tools" / "README.md").read_text(encoding="utf-8")
+        self.assertIn("/config/xpeng-secrets", readme)
+        self.assertIn("HACS", readme)
 
 
 
