@@ -253,11 +253,13 @@ def _tenant_from_text(text: str) -> dict[str, Any]:
 
 
 def _vin_from_tokens(tokens: dict[str, Any]) -> str:
-    """A VIN the token file happens to carry, or "".
+    """A VIN the token file carries, or "".
 
-    The onboarding tool's token file records no VIN (only the session tokens),
-    so most imports have to ask for it — but a file written by another capture
-    path may carry one, and then nothing has to be typed.
+    `tools/onboard_email_login.py` records one whenever the account has a
+    vehicle (its step 7), so an import from that tool needs nothing typed — and
+    the renewal app depends on that, since it creates the entry unattended. A
+    file from an older capture, or one whose vehicle list could not be read,
+    carries none and the form has to ask.
     """
     candidates: list[Any] = [tokens.get("vin"), tokens.get("VIN")]
     for field in ("vehicle", "vehicleInfo", "data"):
@@ -347,6 +349,19 @@ def _command_policy_fields(policy: CommandPolicy | None = None) -> dict[Any, Any
         ),
         vol.Optional(CONF_ALLOW_WAKE, default=current.allow_wake): bool,
     }
+
+
+def _vin_fields(current: str = "") -> dict[Any, Any]:
+    """The VIN question, for the sign-in routes that have no pair to read one from.
+
+    Required on a fresh sign-in: nothing else in the flow knows which vehicle
+    the new entry is for, and the API is per-vehicle. Pre-filled and *optional*
+    when the flow already has one — a reauth carries its entry's VIN — so an
+    untouched reauth form is never refused for a question it was not asked.
+    """
+    if current:
+        return {vol.Optional(CONF_VIN, default=current): str}
+    return {vol.Required(CONF_VIN): str}
 
 
 def _capacity_fields(
@@ -514,6 +529,20 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
             else DEFAULT_USABLE_BATTERY_KWH
         )
 
+    def _take_vin(self, user_input: Mapping[str, Any]) -> str:
+        """The VIN this sign-in is for: the one already known, else the form's.
+
+        A reauth already knows it — `async_step_reauth` loads the entry's — and an
+        entry's identity is not replaceable, so a submitted value cannot change it.
+        Returns "" when neither has one, which the sign-in steps report as a
+        `vin: required` form error, so no network call is spent on a sign-in that
+        cannot name a vehicle.
+        """
+        vin = self._vin or (user_input.get(CONF_VIN) or "").strip().upper()
+        if vin:
+            self._vin = vin
+        return vin
+
     def _ensure_device_id(self) -> str:
         """This flow's device id, minted once and reused by every API call."""
         if not self._device_id:
@@ -549,19 +578,24 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Entry point: pick an auth method and give the VIN.
+        """Entry point: pick how to sign in. Nothing else is asked here.
 
-        Nothing is asked when a pair is already on this host. The renewal app puts one
-        in pair_dir, and there is then nothing to decide - importing it is the only
-        thing this flow can usefully do - so it goes straight to that form with the
-        paths filled in. Asking anyway meant a required VIN box and a sign-in method
-        to choose on a screen whose answer was already on disk.
+        Nothing at all is asked when a pair is already on this host. The renewal app
+        puts one in pair_dir, and there is then nothing to decide - importing it is
+        the only thing this flow can usefully do - so it goes straight to that form
+        with the paths filled in. Asking anyway meant a required VIN box and a
+        sign-in method to choose on a screen whose answer was already on disk.
 
-        The questions are for the other case, someone holding a pair to paste. XPENG
-        gates most accounts' sign-in behind its own slider captcha, which only a human
-        dragging it in a real browser can clear - so importing a pair minted outside
-        HA is the path that reliably completes. Google and email are kept for accounts
-        XPENG does not gate.
+        The VIN is *not* asked here either. Only the sign-in routes need one, and
+        they ask on their own form; the import route reads it out of the pair. A
+        VIN box above a dropdown whose default method has no use for it reads as
+        a required question - which is exactly how it was reported (2026-10-11,
+        screenshot), under a blurb claiming Google worked around the captcha.
+
+        XPENG gates most accounts' sign-in behind its own slider captcha, which
+        only a human dragging it in a real browser can clear - so importing a
+        pair minted outside HA is the path that reliably completes. Google and
+        email are kept for accounts XPENG does not gate.
         """
         errors: dict[str, str] = {}
 
@@ -569,28 +603,18 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
             return await self.async_step_import_tokens()
 
         if user_input is not None:
-            vin = (user_input.get(CONF_VIN) or "").strip().upper()
             method = user_input.get(CONF_AUTH_METHOD, AUTH_METHOD_IMPORT)
-
-            # Only the sign-in routes need the VIN here. The import step reads it out
-            # of the pair, so asking for it on the way in duplicated a question that
-            # has an answer - and made it look required when it is not.
-            if not vin and method != AUTH_METHOD_IMPORT:
-                errors[CONF_VIN] = "required"
-            else:
-                self._vin = vin
-                self._auth_method = method
-                if method == AUTH_METHOD_EMAIL:
-                    return await self.async_step_email_password()
-                if method == AUTH_METHOD_IMPORT:
-                    return await self.async_step_import_tokens()
-                return await self.async_step_google()
+            self._auth_method = method
+            if method == AUTH_METHOD_EMAIL:
+                return await self.async_step_email_password()
+            if method == AUTH_METHOD_IMPORT:
+                return await self.async_step_import_tokens()
+            return await self.async_step_google()
 
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(CONF_VIN, default=""): str,
                     vol.Required(
                         CONF_AUTH_METHOD, default=AUTH_METHOD_IMPORT
                     ): SelectSelector(
@@ -603,7 +627,15 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
                             mode=SelectSelectorMode.DROPDOWN,
                         )
                     ),
-                }
+                },
+                # REMOVE_EXTRA, not the default PREVENT_EXTRA: the renewal app
+                # answers whichever step the flow opened on, and it announces
+                # itself to this one with {"vin": ..., "auth_method": "import"}
+                # (xpeng_renew/renew_server.py). The VIN is redundant here now -
+                # it belongs to the steps that need it - but refusing the key
+                # would strand a fresh, app-driven install half-created, which is
+                # the 0.4.16 failure. Unknown keys are dropped, not stored.
+                extra=vol.REMOVE_EXTRA,
             ),
             errors=errors,
         )
@@ -617,11 +649,14 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             email = user_input.get(CONF_XPENG_EMAIL, "").strip()
             password = user_input.get(CONF_XPENG_PASSWORD, "").strip()
+            vin = self._take_vin(user_input)
 
             if not email:
                 errors[CONF_XPENG_EMAIL] = "required"
             elif not password:
                 errors[CONF_XPENG_PASSWORD] = "required"
+            elif not vin:
+                errors[CONF_VIN] = "required"
             else:
                 self._email = email
                 self._password = password
@@ -673,6 +708,7 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
                 {
                     vol.Required(CONF_XPENG_EMAIL): str,
                     vol.Required(CONF_XPENG_PASSWORD): str,
+                    **_vin_fields(self._vin),
                 }
             ),
             errors=errors,
@@ -1014,6 +1050,10 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             code = gl.extract_code(user_input.get("redirect_url", ""))
+            # Which vehicle this sign-in is for. Asked on this form rather than
+            # on the way in, because only the sign-in routes need it - see
+            # async_step_user.
+            vin = self._take_vin(user_input)
             # A sign-in driven through the system web-auth session
             # (tools/oauth_capture.swift) generates its own PKCE pair, because
             # a plain browser never receives the custom-scheme redirect at all
@@ -1025,6 +1065,10 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
             ).strip() or self._google_verifier
             if not code:
                 errors["redirect_url"] = "invalid_code"
+            elif not vin:
+                # Nothing to name the entry after, so report it before spending
+                # an OAuth code exchange and an MQTT credential mint on it.
+                errors[CONF_VIN] = "required"
             else:
                 try:
                     from . import xpeng_api
@@ -1093,6 +1137,7 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Required("redirect_url"): str,
+                    **_vin_fields(self._vin),
                     **self._policy_fields(),
                     **self._capacity_field(),
                     vol.Optional("code_verifier", default=""): str,

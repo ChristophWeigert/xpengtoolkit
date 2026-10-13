@@ -5,12 +5,10 @@
         "title": "Connect your XPENG vehicle",
         "description": "Use a DEDICATED XPENG account that has been shared to your car - NOT your primary account. XPENG allows one active session per account, so signing in here logs your phone app out repeatedly.\n\nMost accounts are gated by XPENG's slider captcha, which this screen cannot show, so \"Import tokens from the onboarding tool\" is the route that always completes.",
         "data": {
-          "vin": "Vehicle Identification Number (VIN) - optional",
           "auth_method": "Sign-in method"
         },
         "data_description": {
-          "vin": "Only needed for the Google and email routes; an imported pair carries its own.",
-          "auth_method": "Import tokens is the reliable choice - see above."
+          "auth_method": "Import tokens is the reliable choice - see above. The next screen asks for the VIN only if the method you pick needs one."
         }
       },
       "email_code": {
@@ -54,6 +52,7 @@
         "data": {
           "redirect_url": "Paste the redirect URL here",
           "code_verifier": "PKCE verifier (from tools/oauth_capture.swift)",
+          "vin": "Vehicle Identification Number (VIN)",
           "usable_battery_kwh": "Usable battery capacity (kWh)",
           "command_mode": "Command permissions",
           "allow_wake": "Allow the integration to wake the car"
@@ -61,6 +60,7 @@
         "data_description": {
           "redirect_url": "The full callback URL, or the code on its own",
           "code_verifier": "Leave blank unless you captured the callback with the system sign-in helper",
+          "vin": "The 17-character VIN of your vehicle - it decides this entry's entity ids.",
           "usable_battery_kwh": "Set this to your car's pack, from the figure it is known by. A VIN gives the model family only, so nothing can pick this for you. Usable kWh: G6 66.0 pack = 65.3 | G6 68.5 = 67.8 | G6 80.8 = 80.0 | G6 87.5 (MY24 NMC) = 87.5 | G9 78.2 = 75.8 | G9 79.0 = 78.2 | G9 93.1 (LFP, MY25 on) = 92.2 | G9 98.0 (NMC, MY23-24) = 93.1. Only the parked-consumption estimate uses it.",
           "command_mode": "Safe Plus is the default for a new install: status, climate, lights, locking and charging, with unlocking, the trunk and windows, OTA and raw commands left off. Read only and Safe are narrower; Full access includes unlocking. Custom is offered under Configure.",
           "allow_wake": "Waking a sleeping car costs a little of its 12V battery and is only used to fetch a fresh full state. Charge and drive polls are unaffected."
@@ -71,11 +71,13 @@
         "description": "Use a DEDICATED XPENG account that has been shared to your car - do NOT use your primary account. Signing in here creates a second client on the same account, and XPENG only allows one active session, so your phone app will get logged out repeatedly. Create a new XPENG account, share the car to it from your main account in the app, then sign in here with that one.\n\nXPENG gates most accounts with a slider captcha, and that challenge can only be cleared by a human dragging it in a real browser - Home Assistant cannot do that. If this sign-in is refused as captcha-gated, stop here: run tools/onboard_email_login.py on a machine with a browser and use the \"Import tokens from the onboarding tool\" method instead.",
         "data": {
           "xpeng_email": "Email address",
-          "xpeng_password": "Password"
+          "xpeng_password": "Password",
+          "vin": "Vehicle Identification Number (VIN)"
         },
         "data_description": {
           "xpeng_email": "Your XPENG account email address",
-          "xpeng_password": "Your XPENG account password"
+          "xpeng_password": "Your XPENG account password",
+          "vin": "The 17-character VIN of your vehicle. It decides this entry's entity ids, so a wrong one creates a second set pointing at nothing."
         }
       },
       "import_tokens": {

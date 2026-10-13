@@ -332,8 +332,10 @@ def main() -> int:
         r = await flow.async_step_user()
         check("step_user shows form", r.get("type") == "form" and r.get("step_id") == "user")
 
-        # 2. choose Google with a VIN
-        r = await flow.async_step_user({const.CONF_VIN: "L1NNSGHA1SB000001", const.CONF_AUTH_METHOD: const.AUTH_METHOD_GOOGLE})
+        # 2. choose Google. The first screen asks ONLY the method: the VIN is a
+        #    question for the routes that need one, and this route asks for it on
+        #    its own form (see FirstScreenTests).
+        r = await flow.async_step_user({const.CONF_AUTH_METHOD: const.AUTH_METHOD_GOOGLE})
         check("google step shows form with url placeholder",
               r.get("type") == "form" and r.get("step_id") == "google"
               and "accounts.google.com" in r["description_placeholders"]["url"])
@@ -343,6 +345,15 @@ def main() -> int:
         check("and it is optional, defaulting to Safe Plus",
               google_fields.get("command_mode") == "safe_plus"
               and google_fields.get("allow_wake") is True)
+        check("and the VIN, which this route cannot get from anywhere else",
+              "vin" in google_fields)
+
+        # 2b. A sign-in with no VIN cannot name a vehicle, so it is refused on the
+        #     form - before the OAuth exchange and the MQTT mint, not after.
+        r = await flow.async_step_google({"redirect_url": "x:/cb?code=THECODE"})
+        check("a google sign-in with no VIN is refused before any network work",
+              r.get("type") == "form" and r.get("step_id") == "google"
+              and r.get("errors", {}).get(const.CONF_VIN) == "required")
 
         # The renewal app's route, which is the one that must not break: it
         # POSTs to import_tokens with only the two paths and the VIN and
@@ -373,6 +384,7 @@ def main() -> int:
         #    new mandatory step would strand a fresh install (the 0.4.16 bug).
         r = await flow.async_step_google({
             "redirect_url": f"com.googleusercontent.apps.x:/oauth2redirect?code=THECODE",
+            const.CONF_VIN: "L1NNSGHA1SB000001",
             const.CONF_COMMAND_MODE: "safe",
             const.CONF_ALLOW_WAKE: True,
         })
@@ -486,24 +498,35 @@ def main() -> int:
     return 0
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())
-
-
 class FirstScreenTests(unittest.TestCase):
-    """The setup screen must not ask for what it already knows.
+    """The setup screen must not ask for what it already knows, or for what the
+    method it is offering has no use for.
 
-    Seen live (2026-10-11, screenshot from the user): the first screen was a required
-    VIN box, flagged red the moment it was submitted, above a sign-in method dropdown
-    whose other two options cannot complete in Home Assistant - while the renewal app
-    had already put a token pair, VIN included, in pair_dir. The answer was on disk
-    and the form asked for it anyway.
+    Two live reports, both from a screenshot:
 
-    These pin the shape of the fix. The behaviour was verified against a live install
-    by starting a flow: it now lands on `import_tokens` with both paths filled in.
+    * 2026-10-11 - the first screen was a required VIN box, flagged red the moment
+      it was submitted, above a sign-in method dropdown whose other two options
+      cannot complete in Home Assistant, while the renewal app had already put a
+      token pair, VIN included, in pair_dir. Skipping the step when the pair is on
+      disk fixed that half.
+    * the same screen still opened with a VIN box under a blurb recommending
+      Google, on a build whose dropdown default is "Import tokens". The box read
+      as a question with an answer: the import route reads the VIN out of the
+      pair, and the sign-in routes are the only things that need it. So the first
+      screen now asks the method alone and each route asks for a VIN on its own
+      form - which is what these pin.
     """
 
     CF = (PKG_DIR / "config_flow.py").read_text(encoding="utf-8")
+    RENEW = (_component.ROOT / "xpeng_renew" / "renew_server.py").read_text(
+        encoding="utf-8"
+    )
+
+    def _step_body(self, name: str) -> str:
+        """The source of one step, up to the next `async def`."""
+        start = self.CF.index(f"    async def {name}(")
+        nxt = self.CF.find("\n    async def ", start + 10)
+        return self.CF[start: nxt if nxt != -1 else len(self.CF)]
 
     def test_the_questions_are_skipped_when_a_pair_is_already_here(self):
         self.assertIn("def _pair_on_host()", self.CF)
@@ -512,14 +535,44 @@ class FirstScreenTests(unittest.TestCase):
         start = self.CF.index(marker)
         self.assertIn("async_step_import_tokens()", self.CF[start:start + 200])
 
-    def test_the_vin_is_optional_on_that_screen(self):
-        """A pasted or imported pair carries its own VIN; asking twice was the bug."""
-        self.assertIn('vol.Optional(CONF_VIN, default=""): str', self.CF)
-        self.assertNotIn("vol.Required(CONF_VIN): str", self.CF)
+    def test_the_first_screen_asks_only_the_sign_in_method(self):
+        """A VIN box above a dropdown whose default method does not need one
+        reads as required - which is how it was reported."""
+        body = self._step_body("async_step_user")
+        self.assertIn("CONF_AUTH_METHOD", body)
+        self.assertNotIn("CONF_VIN", body)
+
+    def test_the_renewal_apps_post_to_that_screen_is_tolerated(self):
+        """It answers whichever step the flow opened on, VIN included.
+
+        The app sends ``{"vin": ..., "auth_method": "import"}`` to `user`, which
+        no longer has a VIN field. PREVENT_EXTRA would refuse the key and leave a
+        fresh, app-driven install half-created - the 0.4.16 failure. So the step
+        drops unknown keys instead, and this pins both halves of that contract.
+        """
+        body = self._step_body("async_step_user")
+        self.assertIn("extra=vol.REMOVE_EXTRA", body)
+        self.assertIn('{"vin": vin, "auth_method": "import"}', self.RENEW)
+
+    def test_the_import_form_leaves_the_vin_optional(self):
+        """A pasted or imported pair carries its own VIN; asking for it there
+        would be a question the flow can already answer."""
+        body = self._step_body("async_step_import_tokens")
+        self.assertIn("vol.Optional(CONF_VIN, default=self._vin): str", body)
 
     def test_a_vin_is_still_demanded_where_it_is_actually_needed(self):
-        """Signing in has no pair to read one from, so that route still asks."""
-        self.assertIn("if not vin and method != AUTH_METHOD_IMPORT:", self.CF)
+        """Signing in has no pair to read one from, so those routes ask."""
+        self.assertIn('def _vin_fields(current: str = "") -> dict[Any, Any]:', self.CF)
+        self.assertIn("vol.Required(CONF_VIN): str", self.CF)
+        for step in ("async_step_google", "async_step_email_password"):
+            body = self._step_body(step)
+            self.assertIn("_vin_fields(self._vin)", body)
+            self.assertIn('errors[CONF_VIN] = "required"', body)
+            self.assertIn("_take_vin(user_input)", body)
+
+    def test_a_known_vin_is_never_re_asked_as_required(self):
+        """A reauth carries its entry's VIN, so its form pre-fills and accepts it."""
+        self.assertIn("vol.Optional(CONF_VIN, default=current): str", self.CF)
 
     def test_the_dropdown_says_which_methods_cannot_complete(self):
         self.assertIn("usually blocked by the slider captcha", self.CF)
@@ -664,4 +717,11 @@ class ImportStepToleranceTests(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    # Run BOTH halves. main() walks the flow end to end; the TestCase classes
+    # pin the shapes. There used to be a second `__main__` gate earlier in this
+    # file, which exited before the classes were defined - so running the file,
+    # which is the way its own docstring documents, skipped every class test.
+    _rc = main()
+    _suite = unittest.TestLoader().loadTestsFromModule(sys.modules[__name__])
+    _result = unittest.TextTestRunner(verbosity=1).run(_suite)
+    raise SystemExit(_rc or (0 if _result.wasSuccessful() else 1))

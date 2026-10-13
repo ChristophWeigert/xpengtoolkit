@@ -131,6 +131,11 @@ onboarding tool** as the sign-in method. It is the route that always completes:
 the email/password and Google routes both end at XPENG's slider captcha, which
 Home Assistant cannot render or clear.
 
+That first screen asks for the sign-in method and nothing else. Only the Google
+and email screens ask for the VIN, because they have no pair to read one out of;
+the import screen takes it from the token file. (The screenshots on this page
+predate that change and still show a VIN box on the first screen.)
+
 ![The Import onboarding tokens screen](../images/ha-setup-import.png)
 
 Paste the whole of `xpeng_tokens.json` — including the `json` wrapper the tool
