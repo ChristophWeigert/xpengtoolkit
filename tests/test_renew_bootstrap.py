@@ -102,6 +102,23 @@ class BootstrapTests(unittest.TestCase):
         self.assertIn("def _vin_from_pair(", SERVER)
         self.assertIn("len(value) == 17 and value.isascii() and value.isalnum()", SERVER)
 
+    def test_a_disabled_entry_does_not_count_as_an_install(self):
+        """It suppresses the bootstrap and looks like a working install.
+
+        Measured 2026-10-13: the entry was disabled (so absent from the HA UI), and
+        `_no_entry_yet()` still found it, skipped the fresh-install renewal and left
+        the app waiting out a 6000s interval against a pair it had never minted. The
+        entry also held the VIN as its unique_id, so the flow would have answered
+        `already_configured` - the bootstrap would have failed even when it did run.
+        """
+        start = SERVER.index("def _no_entry_yet(")
+        block = SERVER[start:SERVER.index("def _credentials_entity(", start)]
+        self.assertIn('entry.get("disabled_by")', block)
+        # the domain check must still be there, or every install looks bootstrapped
+        self.assertIn('entry.get("domain") == "xpeng"', block)
+        # ...and "could not ask" must stay False (it must not start a renewal)
+        self.assertIn("if status != 200 or not isinstance(body, list):", block)
+
     def test_the_tool_records_the_vin_it_reads(self):
         self.assertIn('tokens["vin"] = vin', TOOL)
         self.assertIn("api.get_vehicles(None, tenant, tokens)", TOOL)

@@ -351,8 +351,8 @@ def _bootstrap_entry(pair_dir: str) -> tuple[bool, str]:
 
     # Which step this lands on is the integration's decision, not ours. Since 0.4.13 an
     # install with a pair already in `pair_dir` skips the method question and opens on
-    # `import_tokens`; an older one opens on `user`, which is where the VIN and the auth
-    # method belong. Sending `auth_method` to `import_tokens` is rejected by that step's
+    # `import_tokens`; anything else opens on `user`, which asks the auth method and
+    # nothing else. Sending `auth_method` to `import_tokens` is rejected by that step's
     # form schema:
     #
     #     400 {"errors":{"base":["not a valid option at 'auth_method'"]}}
@@ -360,6 +360,11 @@ def _bootstrap_entry(pair_dir: str) -> tuple[bool, str]:
     # which is what happened on the first fresh install against 0.4.16: the pair was
     # minted, the entry was not created, and the install stayed half-finished with no
     # entities at all. So ask the step what it is, and answer only the question it asked.
+    #
+    # The VIN still rides along with both posts: `import_tokens` reads it out of the pair
+    # (the field there is only a fallback) and `user` has no VIN question at all, but it
+    # drops unknown keys rather than refusing them - so this post is safe on either
+    # version, and the pair's VIN is what names the entry.
     if body.get("step_id") == "user":
         status, body = _core_json(
             "/config/config_entries/flow/%s" % flow_id,
@@ -459,18 +464,28 @@ def renew() -> dict:
 
 
 def _no_entry_yet() -> bool:
-    """Whether Home Assistant answered *and* has no XPENG entry.
+    """Whether Home Assistant answered *and* has no XPENG entry worth keeping.
 
     The distinction matters at startup: "no entry" is a fresh install that should be
     bootstrapped now, while "could not ask" is an API hiccup that must not set off a
     renewal - and `_existing_entry()` cannot tell them apart, because it answers None
     for both.
+
+    A DISABLED entry counts as no entry. Home Assistant hides those from the UI but
+    not from this list, so an install that disabled its old entry while moving to a
+    new one looked finished: the bootstrap never ran, the health endpoint reported
+    the first renewal thousands of seconds away, and nothing said why (measured
+    2026-10-13 on a real install - the entry was also still holding the VIN as its
+    unique_id, so the flow would have refused to create a replacement either way).
     """
     status, body = _core_json("/config/config_entries/entry", method="GET")
     if status != 200 or not isinstance(body, list):
         return False
     return not any(
-        isinstance(entry, dict) and entry.get("domain") == "xpeng" for entry in body
+        isinstance(entry, dict)
+        and entry.get("domain") == "xpeng"
+        and not entry.get("disabled_by")
+        for entry in body
     )
 
 
