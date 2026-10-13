@@ -66,6 +66,16 @@ those were the names people were told to use, and the shipped default, which is
 why this is worth stating plainly. The plain LAN address always works, so it is
 the safe answer when in doubt. Changing this option restarts the app.
 
+**The sidebar panel is not the API.** `solver_url` is wherever `/solve` lives: the
+solver's own port, **8080**. The ingress panel URL the Home Assistant UI shows you
+(`http://<your-ha-host>:8123/app/571f4c18_xpeng_slider_solver`) resolves, which is what
+makes it the most natural wrong answer - but that route is GET-only, so the tool's
+`POST /solve` comes back `405: Method Not Allowed`. That reads as a broken solver rather
+than a wrong address, and it cost a live install three days (reported 2026-10-13). The
+renewal app now rewrites that `/app/` form to the container hostname and says so in its
+log and on `/healthz`; a URL carrying a signed ingress token has nothing to derive, so it
+is left alone and reported instead.
+
 ## 2. First run: the app creates the config entry
 
 A renewal *imports* the pair it minted, and importing needs somewhere to import it to.

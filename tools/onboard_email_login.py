@@ -201,6 +201,20 @@ def solve_via_service(url: str, token: str = "", timeout: int = 120) -> dict:
     ok/validate/captchaId, except nobody has to drag anything. See the
     xpeng-slider-solver project for the service.
     """
+    if "/app/" in url or "/api/hassio_ingress/" in url:
+        # The sidebar panel, not the API. Home Assistant serves that route as a
+        # GET-only ingress page, so POSTing to it answers `405 Method Not Allowed`,
+        # which reads as a broken solver rather than a wrong address - and it
+        # resolves, so it does not look like a typo either. A live install lost
+        # three days to this (2026-10-13); /solve lives on the solver's own port.
+        return {
+            "ok": False,
+            "error": (
+                f"{url} is the solver's ingress panel, which only answers GET. Use "
+                "the solver's own address instead: http://<its container hostname>:"
+                "8080 (hyphens, not underscores) or http://<your-ha-host>:8080."
+            ),
+        }
     request = urllib.request.Request(
         url.rstrip("/") + "/solve",
         data=b"{}",

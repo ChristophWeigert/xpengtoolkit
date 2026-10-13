@@ -58,10 +58,62 @@ def _setting_int(name: str, default: int) -> int:
         return default
 
 
+#: The port the solver's own API listens on. Home Assistant serves the solver's
+#: sidebar panel on its own 8123, which is the address people copy.
+_SOLVER_API_PORT = 8080
+
+
+def _solver_url(raw: str) -> tuple[str, str]:
+    """The solver's API address, corrected when the sidebar panel URL was given.
+
+    `solver_url` is the one setting that depends on how the solver was installed,
+    and the panel URL is its most natural wrong answer: it is what you copy out of
+    the Home Assistant UI when you want "the address of the solver". It resolves,
+    so it does not read as a typo - but that route is a GET-only ingress panel, so
+    the tool's `POST <url>/solve` comes back
+
+        405: Method Not Allowed
+
+    which looks like a broken solver rather than a wrong address. That is exactly
+    what a live install reported on 2026-10-13, after three days of the panel
+    looking like the right thing to paste.
+
+    `/app/<slug>` carries the slug, and the container hostname is mechanical from
+    it (`571f4c18_xpeng_slider_solver` is served by `571f4c18-xpeng-slider-solver`),
+    so that form is rewritten and the note says what it did. An ingress URL with a
+    signed token in it carries nothing to derive, so it is left alone and the note
+    names the addresses that do work. Every other value passes through untouched -
+    a LAN address, a custom port or a hostname is never second-guessed.
+
+    Returns ``(url, note)``; the note is empty when nothing needed saying.
+    """
+    url = (raw or "").strip().rstrip("/")
+    if not url:
+        return "", ""
+    if "/app/" in url:
+        slug = url.split("/app/", 1)[1].split("/")[0].split("?")[0]
+        if slug:
+            fixed = f"http://{slug.replace('_', '-').lower()}:{_SOLVER_API_PORT}"
+            return fixed, (
+                f"solver_url was the sidebar panel ({url}), which only answers GET - "
+                f"POST /solve to it returns 405. Using the container hostname "
+                f"instead: {fixed} - set solver_url to that to silence this."
+            )
+    if "/api/hassio_ingress/" in url or ":8123" in url:
+        return url, (
+            f"solver_url ({url}) is a Home Assistant address, not the solver's own. "
+            f"The solver answers on port {_SOLVER_API_PORT}: its container hostname "
+            f"http://<hash>-xpeng-slider-solver:{_SOLVER_API_PORT} (hyphens, not "
+            f"underscores), or the HA host itself http://homeassistant.local:"
+            f"{_SOLVER_API_PORT}."
+        )
+    return url, ""
+
+
 EMAIL = _setting("email")
 PASSWORD = _setting("password")
 DEVICE_ID = _setting("device_id")
-SOLVER_URL = _setting("solver_url")
+SOLVER_URL, SOLVER_URL_NOTE = _solver_url(_setting("solver_url"))
 SOLVER_TOKEN = _setting("solver_token")
 RENEW_TOKEN = _setting("renew_token")
 PAIR_DIR = _setting("pair_dir", "/config/xpeng-secrets")
@@ -655,6 +707,7 @@ class Handler(BaseHTTPRequestHandler):
             "configured": {
                 "email": EMAIL,
                 "solver_url": SOLVER_URL,
+                **({"solver_url_note": SOLVER_URL_NOTE} if SOLVER_URL_NOTE else {}),
                 "pair_dir": PAIR_DIR,
                 "device_id": "configured" if DEVICE_ID else "remembered/generated",
                 "auth": "bearer" if RENEW_TOKEN else "open",
@@ -678,6 +731,10 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT") or OPTIONS.get("port") or 8090)
+    if SOLVER_URL_NOTE:
+        # Startup, not first renewal: a corrected address is worth seeing before
+        # the run that would have failed cryptically three hours later.
+        _log("[!] " + SOLVER_URL_NOTE)
     _log("listening on :%d (email=%s solver=%s auth=%s)"
          % (port, EMAIL or "<unset>", SOLVER_URL or "<unset>",
             "bearer" if RENEW_TOKEN else "open"))

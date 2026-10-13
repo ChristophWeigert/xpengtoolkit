@@ -207,6 +207,16 @@ underscore slug forms (`571f4c18_xpeng_slider_solver`,
 they were the names people were told to use, and one of them was the shipped
 default, which is why this is worth stating plainly. When in doubt, the Home
 Assistant host's own address always works. Changing this option restarts the app.
+
+**The sidebar panel is not the API.** `solver_url` is wherever `/solve` lives: the
+solver's own port, **8080**. The ingress panel URL the Home Assistant UI shows you
+(`http://<your-ha-host>:8123/app/571f4c18_xpeng_slider_solver`) resolves, which is what
+makes it the most natural wrong answer — but that route is GET-only, so the tool's
+`POST /solve` comes back `405: Method Not Allowed`. That reads as a broken solver rather
+than a wrong address, and it cost a live install three days (reported 2026-10-13). The
+renewal app rewrites that `/app/` form to the container hostname and says so in its log
+and on `/healthz`; a URL carrying a signed ingress token has nothing to derive, so it is
+reported instead.
 :::
 
 ## Credentials and the pair directory
