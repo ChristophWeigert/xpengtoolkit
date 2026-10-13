@@ -133,8 +133,7 @@ Home Assistant cannot render or clear.
 
 That first screen asks for the sign-in method and nothing else. Only the Google
 and email screens ask for the VIN, because they have no pair to read one out of;
-the import screen takes it from the token file. (The screenshots on this page
-predate that change and still show a VIN box on the first screen.)
+the import screen takes it from the token file.
 
 ![The Import onboarding tokens screen](../images/ha-setup-import.png)
 
