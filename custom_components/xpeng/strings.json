@@ -349,6 +349,9 @@
       "credential_age": {
         "name": "Credential age"
       },
+      "last_renewal": {
+        "name": "Last renewal"
+      },
       "last_update": {
         "name": "Last data update"
       },

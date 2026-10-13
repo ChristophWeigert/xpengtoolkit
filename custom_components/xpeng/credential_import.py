@@ -12,6 +12,7 @@ The credentials themselves are never logged.
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 import voluptuous as vol
@@ -31,6 +32,7 @@ from .const import (
     AUTH_METHOD_IMPORT,
     CONF_AUTH_METHOD,
     CONF_CLIENT_ID,
+    CONF_LAST_RENEWAL,
     CONF_LOGIN_TOKENS,
     CONF_PASSWORD,
     CONF_SERVER,
@@ -116,6 +118,10 @@ async def async_import_credentials(
             CONF_SERVER: server,
             CONF_AUTH_METHOD: AUTH_METHOD_IMPORT,
             CONF_LOGIN_TOKENS: tokens,
+            # The clock behind sensor.xpeng_<car>_last_renewal. This function is the
+            # app's renewal path (and the Repairs card's), so a renewal is exactly
+            # what this stamp records - see the sensor for why it matters.
+            CONF_LAST_RENEWAL: time.time(),
             CONF_TENANT_DATA: _serialize_tenant(tenant),
             **({CONF_VIN: resolved_vin} if resolved_vin else {}),
             **(

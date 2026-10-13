@@ -45,6 +45,7 @@ async def async_setup_entry(
 
     # Add diagnostic sensors
     entities.append(XPengCredentialAgeSensor(coordinator))
+    entities.append(XPengLastRenewalSensor(coordinator))
     entities.append(XPengAccountSensor(coordinator))
     entities.append(XPengLastUpdateSensor(coordinator))
     entities.append(XPengLastDataUpdateSensor(coordinator))
@@ -195,6 +196,45 @@ class XPengCredentialAgeSensor(XPengEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         ts = self.coordinator.credential_timestamp
+        if ts is None:
+            return {}
+        return {
+            "refreshed_at": ts.astimezone().strftime("%d %b %Y %I:%M %p"),
+            "age_seconds": int((datetime.now(timezone.utc) - ts).total_seconds()),
+        }
+
+
+class XPengLastRenewalSensor(XPengEntity, SensorEntity):
+    """When the credentials were last renewed.
+
+    The renewal app calls ``xpeng.import_credentials`` on every renewal, and every
+    other way a pair can arrive (a pasted pair, a reauth, the app bootstrapping a
+    first install) writes the same stamp - so this is the one honest clock for "when
+    did a renewal last run". It is a timestamp rather than an age so the value stays
+    meaningful however long Home Assistant has been up, and it is deliberately not
+    `credential_age` above: that one moves every `mqtt_refresh_interval` because the
+    broker's short-lived credentials are re-minted, which is a different question.
+    Unknown until credentials have arrived at least once on an entry that predates
+    this key, or on one that has never been renewed.
+    """
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "last_renewal"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:key-refresh"
+
+    def __init__(self, coordinator: XPengDataCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"xpeng_{self._vin}_last_renewal"
+
+    @property
+    def native_value(self) -> datetime | None:
+        return self.coordinator.last_renewal
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        ts = self.coordinator.last_renewal
         if ts is None:
             return {}
         return {

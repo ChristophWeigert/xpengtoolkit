@@ -82,6 +82,12 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.poll_status: dict[str, Any] = {}
         self._last_full_data: dict[str, Any] | None = None
         self.credential_timestamp: datetime | None = None
+        # When a token + tenant pair was last *installed* — i.e. a renewal — as
+        # opposed to credential_timestamp above, which moves every
+        # mqtt_refresh_interval because the broker's short-lived credentials are
+        # re-minted. Populated from entry data (CONF_LAST_RENEWAL) so it survives a
+        # restart, and read by the last-renewal sensor.
+        self.last_renewal: datetime | None = None
         self.last_data_timestamp: datetime | None = None
         # Distinct from last_data_timestamp: only bumped when a message
         # actually carried fresh charge/odometer data, not just any MQTT
@@ -286,6 +292,23 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def set_credential_timestamp(self) -> None:
         """Record when credentials were last set/refreshed."""
         self.credential_timestamp = datetime.now(timezone.utc)
+
+    def set_last_renewal(self, epoch: Any) -> None:
+        """Record when a token + tenant pair was last installed.
+
+        Takes the raw entry-data value: epoch seconds written by whatever path
+        installed the pair, or ``None``/"" on an entry that predates the key (or was
+        never renewed). An unparseable value becomes ``None`` rather than raising -
+        a diagnostic entity must not be able to fail entry setup.
+        """
+        try:
+            self.last_renewal = (
+                datetime.fromtimestamp(float(epoch), tz=timezone.utc)
+                if epoch not in (None, "")
+                else None
+            )
+        except (TypeError, ValueError):
+            self.last_renewal = None
 
     def set_poll_status(self, **fields: Any) -> None:
         """Record what the pollers are doing.

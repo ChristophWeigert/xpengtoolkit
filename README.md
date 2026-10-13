@@ -535,7 +535,10 @@ See [Command permissions](#command-permissions---what-the-integration-may-do-to-
 
 From then on it renews itself - every `renew_interval` (6000s by default, comfortably
 inside the two-hour cap), and sooner if Home Assistant reports the credentials are
-already invalid. There is no automation to add and no helper to create.
+already invalid. There is no automation to add and no helper to create:
+`sensor.xpeng_<last six of your VIN>_last_renewal` is that clock as an entity, stamped by
+every renewal and kept in the config entry, so it survives a restart and can go straight
+on a dashboard.
 
 `GET http://<your-ha-host>:8090/healthz` reports the counters, when the next renewal
 is due and the last outcome; `/config/xpeng-renew-last-run.log` has the whole of the

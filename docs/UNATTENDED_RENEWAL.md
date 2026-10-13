@@ -144,10 +144,17 @@ replaced within a few minutes. That was the one thing an outside scheduler could
 that a plain timer cannot, and section 2's bootstrap means the first renewal needs no
 trigger either.
 
-What an automation adds is Home Assistant-side **visibility**: a helper that shows when
-a renewal last ran, on a dashboard, and a trigger you can see and edit in the UI. If
-you want that, set **`renew_interval: 0`** on the app first, so the two are not both
-renewing.
+What an automation adds is **control**: Home Assistant deciding when to renew, rather
+than the app. If you want that, set **`renew_interval: 0`** on the app first, so the two
+are not both renewing.
+
+**Visibility does not need any of it.** `sensor.xpeng_<the last six characters of your
+VIN>_last_renewal` is a timestamp set by every path that installs a token + tenant pair -
+the app's `import_credentials` call, the Repairs card, a reauth, and the flow the app
+drives on a first install. It lives in the config entry, so a restart does not reset it,
+and it is a real timestamp rather than a formatted string, which is what makes it usable
+on a dashboard or in a condition. The app's own answer to the same question
+(`/healthz`'s `next_run_s` and `last_reason`) is not something a dashboard can show.
 
 > **Two things trip people up here.** The sensor is
 > `binary_sensor.xpeng_<the last six characters of your VIN>_credentials_valid` - for the

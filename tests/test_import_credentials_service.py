@@ -108,5 +108,91 @@ class HelperReuseTests(unittest.TestCase):
             self.assertIn(helper, SOURCE, f"{helper} should come from config_flow")
 
 
+class LastRenewalClockTests(unittest.TestCase):
+    """When a renewal last ran must be visible without anyone building anything.
+
+    The automation in docs/UNATTENDED_RENEWAL.md is optional and needs a helper, a
+    `rest_command` and a secret; `sensor.xpeng_<car>_last_renewal` needs none of that,
+    but only if every path that installs a pair stamps it - which is what these pin.
+    The app renews through `import_credentials`; the config flow covers a pasted pair,
+    an email or Google login, a reauth, and the flow the app drives on a first install.
+    """
+
+    CF = (COMP / "config_flow.py").read_text(encoding="utf-8")
+    COORD = (COMP / "coordinator.py").read_text(encoding="utf-8")
+    SENSOR = (COMP / "sensor.py").read_text(encoding="utf-8")
+
+    def test_the_service_path_stamps_it(self):
+        """Every renewal the app makes arrives through this function, so it is the clock."""
+        self.assertIn("CONF_LAST_RENEWAL: time.time()", SOURCE)
+
+    def test_every_flow_side_arrival_stamps_it(self):
+        self.assertIn("def _credential_stamp()", self.CF)
+        self.assertEqual(
+            self.CF.count("**_credential_stamp(),"),
+            5,
+            "a new credential-arrival site in the flow must stamp the clock too",
+        )
+
+    def test_it_lives_in_entry_data_and_is_read_back_at_setup(self):
+        const = (COMP / "const.py").read_text(encoding="utf-8")
+        self.assertIn('CONF_LAST_RENEWAL: Final = "last_renewal"', const)
+        self.assertIn(
+            "coordinator.set_last_renewal(entry.data.get(CONF_LAST_RENEWAL))", INIT
+        )
+
+    def test_the_sensor_is_a_timestamp_and_is_registered(self):
+        start = self.SENSOR.index("class XPengLastRenewalSensor(")
+        body = self.SENSOR[start : self.SENSOR.index("\nclass ", start + 10)]
+        self.assertIn("_attr_device_class = SensorDeviceClass.TIMESTAMP", body)
+        self.assertIn('_attr_translation_key = "last_renewal"', body)
+        self.assertIn("return self.coordinator.last_renewal", body)
+        self.assertIn(
+            "entities.append(XPengLastRenewalSensor(coordinator))", self.SENSOR
+        )
+
+
+class StampParsingTests(unittest.TestCase):
+    """The conversion itself, exercised without Home Assistant or a coordinator.
+
+    `set_last_renewal` takes whatever the entry holds - an epoch written by an import,
+    or nothing at all on an entry that predates the key - and a diagnostic entity must
+    not be able to fail entry setup because of a malformed value.
+    """
+
+    class _Fake:
+        last_renewal = "unset"
+
+    @staticmethod
+    def _setter():
+        import textwrap
+        from datetime import datetime, timezone
+
+        source = LastRenewalClockTests.COORD
+        start = source.index("    def set_last_renewal(")
+        end = source.index("\n    def ", start + 10)
+        namespace = {"datetime": datetime, "timezone": timezone}
+        exec(
+            compile(textwrap.dedent(source[start:end]), "<coordinator>", "exec"),
+            namespace,
+        )
+        return namespace["set_last_renewal"]
+
+    def test_an_epoch_becomes_an_aware_utc_datetime(self):
+        from datetime import timezone
+
+        fake = self._Fake()
+        self._setter()(fake, 1700000000)
+        self.assertEqual(fake.last_renewal.timestamp(), 1700000000)
+        self.assertEqual(fake.last_renewal.tzinfo, timezone.utc)
+
+    def test_nothing_means_unknown_and_junk_does_not_raise(self):
+        setter = self._setter()
+        for value in (None, "", "not-a-number", object()):
+            fake = self._Fake()
+            setter(fake, value)
+            self.assertIsNone(fake.last_renewal, f"{value!r} should read as unknown")
+
+
 if __name__ == "__main__":
     unittest.main()

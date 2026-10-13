@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 from typing import Any, Final, Mapping
 
 import voluptuous as vol
@@ -50,6 +51,7 @@ from .const import (
     CONF_CLIENT_ID,
     CONF_CONFIGURED_DEVICE_ID,
     CONF_ICCID,
+    CONF_LAST_RENEWAL,
     CONF_LOGIN_TOKENS,
     CONF_MQTT_LISTENER_ENABLED,
     CONF_MQTT_LISTENER_TOPICS,
@@ -878,6 +880,7 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
             CONF_AUTH_METHOD: AUTH_METHOD_IMPORT,
             CONF_LOGIN_TOKENS: tokens,
             CONF_TENANT_DATA: _serialize_tenant(tenant),
+            **_credential_stamp(),
         }
         # Stored on the entry, not only in the token file: entry data lives in
         # HA's own storage, so this survives reboots and survives the file being
@@ -997,6 +1000,7 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
                             CONF_AUTH_METHOD: AUTH_METHOD_EMAIL,
                             CONF_LOGIN_TOKENS: tokens,
                             CONF_TENANT_DATA: tenant_store,
+                            **_credential_stamp(),
                         },
                         options={
                             CONF_CONFIGURED_DEVICE_ID: self._ensure_device_id(),
@@ -1182,6 +1186,7 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_AUTH_METHOD: AUTH_METHOD_GOOGLE,
                     CONF_LOGIN_TOKENS: tokens,
                     CONF_TENANT_DATA: tenant_store,
+                    **_credential_stamp(),
                     **({CONF_XPENG_EMAIL: email} if email else {}),
                 },
                 # Keep the identity the reauth signed with; entries created
@@ -1211,6 +1216,7 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_AUTH_METHOD: AUTH_METHOD_GOOGLE,
                 CONF_LOGIN_TOKENS: tokens,
                 CONF_TENANT_DATA: tenant_store,
+                **_credential_stamp(),
             },
             options={
                 CONF_CONFIGURED_DEVICE_ID: self._ensure_device_id(),
@@ -1365,6 +1371,7 @@ class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
                                 CONF_PASSWORD: mqtt_creds["password"],
                                 CONF_LOGIN_TOKENS: tokens,
                                 CONF_TENANT_DATA: tenant_store,
+                                **_credential_stamp(),
                             },
                             # Persist the identity this reauth signed with so a
                             # pre-existing entry keeps it from now on.
@@ -1690,6 +1697,19 @@ class XPengOptionsFlow(OptionsFlow):
                 )
             },
         )
+
+def _credential_stamp() -> dict[str, Any]:
+    """The entry data that records *when* credentials arrived.
+
+    Every path that installs a token + tenant pair goes through here - a pasted
+    pair, an email or Google login, a reauth, and the renewal app driving the flow
+    on a fresh install - so one clock covers all of them and
+    ``sensor.xpeng_<car>_last_renewal`` has something to show from the first
+    install onwards. `credential_import.py` writes the same key for the service and
+    the Repairs card, which is how a renewal on an existing entry is stamped.
+    """
+    return {CONF_LAST_RENEWAL: time.time()}
+
 
 def _serialize_tenant(tenant: dict[str, Any]) -> dict[str, Any]:
     """Serialize tenant data for storage in config entry.

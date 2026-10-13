@@ -102,6 +102,14 @@ CONF_LOGIN_TOKENS: Final = "login_tokens"
 CONF_TENANT_DATA: Final = "tenant_data"
 CONF_REST_SCAN_INTERVAL: Final = "rest_scan_interval"
 CONF_AUTH_METHOD: Final = "auth_method"
+#: When credentials last arrived, as epoch seconds. Written by every path that
+#: installs a token + tenant pair - the renewal app's ``import_credentials`` call,
+#: the Repairs card, a reauth, a fresh install - and read back by
+#: ``sensor.xpeng_<car>_last_renewal``. Deliberately in entry *data* rather than in
+#: memory: a restart must not erase the only honest answer to "when did the
+#: credentials last change", and the app's own /healthz counters are not something
+#: a dashboard can show.
+CONF_LAST_RENEWAL: Final = "last_renewal"
 
 # Auth methods for CONF_AUTH_METHOD. "email" is the classic
 # email+password+email-code flow (captcha-gated at pwdLogin). "google" is the

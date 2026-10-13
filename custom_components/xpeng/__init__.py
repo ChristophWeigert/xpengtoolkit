@@ -24,6 +24,7 @@ from .const import (
     CONF_CLIENT_ID,
     CONF_CONFIGURED_DEVICE_ID,
     CONF_ICCID,
+    CONF_LAST_RENEWAL,
     CONF_LOGIN_TOKENS,
     CONF_MQTT_LISTENER_ENABLED,
     CONF_MQTT_LISTENER_TOPICS,
@@ -627,6 +628,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     iccid = entry.options.get(CONF_ICCID, "").strip()
     if iccid:
         coordinator.iccid = iccid
+    # When the credentials last arrived, for the last-renewal sensor. Read from
+    # entry data rather than a clock in this process: a restart must not erase it,
+    # and the entry reloads after every import, so this is always current.
+    coordinator.set_last_renewal(entry.data.get(CONF_LAST_RENEWAL))
     # Pack size for the parked-consumption kWh estimate (options override).
     try:
         coordinator.usable_battery_kwh = float(
