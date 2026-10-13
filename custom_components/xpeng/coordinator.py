@@ -51,6 +51,12 @@ _REST_MERGE_EXCLUDED_SECTIONS = frozenset(
     {"window", "door", "ext", "trunkPower"}
 )
 
+#: The charge subsystem's ``service_type``. Its command responses carry the
+#: ``instant.charge`` fields themselves (measured on a live car 2026-10-13), so
+#: the acknowledgement of e.g. ``set_charge_limit`` is also the confirmation
+#: that the limit moved - see ``_merge_command_state``.
+CHARGE_SERVICE_TYPE = 4
+
 
 class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Passive coordinator that stores vehicle data pushed from MQTT."""
@@ -979,8 +985,60 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.command_feedback_count, stype, code, msg,
         )
 
+        self._merge_command_state(feedback)
+
         if self._last_full_data:
             self.async_set_updated_data(self._last_full_data)
+
+    def _merge_command_state(self, feedback: dict[str, Any]) -> bool:
+        """Fold a command's own acknowledgement into the cached state.
+
+        A charge-subsystem command (``service_type 4``: the charge limit and
+        both port doors) is acknowledged with a ``msg_content`` whose keys are
+        exactly the ones ``instant.charge`` already holds. Measured on a live
+        car 2026-10-13: ``number.set_value`` on the charge limit was published
+        at 20:51:01 and answered ``code=200`` "Erfolgreich" 1.4s later with
+
+            {"charge_status": 15, "slow_charge_port_status": 2,
+             "fast_charge_port_status": 2, "max_range_charge": 90}
+
+        which is a charge status report, not an echo of the request.
+
+        Taking that answer is what makes a charge-limit change visible at once.
+        Without it the Charge limit entity showed whatever the last full
+        snapshot said until the car next woke and pushed, so a command that
+        *had* been applied read as "the value never changed" - the only way to
+        see the new one was to wake the car. Merging the answer costs no wake.
+
+        Timestamps are deliberately untouched: ``last_data_timestamp`` tracks
+        true MQTT state traffic and the silence watchdog relies on it.
+        """
+        if feedback.get("service_type") != CHARGE_SERVICE_TYPE:
+            return False
+        if feedback.get("code") not in (200, "200"):
+            return False
+        content = feedback.get("content")
+        if not isinstance(content, dict):
+            return False
+        fields = {k: v for k, v in content.items() if k not in ("code", "msg")}
+        if not fields:
+            return False
+        # Nothing cached yet: building a state out of a command's answer alone
+        # would publish a partial snapshot that every other sensor then reads
+        # as its new value. The limit is unknown in that case anyway.
+        if not self._last_full_data:
+            return False
+
+        base = dict(self._last_full_data)
+        msg_content = dict(base.get("msg_content", {}))
+        instant = dict(msg_content.get("instant", {}))
+        instant["charge"] = {**instant.get("charge", {}), **fields}
+        msg_content["instant"] = instant
+        self._last_full_data = {**base, "msg_content": msg_content, "vin": self.vin}
+        _LOGGER.debug(
+            "Merged charge command response into cached state: %s", sorted(fields)
+        )
+        return True
 
     @property
     def vehicle_parked(self) -> bool | None:
