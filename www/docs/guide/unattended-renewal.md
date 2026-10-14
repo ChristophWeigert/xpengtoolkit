@@ -183,7 +183,7 @@ something a dashboard can show.
 
 > **Two things trip people up here.** The sensor is
 > `binary_sensor.xpeng_<the last six characters of your VIN>_credentials_valid` - for the
-> VIN `L1NNSGHA3SB800783` that is `binary_sensor.xpeng_800783_credentials_valid`. Find
+> VIN `L1NNSGHA3SB123456` that is `binary_sensor.xpeng_123456_credentials_valid`. Find
 > yours under **Settings -> Devices & Services -> Entities**, searching for
 > `credentials_valid`, and use exactly what you find; the placeholder is not a name
 > anything ships with. The `input_datetime` block below is also not decoration: the

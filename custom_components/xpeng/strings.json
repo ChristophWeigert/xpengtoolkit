@@ -624,6 +624,12 @@
       },
       "passenger_seat_ventilation_select": {
         "name": "Passenger seat ventilation"
+      },
+      "left_rear_seat_heat_select": {
+        "name": "Left rear seat heating"
+      },
+      "right_rear_seat_heat_select": {
+        "name": "Right rear seat heating"
       }
     },
     "image": {

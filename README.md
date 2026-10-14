@@ -785,29 +785,38 @@ assigned on a right-hand-drive car - where the driver's seat is the right one - 
 reading which state field moved rather than the car's own meaning, so in a
 left-hand-drive car "passenger" heated the driver's seat.
 
-### Seat commands are momentary switches, not level setters
+### Seat heating: what `mode` means, and the 7-50 second trap
 
-This is the part that is not obvious, and it cost several rounds of measuring. For
-`service_type 30`, `cmd_value` selects the **function** (1 = heating, 2 = ventilation)
-and `mode` selects the **level** - but `mode` is a *press*, not an assignment:
+For `service_type 30`, `cmd_value` selects the **function** (1 = heating, 2 = ventilation)
+and `mode` selects the **level** (0 = off, 1/2/3 = bar 1/2/3). This was got wrong twice,
+in a way worth recording, because the wrong reading is the more convincing one:
 
-- the **same payload sent three times** read back `1, 0, 1` - each press toggles;
-- pressing a level while another is already on can switch the function **off** instead
-  of selecting it (`mode=2` straight from level 1 did exactly that);
-- `mode 3` is accepted and turns the heating off, so it is not a third level and is not
-  offered.
+- an earlier measurement read `mode` as a *momentary press* that toggles - "the same
+  payload sent three times read back `1, 0, 1`" - and so concluded `mode 3` turned the
+  heating **off**, and stopped offering a third level;
+- every one of those readings was taken about 2 s after the send, and a seat command
+  takes **7-50 s** to be applied and reported (`43, 45, 46, 50 s` on the rear seats of a
+  parked car). They were showing the state from *before* the command arrived.
 
-What reproduces every time is **off, then press the level once** (`mode 0` → `mode 1`
-reads 1; `mode 0` → `mode 2` reads 2). The select entities therefore turn the seat off
-before selecting a level, which costs one extra command and makes the outcome
-independent of what the car thought it was doing.
+Measured properly, `mode 3` from off reports 3. The select entities still turn the seat
+off before selecting a level, because that is the only order measured to reproduce and a
+level change *from another level* (2 -> 3) has never been measured.
 
 | Entity | Options | State |
 |---|---|---|
-| Driver / passenger **seat heating** | `Off`, `Heat 1`, `Heat 2` | reads `seat.driver_seat_heat` |
+| Driver / passenger **seat heating** | `Off`, `Heat 1`, `Heat 2`, `Heat 3` | reads `seat.driver_seat_heat` |
 | Driver / passenger **seat ventilation** | `Off`, `Ventilation 1`, `Ventilation 2` | reads `seat.driver_seat_ventilation` |
+| Left / right **rear** seat heating | `Off`, `Heat 1`, `Heat 2`, `Heat 3` | `cmd_type` 3 / 4, reads `seat.left_rear_seat_heat` |
+| Left / right **rear** seat ventilation | sensors only | no rear ventilation hardware on a G6, so `cmd_value 2` there is unverified |
 | **Steering wheel heating** | `Off`, `Low`, `Medium`, `High` | service 31, its own value space, unmeasured |
-| Left / right **rear** seat heating and ventilation | sensors only | the car reports them; the rear seats' `cmd_type` values are unmeasured, and a wrong one heats somebody |
+
+> **Corrected 2026-10-14, and one bug left open.** The rear seats' `cmd_type` values *are*
+> known (`3` = left rear, `4` = right rear), so the rear seats are controls now rather
+> than sensors only, and `mode 3` is a real third level. What is still broken: the
+> **passenger's** heating cannot be switched off - `cmd_type 0, mode 0, cmd_value 1` is
+> refused with `code 8` ("Nicht unterstützt für dieses Fahrzeug") - and nothing measured
+> turns it off, so that entity's `Off` does nothing rather than being guessed at. See
+> [`docs/SEAT_COMMANDS.md`](docs/SEAT_COMMANDS.md) for the measurements and the evidence.
 
 ### A sleeping car, and why a seat command can look like it did nothing
 

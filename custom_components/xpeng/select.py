@@ -20,29 +20,35 @@ _LOGGER = logging.getLogger(__name__)
 
 #: Seat commands are ``service_type 30`` carrying ``{"cmd_type", "mode", "cmd_value"}``.
 #:
-#:   cmd_type  1 = the DRIVER's seat, 0 = the passenger's. Measured on a car whose
-#:             owner could check XPENG's app, because the car's own state field only
-#:             says which *function* changed, not whose seat it was. These two were
-#:             swapped here, which is why a left-hand-drive owner setting "passenger"
-#:             heated his own seat: the values had been assigned on a right-hand-drive
-#:             car, where the driver's seat is the right-hand one, and 1 was read as
-#:             "passenger" from the state field that moved.
+#:   cmd_type  1 = the DRIVER's seat, 0 = the passenger's, 3 = left rear, 4 = right
+#:             rear. The front two were measured against XPENG's app on a car whose
+#:             owner could check it, because the car's own state field only says which
+#:             *function* changed, not whose seat it was. Those two were once swapped
+#:             here, which is why a left-hand-drive owner setting "passenger" heated
+#:             his own seat. The rear two were measured 2026-10-14, each as a matched
+#:             on/off pair on one cmd_type with the other rear seat not moving.
 #:   cmd_value the function: 1 = heating, 2 = ventilation. 0 and 3 come back
 #:             "Nicht unterstützt für dieses Fahrzeug", so neither is "off" - that is
 #:             the error that owner hit pressing Off.
-#:   mode      a momentary switch, NOT a level to set. Measured on the car while it
-#:             reported its own fields after every command (2026-10-11): mode 1 read
-#:             back 1, mode 2 read 2, mode 0 turned it off from level 2. But sending
-#:             the *same* payload three times read back 1, 0, 1 - so it is a press that
-#:             toggles, not an assignment, which is also why mode 3 turned the heating
-#:             off rather than selecting a third level. mode 3 is therefore not
-#:             offered, and `async_select_option` turns the seat off before stepping
-#:             down a level so that a press cannot mean its opposite.
+#:   mode      the LEVEL, as a selector: 0 = off, 1/2/3 = bar 1/2/3. Measured
+#:             2026-10-14 (docs/SEAT_COMMANDS.md): `mode=3` from off reported 3, and
+#:             `mode=0` reported 0. An earlier note in this file called `mode` a
+#:             momentary press and read `mode 3` as "off" - those readings were taken
+#:             about 2 s after each send, inside the car's 7-50 s apply/report window,
+#:             so they showed the state from *before* the command.
 #:
 #: Only measured combinations are offered. Guessing here moves a real seat, and the
 #: car cannot always be watched while it happens.
-SEAT_HEAT_OPTIONS = ["Off", "Heat 1", "Heat 2"]
-SEAT_HEAT_COMMANDS = {"Off": (0, 1), "Heat 1": (1, 1), "Heat 2": (2, 1)}
+#:
+#: "Off" is `mode 0`, which the driver and both rear seats accept. The front passenger
+#: does not: `cmd_type 0, mode 0, cmd_value 1` is refused with `code 8` ("Nicht
+#: unterstützt für dieses Fahrzeug"), so that one entity's Off does nothing. Nothing
+#: measured turns the passenger's heating off, so it is left as it is rather than
+#: guessed at - see docs/SEAT_COMMANDS.md.
+SEAT_HEAT_OPTIONS = ["Off", "Heat 1", "Heat 2", "Heat 3"]
+SEAT_HEAT_COMMANDS = {"Off": (0, 1), "Heat 1": (1, 1), "Heat 2": (2, 1), "Heat 3": (3, 1)}
+#: Ventilation keeps two levels: a third was never measured for it, and the G6 has no
+#: rear ventilation hardware at all, so `cmd_value 2` on cmd_type 3/4 is unverified.
 SEAT_VENT_OPTIONS = ["Off", "Ventilation 1", "Ventilation 2"]
 SEAT_VENT_COMMANDS = {"Off": (0, 2), "Ventilation 1": (1, 2), "Ventilation 2": (2, 2)}
 
@@ -52,9 +58,10 @@ SEAT_VENT_COMMANDS = {"Off": (0, 2), "Ventilation 1": (1, 2), "Ventilation 2": (
 #: select, where the result could never appear: the heating field is truthful about
 #: heat, so a ventilation command read back as Off.
 #:
-#: The rear seats report heat and ventilation too (`left_rear_seat_heat`, ...) and are
-#: exposed as sensors, but not as controls: the cmd_type values for the rear seats have
-#: not been measured, and a wrong one heats somebody.
+#: The rear seats report heat and ventilation too (`left_rear_seat_heat`, ...). Heating
+#: is exposed for them now that their cmd_type values are measured (3 and 4), but
+#: ventilation is not: the G6 has no rear ventilation hardware, so a control for it
+#: would look like it worked and do nothing.
 #:
 #: Steering wheel heating is a different service (31) with its own value space, which
 #: has not been measured either. Left exactly as it was rather than made to look
@@ -117,6 +124,29 @@ async def async_setup_entry(
             options=SEAT_VENT_OPTIONS,
             commands=SEAT_VENT_COMMANDS,
         ),
+        # The rear seats: cmd_type 3 and 4, measured 2026-10-14. No ventilation
+        # entities beside them - the G6 has no rear ventilation hardware, so the
+        # cmd_value 2 case is unverified and a control for it would lie.
+        XPengSeatSelect(
+            coordinator, mqtt_client,
+            key="left_rear_seat_heat_select",
+            name="Left rear seat heating",
+            icon="mdi:car-seat-heater",
+            cmd_type=3,
+            value_path="msg_content.instant.seat.left_rear_seat_heat",
+            options=SEAT_HEAT_OPTIONS,
+            commands=SEAT_HEAT_COMMANDS,
+        ),
+        XPengSeatSelect(
+            coordinator, mqtt_client,
+            key="right_rear_seat_heat_select",
+            name="Right rear seat heating",
+            icon="mdi:car-seat-heater",
+            cmd_type=4,
+            value_path="msg_content.instant.seat.right_rear_seat_heat",
+            options=SEAT_HEAT_OPTIONS,
+            commands=SEAT_HEAT_COMMANDS,
+        ),
         XPengSteeringWheelHeatSelect(coordinator, mqtt_client),
     ]
     # A select's current option is state worth showing, so READ_ONLY keeps the
@@ -175,18 +205,19 @@ class XPengSeatSelect(XPengEntity, SelectEntity):
         self._guard()
         mode, cmd_value = self._commands.get(option, (0, 1))
 
-        # These are momentary switches, not level setters, which took measuring twice
-        # over to see:
+        # `mode` selects the level (measured 2026-10-14); it is not the momentary press
+        # this originally modelled. The off-first step is kept anyway, on purpose:
         #
-        #   * the SAME payload sent three times read back 1, 0, 1 - a press toggles;
-        #   * pressing a level while another is already on can switch the function off
-        #     instead of selecting it (mode=2 straight from level 1 did exactly that).
+        #   * it is the only order measured to reproduce - `mode 0` -> `mode 1` reads 1,
+        #     and every level-3 reading on the rear seats was taken from off as well;
+        #   * a level change *from another level* (2 -> 3) has never been measured. The
+        #     one observation of that shape - "pressing level 2 straight from level 1
+        #     read 0" - is unexplained and may itself have been latency.
         #
-        # What IS reproducible, measured twice each on the car with its own fields read
-        # back, is "off, then press the level once": mode 0 -> mode 1 reads 1, and
-        # mode 0 -> mode 2 reads 2. So every level change turns the seat off first. One
-        # extra command, and the result stops depending on what the car thought it was
-        # already doing.
+        # So a level change still turns the seat off first. That costs one extra command
+        # and makes the outcome independent of what the car thought it was doing.
+        # docs/SEAT_COMMANDS.md expects this to be unnecessary; dropping it is a change
+        # to make with a fresh measurement, not a cleanup.
         plan = [0, mode] if mode != 0 else [0]
         for step in plan:
             await self.hass.async_add_executor_job(

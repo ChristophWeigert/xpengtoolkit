@@ -131,10 +131,10 @@ class VinParsingTests(unittest.TestCase):
 
     def test_the_tool_reads_either_vehicle_list_shape(self):
         tool = _load_module("bootstrap_tool_t", "tools/onboard_email_login.py")
-        self.assertEqual(tool._first_vin([{"vin": "l1nnsgha3sb800783"}]), "L1NNSGHA3SB800783")
+        self.assertEqual(tool._first_vin([{"vin": "l1nnsgha3sb123456"}]), "L1NNSGHA3SB123456")
         self.assertEqual(
-            tool._first_vin({"vehicles": [{"vin": "L1NNSGHA3SB800783"}]}),
-            "L1NNSGHA3SB800783",
+            tool._first_vin({"vehicles": [{"vin": "L1NNSGHA3SB123456"}]}),
+            "L1NNSGHA3SB123456",
         )
         self.assertEqual(tool._first_vin({"data": "nope"}), "")
         self.assertEqual(tool._first_vin([{"vin": "short"}]), "")
@@ -146,10 +146,10 @@ class VinParsingTests(unittest.TestCase):
         app = _load_module("bootstrap_app_t", "xpeng_renew/renew_server.py")
         with tempfile.TemporaryDirectory() as folder:
             path = pathlib.Path(folder) / "xpeng_tokens.json"
-            path.write_text(json.dumps({"json": {"vin": "l1nnsgha3sb800783"}}))
-            self.assertEqual(app._vin_from_pair(folder), "L1NNSGHA3SB800783")
-            path.write_text(json.dumps({"vehicle": {"vin": "L1NNSGHA3SB800783"}}))
-            self.assertEqual(app._vin_from_pair(folder), "L1NNSGHA3SB800783")
+            path.write_text(json.dumps({"json": {"vin": "l1nnsgha3sb123456"}}))
+            self.assertEqual(app._vin_from_pair(folder), "L1NNSGHA3SB123456")
+            path.write_text(json.dumps({"vehicle": {"vin": "L1NNSGHA3SB123456"}}))
+            self.assertEqual(app._vin_from_pair(folder), "L1NNSGHA3SB123456")
             path.write_text(json.dumps({"vin": "TEST"}))
             self.assertEqual(app._vin_from_pair(folder), "")
         self.assertEqual(app._vin_from_pair("/nonexistent"), "")

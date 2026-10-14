@@ -31,13 +31,13 @@ runtime. None are disabled by default.
 | `button` | 16 | One-shot MQTT commands; stateless |
 | `switch` | 5 + N | 5 fixed, plus one per HVAC scheduled appointment found in `hvac_schedules` |
 | `number` | 4 | Writable sliders / boxes |
-| `select` | 3 | Seat and steering-wheel heat levels |
+| `select` | 5 | Seat and steering-wheel heat levels |
 | `climate` | 1 | Cabin HVAC |
 | `lock` | 1 | Central door lock |
 | `device_tracker` | 1 | Vehicle GPS position |
 | `calendar` | 1 | HVAC scheduled appointments |
 | `image` | 1 | Vehicle picture from the cloud vehicle list |
-| **Total** | **~124** | Plus the dynamic HVAC schedule switches |
+| **Total** | **~126** | Plus the dynamic HVAC schedule switches |
 
 ::: tip
 `climate`, `lock`, `switch`, `number` and `select` entities on this integration
@@ -176,9 +176,13 @@ Standard Range LFP pack is about 66 kWh). Driving and charging are excluded.
 | `number.xpeng_<vehicle>_fan_speed` | number (control) | – | Air volume 1–8. Level 0 is rejected by the car — turn the climate off instead |
 | `sensor.xpeng_<vehicle>_driver_seat_heating` | sensor | – | Raw level 0–3 |
 | `sensor.xpeng_<vehicle>_passenger_seat_heating` | sensor | – | Raw level 0–3 |
+| `sensor.xpeng_<vehicle>_left_rear_seat_heating` | sensor | – | Raw level 0–3 |
+| `sensor.xpeng_<vehicle>_right_rear_seat_heating` | sensor | – | Raw level 0–3 |
 | `sensor.xpeng_<vehicle>_steering_wheel_heating` | sensor | – | Raw level 0–3 |
-| `select.xpeng_<vehicle>_driver_seat_heating` | select (control) | – | Off / Low / Medium / High |
-| `select.xpeng_<vehicle>_passenger_seat_heating` | select (control) | – | Off / Low / Medium / High |
+| `select.xpeng_<vehicle>_driver_seat_heating` | select (control) | – | Off / Heat 1 / Heat 2 / Heat 3 |
+| `select.xpeng_<vehicle>_passenger_seat_heating` | select (control) | – | Off / Heat 1 / Heat 2 / Heat 3. The car refuses `mode 0` here, so `Off` does nothing |
+| `select.xpeng_<vehicle>_left_rear_seat_heating` | select (control) | – | Off / Heat 1 / Heat 2 / Heat 3 |
+| `select.xpeng_<vehicle>_right_rear_seat_heating` | select (control) | – | Off / Heat 1 / Heat 2 / Heat 3 |
 | `select.xpeng_<vehicle>_steering_wheel_heating` | select (control) | – | Off / Low / Medium / High |
 
 ## HVAC schedules
@@ -298,10 +302,12 @@ switch, the trunk-power outlet, unlocking, the trunk and the windows.
 | `number.xpeng_<vehicle>_fan_speed` | number | 1–8 | HVAC air volume |
 | `number.xpeng_<vehicle>_sentinel_sensitivity` | number | 1–3 | Sentinel sensitivity (also enables video) |
 | `number.xpeng_<vehicle>_trunk_power_timer` | number | 0–1440 min, step 30 | Outlet auto-off; 0 switches the outlet off |
-| `select.xpeng_<vehicle>_driver_seat_heating` | select | Off / Low / Medium / High | Driver seat heat |
-| `select.xpeng_<vehicle>_passenger_seat_heating` | select | Off / Low / Medium / High | Passenger seat heat |
+| `select.xpeng_<vehicle>_driver_seat_heating` | select | Off / Heat 1 / Heat 2 / Heat 3 | Driver seat heat (`cmd_type` 1) |
+| `select.xpeng_<vehicle>_passenger_seat_heating` | select | Off / Heat 1 / Heat 2 / Heat 3 | Passenger seat heat (`cmd_type` 0); `Off` is refused by the car |
 | `select.xpeng_<vehicle>_driver_seat_ventilation` | select | Off / Ventilation 1 / Ventilation 2 | Driver seat ventilation |
 | `select.xpeng_<vehicle>_passenger_seat_ventilation` | select | Off / Ventilation 1 / Ventilation 2 | Passenger seat ventilation |
+| `select.xpeng_<vehicle>_left_rear_seat_heating` | select | Off / Heat 1 / Heat 2 / Heat 3 | Left rear seat heat (`cmd_type` 3) |
+| `select.xpeng_<vehicle>_right_rear_seat_heating` | select | Off / Heat 1 / Heat 2 / Heat 3 | Right rear seat heat (`cmd_type` 4) |
 | `select.xpeng_<vehicle>_steering_wheel_heating` | select | Off / Low / Medium / High | Steering-wheel heat |
 
 Besides these entities the integration registers services for the same operations

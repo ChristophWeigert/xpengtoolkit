@@ -150,7 +150,7 @@ flow:
 | `configure_ha_entry.py` | Build (or install into `.storage/`) the config entry from an already-written token pair. Superseded by the import step, but still useful for scripted installs. |
 | `solve_and_login.py` | Interactive email+password + human slider in one script (predecessor of the onboarding tool). |
 | `mqtt_credential_check.py` | Verify a saved token pair can mint a working MQTT connection. |
-| `probe_seat.py` | Measure what a seat command does on your own car, printing the state the car reports around each one. `--sequence` runs heat 1/2, ventilation 1/2 and off. Worth running before trusting any of the seat code: the encodings are momentary switches, `cmd_type` is 1 = driver / 0 = passenger, and the car must be woken after a command or it reports nothing. |
+| `probe_seat.py` | Measure what a seat command does on your own car, printing the state the car reports around each one. `--sequence` runs off, then heat 1/2/3 and ventilation 1/2/3; `--seat rear-left --scan-cmd-types` tries the rear candidates and names the state field each one moves, and `--cmd-type N` sends one you know. Worth running before trusting any of the seat code: `mode` is the level (0 = off, 1/2/3), `cmd_type` is 1 = driver / 0 = passenger / 3 = left rear / 4 = right rear (measured 2026-10-14 - the scan re-derives the rear two on a car that differs), and the car must be woken after a command or it reports nothing, because a seat command takes 7-50 s to show up. |
 
 
 A small pexpect driver used to deploy files and run commands on an HAOS box.

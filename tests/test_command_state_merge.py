@@ -120,7 +120,7 @@ CHARGE = coordinator.CHARGE_SERVICE_TYPE
 def _coordinator_with(cached):
     """An instance with just the attributes the merge touches."""
     coord = object.__new__(coordinator.XPengDataCoordinator)
-    coord.vin = "L1NNSGHA3SB800783"
+    coord.vin = "L1NNSGHA3SB123456"
     coord._last_full_data = cached
     return coord
 
@@ -138,7 +138,7 @@ def _cached_state():
             },
             "interval": {"charge": {"power": 0}},
         },
-        "vin": "L1NNSGHA3SB800783",
+        "vin": "L1NNSGHA3SB123456",
     }
 
 
