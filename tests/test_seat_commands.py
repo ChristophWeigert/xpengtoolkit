@@ -127,17 +127,26 @@ class SeatCommandTests(unittest.TestCase):
             _constant("SEAT_HEAT_OPTIONS"), ["Off", "Heat 1", "Heat 2", "Heat 3"]
         )
 
-    def test_ventilation_still_offers_two_levels(self):
-        """A third ventilation level was never measured.
+    def test_ventilation_has_three_levels_too(self):
+        """Measured 2026-10-14, after this file had pinned the opposite.
 
-        Nor could it be on this car for the rear seats: the G6 has no rear ventilation
-        hardware, so `cmd_value 2` on cmd_type 3/4 is unverified.
+        `cmd_type 1, mode 3, cmd_value 2` made `driver_seat_ventilation` read 3 on data
+        the car reported *after* the command (freshness gate: `last_data_timestamp`
+        advanced 11:52:12 -> 11:52:32), and the car's own response carried
+        `"driver_seat_ventilation": 3`. Ventilation kept two levels only because the
+        correction that gave heating its third level was never applied to it - the same
+        latency reading made `mode 3` look like "off" for both.
         """
-        for option, (mode, _value) in _commands("SEAT_VENT_COMMANDS").items():
-            self.assertNotEqual(mode, 3, option)
+        self.assertEqual(_commands("SEAT_VENT_COMMANDS")["Ventilation 3"], (3, 2))
         self.assertEqual(
-            _constant("SEAT_VENT_OPTIONS"), ["Off", "Ventilation 1", "Ventilation 2"]
+            _constant("SEAT_VENT_OPTIONS"),
+            ["Off", "Ventilation 1", "Ventilation 2", "Ventilation 3"],
         )
+        # No rear ventilation control: a G6 has no rear ventilation hardware, so
+        # `cmd_value 2` on cmd_type 3/4 is untestable here, not merely unmeasured.
+        for key in _seat_entities():
+            if "rear" in key:
+                self.assertNotIn("ventilation", key, key)
 
     def test_off_is_not_the_value_that_was_refused(self):
         """`cmd_value` 0 as "off" is what produced the "not supported" error."""

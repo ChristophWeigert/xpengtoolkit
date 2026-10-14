@@ -47,10 +47,18 @@ _LOGGER = logging.getLogger(__name__)
 #: guessed at - see docs/SEAT_COMMANDS.md.
 SEAT_HEAT_OPTIONS = ["Off", "Heat 1", "Heat 2", "Heat 3"]
 SEAT_HEAT_COMMANDS = {"Off": (0, 1), "Heat 1": (1, 1), "Heat 2": (2, 1), "Heat 3": (3, 1)}
-#: Ventilation keeps two levels: a third was never measured for it, and the G6 has no
-#: rear ventilation hardware at all, so `cmd_value 2` on cmd_type 3/4 is unverified.
-SEAT_VENT_OPTIONS = ["Off", "Ventilation 1", "Ventilation 2"]
-SEAT_VENT_COMMANDS = {"Off": (0, 2), "Ventilation 1": (1, 2), "Ventilation 2": (2, 2)}
+#: Ventilation has three levels too, measured 2026-10-14: `cmd_type 1, mode 3,
+#: cmd_value 2` made `driver_seat_ventilation` read 3 on fresh data, with the car
+#: answering `code 200` and its own response carrying the snapshot
+#: (`"driver_seat_ventilation": 3`). It kept two levels until then only because the
+#: correction that gave heating its third level was never applied here - the same
+#: latency reading that made `mode 3` look like "off" for heat. The rear seats still
+#: get no ventilation control: a G6 has no rear ventilation hardware, so `cmd_value 2`
+#: on cmd_type 3/4 is untestable on this car rather than merely unmeasured.
+SEAT_VENT_OPTIONS = ["Off", "Ventilation 1", "Ventilation 2", "Ventilation 3"]
+SEAT_VENT_COMMANDS = {
+    "Off": (0, 2), "Ventilation 1": (1, 2), "Ventilation 2": (2, 2), "Ventilation 3": (3, 2)
+}
 
 #: The car reports each function in its own field - `seat.driver_seat_heat` and
 #: `seat.driver_seat_ventilation` are separate - so heating and ventilation are

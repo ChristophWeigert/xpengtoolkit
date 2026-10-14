@@ -796,16 +796,19 @@ in a way worth recording, because the wrong reading is the more convincing one:
   heating **off**, and stopped offering a third level;
 - every one of those readings was taken about 2 s after the send, and a seat command
   takes **7-50 s** to be applied and reported (`43, 45, 46, 50 s` on the rear seats of a
-  parked car). They were showing the state from *before* the command arrived.
+  parked car). They were showing the state from *before* the command arrived;
+- and because only the *heating* side was re-measured when that was corrected, ventilation
+  kept two levels for a release longer than it should have. `cmd_type 1, mode 3,
+  cmd_value 2` reads back 3 on fresh data exactly as heating does.
 
-Measured properly, `mode 3` from off reports 3. The select entities still turn the seat
-off before selecting a level, because that is the only order measured to reproduce and a
-level change *from another level* (2 -> 3) has never been measured.
+Measured properly, `mode 3` from off reports 3, for both functions. The select entities
+still turn the seat off before selecting a level, because that is the only order measured
+to reproduce and a level change *from another level* (2 -> 3) has never been measured.
 
 | Entity | Options | State |
 |---|---|---|
 | Driver / passenger **seat heating** | `Off`, `Heat 1`, `Heat 2`, `Heat 3` | reads `seat.driver_seat_heat` |
-| Driver / passenger **seat ventilation** | `Off`, `Ventilation 1`, `Ventilation 2` | reads `seat.driver_seat_ventilation` |
+| Driver / passenger **seat ventilation** | `Off`, `Ventilation 1`, `Ventilation 2`, `Ventilation 3` | reads `seat.driver_seat_ventilation` |
 | Left / right **rear** seat heating | `Off`, `Heat 1`, `Heat 2`, `Heat 3` | `cmd_type` 3 / 4, reads `seat.left_rear_seat_heat` |
 | Left / right **rear** seat ventilation | sensors only | no rear ventilation hardware on a G6, so `cmd_value 2` there is unverified |
 | **Steering wheel heating** | `Off`, `Low`, `Medium`, `High` | service 31, its own value space, unmeasured |

@@ -41,8 +41,8 @@ artifacts of reading the state too early:
 
 | Seat | `cmd_type` | Heat (`cmd_value 1`) | Ventilation (`cmd_value 2`) |
 |---|---|---|---|
-| Driver | `1` | measured, levels 0–3 | measured |
-| Passenger | `0` | measured, levels 0–3 | measured |
+| Driver | `1` | measured, levels 0–3 | measured, levels 0–3 |
+| Passenger | `0` | measured, levels 0–3 | measured, levels 0–3 |
 | **Left rear** (behind the passenger, RHD) | **`3`** | **measured, levels 0–3** | **not testable on a G6** — no hardware |
 | **Right rear** (behind the driver) | **`4`** | **measured, levels 0–3** | **not testable on a G6** — no hardware |
 | Third row (6-seat models) | ? | fields exist (`trd_row_*_seat_heat`), unmeasured | — |
@@ -60,6 +60,15 @@ labels these two "Seat Behind the Passenger" / "Seat Behind the Driver"
 (`air_seat_direction_back_left/right`), and on an RHD car the seat behind the passenger
 is the left-hand one. The integration's field names — `left_rear_seat_heat`,
 `right_rear_seat_heat` — match the returned `cmd_type` directly.
+
+The head unit names them the same way, independently of the app: its decompiled sources
+carry per-side action constants — `AC_LEFT_REAR_SEAT_HEAT_OPEN/CLOSE/UP/DOWN/SET` and the
+`AC_RIGHT_REAR_SEAT_HEAT_*` set — alongside `AC_SUPPORT_REAR_SEAT_HEAT` (the car-side
+capability flag behind the app's `isSupportSeatBackHeat`), `AC_SEAT_HEAT_LV` and
+`AC_SEAT_BLOW_LV`. So `cmd_type 3` = **left** rear is the car's own left, not a label
+inherited from the app's driver/passenger wording. Those constants are head-unit action
+IDs, not the MQTT `cmd_type` — the numbers above come from the measurements, not from
+this list.
 
 ## 3. Evidence
 
@@ -82,6 +91,23 @@ baseline (cmd_type=1)             heat=0  (last changed 10:30:52)
 cmd_type=1  mode=3  cmd_value=1   sent 10:56:01  ->  driver_seat_heating = 3 at 10:56:08
 cmd_type=1  mode=0  cmd_value=1   sent 10:56:08  ->  driver_seat_heating = 0 at 10:57:04
 ```
+
+**Ventilation level 3**, measured the same way on 2026-10-14 — this is what moved the
+front ventilation selects off two levels. Nothing was believed until the car's own
+freshness signal advanced past the read taken before the command:
+
+```
+baseline (cmd_type=1)  driver_seat_ventilation=0  last_data_timestamp 11:52:12
+cmd_type=1  mode=3  cmd_value=2   sent 11:52:2x  ->  accepted (HTTP 200)
+   driver_seat_ventilation = 3  at 11:52:32  (last_data_timestamp advanced 11:52:12 -> 11:52:32)
+   the car's own response: code 200 "Erfolgreich",
+   content {... "driver_seat_ventilation": 3, "driver_seat_heat": 0, ...}
+cmd_type=1  mode=0  cmd_value=2   sent 11:52:3x  ->  driver_seat_ventilation = 0 at 11:52:40
+```
+
+`AC_SEAT_BLOW_LV` in the head unit's constants (see §2) is the same shape as
+`AC_SEAT_HEAT_LV`, which is consistent with ventilation reaching a third level; the
+reading above is what settles it.
 
 Each rear seat has a **matched on/off pair** on the same `cmd_type`, and the seat that
 was not addressed did not move — that pairing is what makes this a mapping rather than a
@@ -116,15 +142,26 @@ Consequences for the integration:
 
 ## 5. What to change
 
+Applied in **0.4.29** (heat level 3 and the two rear heat controls) and **0.4.30** (the
+ventilation third level, after the measurement in §3). What follows is the change itself,
+kept because it is the record of what these measurements imply.
+
 ### `select.py`
 
-Add two entities alongside the existing seat selects, and a third level to the heat
-options:
+Add two entities alongside the existing seat selects, and a third level to both
+functions' options:
 
 ```python
 SEAT_HEAT_OPTIONS = ["Off", "Heat 1", "Heat 2", "Heat 3"]
 SEAT_HEAT_COMMANDS = {"Off": (0, 1), "Heat 1": (1, 1), "Heat 2": (2, 1), "Heat 3": (3, 1)}
+SEAT_VENT_OPTIONS = ["Off", "Ventilation 1", "Ventilation 2", "Ventilation 3"]
+SEAT_VENT_COMMANDS = {"Off": (0, 2), "Ventilation 1": (1, 2),
+                      "Ventilation 2": (2, 2), "Ventilation 3": (3, 2)}
 ```
+
+Ventilation was left at two levels when the heat third level landed, because only the
+heat side had been re-measured. The measurement in §3 is what closed it - do not infer
+one function's levels from the other's without it.
 
 ```python
 XPengSeatSelect(
@@ -215,3 +252,9 @@ carries the seat snapshot attached to that specific message.
   off) behaves differently has not been measured. With `mode` now reading as a selector it
   should not, but the old "pressing level 2 straight from level 1 read 0" observation is
   unexplained and may have been latency too.
+
+Closed since this list was written: **ventilation level 3** — measured, §3. It was never
+on this list, and that omission is the whole cost: heating got its third level in 0.4.29
+while ventilation stayed at two, purely because the first measurement recorded heating's
+range explicitly and ventilation's as bare "measured". Anything a measurement leaves
+unstated belongs here, even when it looks like it follows from its neighbour.
