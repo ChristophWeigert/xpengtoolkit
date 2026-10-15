@@ -145,6 +145,8 @@ class XPengMQTTClient:
         self._listener_topics: list[str] = []
         self._discovery_enabled = False
         self._subscription_mids: dict[int, str] = {}  # mid -> topic
+        # Topics already announced at INFO, so a firehose logs one line each and no more.
+        self._listener_logged_topics: set[str] = set()
 
         # Synchronous request/response correlation for send_command_wait().
         # Maps our outgoing msg_id -> {"event", "result", "service_type"}.
@@ -278,6 +280,18 @@ class XPengMQTTClient:
                 len(self._listener_topics),
                 discovery_enabled,
             )
+            # "#" subscribes to the entire broker, which on this one includes the car's
+            # 1 Hz CAN broadcast (Xmart/Car/<vid>/State/CanPack1s) and every other
+            # vehicle's traffic. It is allowed - it is the diagnostic's whole point - but
+            # it is the setting that wedged a user's Home Assistant on 0.4.30, so say so
+            # where the person who typed it will see it.
+            if "#" in self._listener_topics:
+                _LOGGER.warning(
+                    "MQTT listener is subscribed to '#', which receives every message on "
+                    "the broker, including the car's 1 Hz CAN stream. Diagnostic counters "
+                    "and the rolling log stay exact, but expect heavy traffic; narrow the "
+                    "topic list if Home Assistant feels slow."
+                )
 
     def connect(self) -> None:
         """Create client, configure TLS, connect, start loop. Called ONCE."""
@@ -870,12 +884,21 @@ class XPengMQTTClient:
         except Exception:
             payload_str = f"<binary {len(payload)} bytes>"
 
-        _LOGGER.info(
-            "Listener message on %s (%d bytes): %s",
-            topic,
-            len(payload),
-            payload_str[:500],
-        )
+        # One line per message is fine for a handful of topics. Against "#" - which the
+        # listener accepts, and which includes the car's 1 Hz CAN broadcast - it is a log
+        # flood on its own, before any of the entity work. First message per topic is INFO
+        # so a new topic is still discoverable; the rest drop to debug.
+        if topic in self._listener_logged_topics:
+            _LOGGER.debug(
+                "Listener message on %s (%d bytes): %s",
+                topic, len(payload), payload_str[:500],
+            )
+        else:
+            self._listener_logged_topics.add(topic)
+            _LOGGER.info(
+                "Listener message on %s (%d bytes): %s",
+                topic, len(payload), payload_str[:500],
+            )
 
         # Check for push notification (msg_type=3)
         try:

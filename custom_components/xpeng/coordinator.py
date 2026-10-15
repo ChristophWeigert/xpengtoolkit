@@ -9,6 +9,7 @@ _async_update_data or manage the MQTT connection. Instead:
 from __future__ import annotations
 
 import logging
+import time
 from collections import deque
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
@@ -56,6 +57,29 @@ _REST_MERGE_EXCLUDED_SECTIONS = frozenset(
 #: the acknowledgement of e.g. ``set_charge_limit`` is also the confirmation
 #: that the limit moved - see ``_merge_command_state``.
 CHARGE_SERVICE_TYPE = 4
+
+#: The seat subsystem's ``service_type``, and the same story one section over: every
+#: ``service_type 30`` message carries a flat seat snapshot in its ``msg_content``
+#: (measured 2026-10-14 - see ``docs/SEAT_COMMANDS.md``), whose keys are exactly the ones
+#: ``instant.seat`` holds. Until this was merged, those messages were logged and dropped,
+#: so a seat switched on from XPENG's app kept reading ``Off`` in Home Assistant and
+#: could not be switched off again: the select saw no change, and re-picking ``Off`` is
+#: not a change. That is the bug reported on 0.4.31.
+SEAT_SERVICE_TYPE = 30
+
+#: Which ``instant`` section a command response's keys belong in, by service type. The
+#: response is a status report, not an echo of the request, so its keys land in the same
+#: place the sensors read.
+COMMAND_STATE_SECTIONS = {
+    CHARGE_SERVICE_TYPE: "charge",
+    SEAT_SERVICE_TYPE: "seat",
+}
+
+#: How often the MQTT listener may fire its event and refresh entities, in seconds.
+#: Every message still lands in the counter and the rolling log; this bounds only the
+#: expensive half, so that pointing the listener at a firehose degrades the diagnostics
+#: instead of Home Assistant - see ``set_listener_message``.
+LISTENER_UPDATE_INTERVAL = 1.0
 
 
 class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -178,6 +202,8 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.listener_last_payload: str | None = None
         self.listener_last_timestamp: datetime | None = None
         self.listener_message_count: int = 0
+        # Monotonic stamp of the last listener event/refresh, so a burst costs one.
+        self._last_listener_update: float = 0.0
         self.listener_discovery_results: dict[str, dict[str, Any]] = {}
         self.listener_accepted_topics: list[str] = []
         self.listener_rejected_topics: list[str] = []
@@ -786,7 +812,17 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return datetime.now().strftime("%H:%M:%S")
 
     def set_listener_message(self, topic: str, payload: str) -> None:
-        """Store an MQTT listener message, append to log, fire event."""
+        """Store an MQTT listener message, append to log, fire event.
+
+        Rate-limited on purpose, because the listener can be pointed at a firehose.
+        ``mqtt_listener_topics: "#"`` subscribes to the whole broker, and the discovery
+        candidates include ``Xmart/Car/+/State/CanPack1s`` - the car's 1 Hz CAN broadcast.
+        Doing the expensive work per message - an HA event plus a full coordinator update,
+        which re-renders every entity and writes recorder rows - is enough to wedge Home
+        Assistant, which is what happened to a user on 0.4.30 with exactly those two
+        settings enabled. Counters and the last message stay exact; only the event and the
+        entity refresh are coalesced.
+        """
         self.listener_last_topic = topic
         self.listener_last_payload = payload[:4000]  # Truncate large payloads
         self.listener_last_timestamp = datetime.now(timezone.utc)
@@ -797,6 +833,14 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.listener_log.append(
             f"{self._now_str()} MSG {topic} ({len(payload)}B) {preview}"
         )
+
+        # Coalesce the expensive half. `callback` is scheduled from the paho thread, so a
+        # burst arrives as a burst here; one event and one entity refresh per interval is
+        # what the diagnostic sensors need, and the count above still tells the whole story.
+        now = time.monotonic()
+        if now - self._last_listener_update < LISTENER_UPDATE_INTERVAL:
+            return
+        self._last_listener_update = now
 
         # Fire HA event for real-time streaming
         self.hass.bus.async_fire(
@@ -993,27 +1037,29 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def _merge_command_state(self, feedback: dict[str, Any]) -> bool:
         """Fold a command's own acknowledgement into the cached state.
 
-        A charge-subsystem command (``service_type 4``: the charge limit and
-        both port doors) is acknowledged with a ``msg_content`` whose keys are
-        exactly the ones ``instant.charge`` already holds. Measured on a live
-        car 2026-10-13: ``number.set_value`` on the charge limit was published
-        at 20:51:01 and answered ``code=200`` "Erfolgreich" 1.4s later with
+        The response to a command is a status report, not an echo of the request: its
+        ``msg_content`` keys are the ones an ``instant`` section already holds, which is
+        what makes the acknowledgement usable as the confirmation.
 
-            {"charge_status": 15, "slow_charge_port_status": 2,
-             "fast_charge_port_status": 2, "max_range_charge": 90}
+        Two subsystems do this today, both measured on a live car:
 
-        which is a charge status report, not an echo of the request.
+        * ``service_type 4`` (charge) answers ``set_charge_limit`` with
+          ``{"charge_status": 15, "slow_charge_port_status": 2, "fast_charge_port_status": 2,
+          "max_range_charge": 90}`` — the ``instant.charge`` fields, measured 2026-10-13.
+          Without this the Charge limit entity showed whatever the last full snapshot said
+          until the car next woke, so a command that *had* been applied read as "the value
+          never changed". Merging costs no wake.
+        * ``service_type 30`` (seats) carries a flat seat snapshot - ``left_rear_seat_heat``,
+          ``passenger_seat_ventilation`` and the rest of ``instant.seat`` - measured
+          2026-10-14. This is the *only* place seat changes are reported, so before it was
+          merged a seat switched on from XPENG's app kept reading ``Off`` here, and picking
+          ``Off`` again is not a change, so it could not be switched off either.
 
-        Taking that answer is what makes a charge-limit change visible at once.
-        Without it the Charge limit entity showed whatever the last full
-        snapshot said until the car next woke and pushed, so a command that
-        *had* been applied read as "the value never changed" - the only way to
-        see the new one was to wake the car. Merging the answer costs no wake.
-
-        Timestamps are deliberately untouched: ``last_data_timestamp`` tracks
-        true MQTT state traffic and the silence watchdog relies on it.
+        Timestamps are deliberately untouched: ``last_data_timestamp`` tracks true MQTT
+        state traffic and the silence watchdog relies on it.
         """
-        if feedback.get("service_type") != CHARGE_SERVICE_TYPE:
+        section = COMMAND_STATE_SECTIONS.get(feedback.get("service_type"))
+        if section is None:
             return False
         if feedback.get("code") not in (200, "200"):
             return False
@@ -1025,18 +1071,19 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return False
         # Nothing cached yet: building a state out of a command's answer alone
         # would publish a partial snapshot that every other sensor then reads
-        # as its new value. The limit is unknown in that case anyway.
+        # as its new value.
         if not self._last_full_data:
             return False
 
         base = dict(self._last_full_data)
         msg_content = dict(base.get("msg_content", {}))
         instant = dict(msg_content.get("instant", {}))
-        instant["charge"] = {**instant.get("charge", {}), **fields}
+        instant[section] = {**instant.get(section, {}), **fields}
         msg_content["instant"] = instant
         self._last_full_data = {**base, "msg_content": msg_content, "vin": self.vin}
         _LOGGER.debug(
-            "Merged charge command response into cached state: %s", sorted(fields)
+            "Merged service_type %s response into cached state: instant.%s <- %s",
+            feedback.get("service_type"), section, sorted(fields),
         )
         return True
 

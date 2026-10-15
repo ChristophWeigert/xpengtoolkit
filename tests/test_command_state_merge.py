@@ -295,5 +295,162 @@ class TestOnlyTheChargeSubsystem(unittest.TestCase):
         self.assertEqual(charge["charge_status"], 15)
 
 
+class _Bus:
+    """Just enough HA bus to count what the listener fires."""
+
+    def __init__(self):
+        self.events = []
+
+    def async_fire(self, event, payload):
+        self.events.append((event, payload))
+
+
+class _Hass:
+    def __init__(self):
+        self.bus = _Bus()
+
+
+def _seat_ack(**content):
+    """The shape a live car reported for ``service_type 30`` on 2026-10-14.
+
+    A *flat* seat snapshot - not nested under ``instant.seat`` the way a state payload
+    carries it - which is why nothing recognised it as state until it was merged.
+    """
+    body = {"msg": "Erfolgreich", "code": 200}
+    body.update(content)
+    return {
+        "service_type": coordinator.SEAT_SERVICE_TYPE,
+        "msg_type": 1,
+        "msg_id": "2289610185002692965174179197389713371555",
+        "code": 200,
+        "message": "Erfolgreich",
+        "content": body,
+    }
+
+
+#: The exact seat block the live car pushed, verbatim.
+LIVE_SEAT_ACK = dict(
+    trd_row_middle_seat_heat=0,
+    trd_row_right_seat_heat=0,
+    left_rear_seat_ventilation=0,
+    left_rear_seat_heat=1,
+    right_rear_seat_heat=0,
+    trd_row_left_seat_heat=0,
+    right_rear_seat_ventilation=0,
+    driver_seat_ventilation=0,
+    driver_seat_heat=0,
+    passenger_seat_heat=1,
+    passenger_seat_ventilation=0,
+)
+
+
+class TestASeatPushUpdatesTheState(unittest.TestCase):
+    """A seat changed anywhere - XPENG's app, the car's own controls, another session -
+    arrives as service_type 30 carrying the seat block.
+
+    Until this was merged those messages were logged and dropped, which is the bug
+    reported on 0.4.31: the select kept reading Off while the car was heating, and
+    because re-picking the option it already shows is not a change, the seat could not be
+    switched off from Home Assistant either.
+    """
+
+    def test_the_seat_service_type_is_thirty(self):
+        self.assertEqual(coordinator.SEAT_SERVICE_TYPE, 30)
+
+    def test_the_seat_snapshot_lands_in_instant_seat(self):
+        coord = _coordinator_with(_cached_state())
+        self.assertTrue(coord._merge_command_state(_seat_ack(**LIVE_SEAT_ACK)))
+
+        seat = coord._last_full_data["msg_content"]["instant"]["seat"]
+        self.assertEqual(seat["left_rear_seat_heat"], 1)
+        self.assertEqual(seat["passenger_seat_heat"], 1)
+        self.assertEqual(seat["right_rear_seat_heat"], 0)
+        self.assertEqual(seat["left_rear_seat_ventilation"], 0)
+
+    def test_the_entity_read_path_answers_the_new_level(self):
+        """``left_rear_seat_heating`` reads exactly this path."""
+        coord = _coordinator_with(_cached_state())
+        coord._merge_command_state(_seat_ack(**LIVE_SEAT_ACK))
+
+        value = (
+            coord._last_full_data["msg_content"]["instant"]["seat"]
+            .get("left_rear_seat_heat")
+        )
+        self.assertEqual(value, 1)
+
+    def test_charge_and_door_state_are_untouched_by_a_seat_push(self):
+        coord = _coordinator_with(_cached_state())
+        coord._merge_command_state(_seat_ack(**LIVE_SEAT_ACK))
+
+        instant = coord._last_full_data["msg_content"]["instant"]
+        self.assertEqual(instant["charge"]["max_range_charge"], 90)
+        self.assertEqual(instant["charge"]["battery_soc"], 23)
+        self.assertEqual(instant["door"], {"driver_door_lock_st": 1})
+
+    def test_code_and_msg_are_not_merged_as_seat_fields(self):
+        coord = _coordinator_with(_cached_state())
+        coord._merge_command_state(_seat_ack(**LIVE_SEAT_ACK))
+
+        seat = coord._last_full_data["msg_content"]["instant"]["seat"]
+        self.assertNotIn("code", seat)
+        self.assertNotIn("msg", seat)
+
+    def test_a_seat_turning_off_is_also_merged(self):
+        """The direction that matters for switching a seat off from HA."""
+        coord = _coordinator_with(_cached_state())
+        coord._merge_command_state(_seat_ack(**LIVE_SEAT_ACK))
+        coord._merge_command_state(_seat_ack(**{**LIVE_SEAT_ACK, "left_rear_seat_heat": 0}))
+
+        seat = coord._last_full_data["msg_content"]["instant"]["seat"]
+        self.assertEqual(seat["left_rear_seat_heat"], 0)
+        # The seat that did not change keeps its value.
+        self.assertEqual(seat["passenger_seat_heat"], 1)
+
+
+class TestTheListenerDoesNotFlood(unittest.TestCase):
+    """``#`` plus discovery is a firehose - the discovery candidates include the car's
+    1 Hz CAN broadcast - and the expensive half used to run per message: an HA event plus
+    a full coordinator update, which re-renders every entity and writes recorder rows.
+    That is what wedged a user's Home Assistant on 0.4.30.
+    """
+
+    def _coordinator(self):
+        coord = object.__new__(coordinator.XPengDataCoordinator)
+        coord.listener_last_topic = None
+        coord.listener_last_payload = None
+        coord.listener_last_timestamp = None
+        coord.listener_message_count = 0
+        coord.listener_log = []
+        coord._last_listener_update = 0.0
+        coord._last_full_data = {"msg_content": {}}
+        coord.hass = _Hass()
+        coord.updates = []
+        coord.async_set_updated_data = coord.updates.append
+        return coord
+
+    def test_a_burst_costs_one_event_and_one_refresh(self):
+        coord = self._coordinator()
+        for _ in range(500):
+            coord.set_listener_message("Xmart/Car/9/State/CanPack1s", "x" * 16)
+
+        # Nothing is lost from the diagnostics...
+        self.assertEqual(coord.listener_message_count, 500)
+        self.assertEqual(len(coord.listener_log), 500)
+        # ...but the expensive half runs once, not 500 times.
+        self.assertEqual(len(coord.hass.bus.events), 1)
+        self.assertEqual(len(coord.updates), 1)
+
+    def test_the_last_message_is_always_recorded(self):
+        coord = self._coordinator()
+        for index in range(50):
+            coord.set_listener_message("a/b", "payload-%d" % index)
+
+        self.assertEqual(coord.listener_last_topic, "a/b")
+        self.assertEqual(coord.listener_last_payload, "payload-49")
+
+    def test_the_interval_is_a_positive_bound(self):
+        self.assertGreater(coordinator.LISTENER_UPDATE_INTERVAL, 0)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -127,6 +127,14 @@ The car's own push can also be read per-command from
 `sensor.<vin>_command_feedback`: its `recent` list holds the last few `service_type 30`
 messages with a timestamp, a response `code` and a full seat snapshot in `content`.
 
+**Those messages are the only place seat changes are reported**, and until 0.4.32 they
+were logged and dropped — only `service_type 19` reached the coordinator. A seat switched
+on from XPENG's app therefore kept reading `Off` here, and because re-picking the option an
+entity already shows is not a change, the seat could not be switched off from Home
+Assistant either. From 0.4.32 the seat block in a `service_type 30` message is merged into
+`instant.seat`, the same way `service_type 4`'s acknowledgement is merged into
+`instant.charge`.
+
 ## 4. Timing — read this before writing any optimistic state
 
 **A seat command takes 7–50 seconds to be applied and reported.** Observed: 43, 45, 46,
