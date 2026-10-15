@@ -810,7 +810,7 @@ to reproduce and a level change *from another level* (2 -> 3) has never been mea
 | Driver / passenger **seat heating** | `Off`, `Heat 1`, `Heat 2`, `Heat 3` | reads `seat.driver_seat_heat` |
 | Driver / passenger **seat ventilation** | `Off`, `Ventilation 1`, `Ventilation 2`, `Ventilation 3` | reads `seat.driver_seat_ventilation` |
 | Left / right **rear** seat heating | `Off`, `Heat 1`, `Heat 2`, `Heat 3` | `cmd_type` 3 / 4, reads `seat.left_rear_seat_heat` |
-| Left / right **rear** seat ventilation | sensors only | no rear ventilation hardware on a G6, so `cmd_value 2` there is unverified |
+| Left / right **rear** seat ventilation | `Off`, `Ventilation 1`, `Ventilation 2`, `Ventilation 3` | `cmd_type` 3 / 4, reads `seat.left_rear_seat_ventilation` - **registered disabled**, because the hardware is optional; enable it if your car has it |
 | **Steering wheel heating** | `Off`, `Low`, `Medium`, `High` | service 31, its own value space, unmeasured |
 
 > **Corrected 2026-10-14, and one bug left open.** The rear seats' `cmd_type` values *are*

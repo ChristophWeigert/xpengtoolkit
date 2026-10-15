@@ -43,8 +43,8 @@ artifacts of reading the state too early:
 |---|---|---|---|
 | Driver | `1` | measured, levels 0–3 | measured, levels 0–3 |
 | Passenger | `0` | measured, levels 0–3 | measured, levels 0–3 |
-| **Left rear** (behind the passenger, RHD) | **`3`** | **measured, levels 0–3** | **not testable on a G6** — no hardware |
-| **Right rear** (behind the driver) | **`4`** | **measured, levels 0–3** | **not testable on a G6** — no hardware |
+| **Left rear** (behind the passenger, RHD) | **`3`** | **measured, levels 0–3** | **measured on a G9**, levels 0–3 — a G6 has no hardware |
+| **Right rear** (behind the driver) | **`4`** | **measured, levels 0–3** | `cmd_value 2` — inferred from the left, not separately measured |
 | Third row (6-seat models) | ? | fields exist (`trd_row_*_seat_heat`), unmeasured | — |
 | Steering wheel | service `31`, separate value space | 0–3 | — |
 
@@ -83,6 +83,16 @@ cmd_type=4  mode=1  cmd_value=1   sent 10:47:59  ->  right_rear  0 -> 1  at 10:4
 cmd_type=4  mode=0  cmd_value=1   sent 10:50:25  ->  right_rear  1 -> 0  at 10:51:08   (43 s)
 cmd_type=5  mode=1  cmd_value=1   sent 10:48:41  ->  code 13023, nothing moved
 ```
+
+Rear ventilation, reported by a G9 owner on the same day (2026-10-14) after the rear heat
+rows above were measured — the payload from §1 with `cmd_value` 2:
+
+```
+cmd_type=3  mode=1  cmd_value=2   ->  "ventilation level 1 on left rear"   (G9, in the car)
+```
+
+The same payload on the G6 moves nothing: it reports the `*_rear_seat_ventilation` fields
+but has no rear ventilation hardware.
 
 Front seat, level 3, with the latency respected:
 
@@ -190,9 +200,36 @@ XPengSeatSelect(
 come along for free. The matching state sensors already exist in `const.py`
 (`left_rear_seat_heat`, `right_rear_seat_heat`, …).
 
-**Do not add rear ventilation selects.** The G6 has no rear ventilation hardware, so
-`cmd_value 2` on `cmd_type 3`/`4` is unverified — a rear ventilation control would look
-like it worked and do nothing. Add it only after measuring on a car that has it.
+**Rear ventilation is measured now; whether a car has it is the open question.** The G9
+result above settles the encoding, so the reason 0.4.29 shipped no rear ventilation
+controls no longer applies — the hardware *presence* does, and the integration cannot read
+it:
+
+* `/biz/v5/vehicle/remoteCapabilities`, already fetched and exposed as
+  `sensor.<vin>_remote_capabilities`, is a list of **software** feature flags. The G6's 32
+  entries contain no seat flag of any kind, so it cannot gate this.
+* The app's own `isSupportSeatBackWind` exists, but only in its bundled per-model config,
+  and the app data mining already found those flags contradicting the hardware
+  (`function.REAR_SEAT_HEAT: true` with `REAR_SEAT_HEAT_HARDWARE: false`), so they are not a
+  gate to trust either.
+
+So the two entities ship, and the entity registry decides. `XPengSeatSelect` takes an
+`enabled_by_default` argument, and the rear ventilation pair passes `False` for it:
+
+```python
+XPengSeatSelect(..., key="left_rear_seat_ventilation_select", cmd_type=3,
+                value_path="msg_content.instant.seat.left_rear_seat_ventilation",
+                options=SEAT_VENT_OPTIONS, commands=SEAT_VENT_COMMANDS,
+                enabled_by_default=False)
+```
+
+A G9 owner enables two entities once; a G6 owner never sees a control that does nothing,
+which was the original objection. An options-flow toggle would also work, but it is
+per-entry where the registry flag is per-entity and needs no migration.
+
+Both rear heat controls stay enabled, because both were measured on the G6 these numbers
+came from. The right rear ventilation entity is the one piece resting on inference rather
+than its own measurement.
 
 ### Translations
 
@@ -247,7 +284,9 @@ carries the seat snapshot attached to that specific message.
 * **Third-row heat** (`trd_row_left/middle/right_seat_heat`) — fields exist on 6-seat
   models, `cmd_type` unmeasured.
 * **`cmd_type 2`** — accepted, moved the front-passenger field once. Left alone.
-* **Rear ventilation** — unverifiable on a G6.
+* **Which cars have rear ventilation** — the encoding is measured (G9, §3), but no API the
+  integration already reads says whether a given VIN has the hardware. Hence the
+  disabled-by-default entities in §5 rather than a capability gate.
 * **Level latency** — whether a level change from level 2 to level 3 (rather than from
   off) behaves differently has not been measured. With `mode` now reading as a selector it
   should not, but the old "pressing level 2 straight from level 1 read 0" observation is

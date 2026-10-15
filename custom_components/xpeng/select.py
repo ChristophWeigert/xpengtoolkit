@@ -52,9 +52,7 @@ SEAT_HEAT_COMMANDS = {"Off": (0, 1), "Heat 1": (1, 1), "Heat 2": (2, 1), "Heat 3
 #: answering `code 200` and its own response carrying the snapshot
 #: (`"driver_seat_ventilation": 3`). It kept two levels until then only because the
 #: correction that gave heating its third level was never applied here - the same
-#: latency reading that made `mode 3` look like "off" for heat. The rear seats still
-#: get no ventilation control: a G6 has no rear ventilation hardware, so `cmd_value 2`
-#: on cmd_type 3/4 is untestable on this car rather than merely unmeasured.
+#: latency reading that made `mode 3` look like "off" for heat.
 SEAT_VENT_OPTIONS = ["Off", "Ventilation 1", "Ventilation 2", "Ventilation 3"]
 SEAT_VENT_COMMANDS = {
     "Off": (0, 2), "Ventilation 1": (1, 2), "Ventilation 2": (2, 2), "Ventilation 3": (3, 2)
@@ -66,10 +64,19 @@ SEAT_VENT_COMMANDS = {
 #: select, where the result could never appear: the heating field is truthful about
 #: heat, so a ventilation command read back as Off.
 #:
-#: The rear seats report heat and ventilation too (`left_rear_seat_heat`, ...). Heating
-#: is exposed for them now that their cmd_type values are measured (3 and 4), but
-#: ventilation is not: the G6 has no rear ventilation hardware, so a control for it
-#: would look like it worked and do nothing.
+#: The rear seats report heat and ventilation too (`left_rear_seat_heat`, ...), and both
+#: are exposed now. Heat is measured on both sides (cmd_type 3 and 4). Ventilation is
+#: `cmd_value 2` on the same cmd_types, measured on a G9's **left** rear on 2026-10-14
+#: (`cmd_type 3, mode 1, cmd_value 2` -> ventilation level 1); the right rear is inferred
+#: from it by the symmetry heat already shows, and has not been measured on its own.
+#:
+#: Rear ventilation hardware is optional, and nothing the integration already reads says
+#: whether a given car has it: `remoteCapabilities` (exposed as
+#: `sensor.<vin>_remote_capabilities`) is software feature flags and carries no seat
+#: entry at all, and the app's own `isSupportSeatBackWind` lives only in its bundled
+#: per-model config and is known to contradict the hardware. So the two rear ventilation
+#: entities are registered **disabled**: the owner of a G9 - or any car that has it -
+#: enables them once, and a G6 owner never sees a control that would do nothing.
 #:
 #: Steering wheel heating is a different service (31) with its own value space, which
 #: has not been measured either. Left exactly as it was rather than made to look
@@ -132,9 +139,9 @@ async def async_setup_entry(
             options=SEAT_VENT_OPTIONS,
             commands=SEAT_VENT_COMMANDS,
         ),
-        # The rear seats: cmd_type 3 and 4, measured 2026-10-14. No ventilation
-        # entities beside them - the G6 has no rear ventilation hardware, so the
-        # cmd_value 2 case is unverified and a control for it would lie.
+        # The rear seats: cmd_type 3 and 4, measured 2026-10-14. Heat is enabled; the
+        # ventilation pair is disabled because the hardware is optional and no API says
+        # which cars have it - see the SEAT_VENT_OPTIONS note above.
         XPengSeatSelect(
             coordinator, mqtt_client,
             key="left_rear_seat_heat_select",
@@ -154,6 +161,28 @@ async def async_setup_entry(
             value_path="msg_content.instant.seat.right_rear_seat_heat",
             options=SEAT_HEAT_OPTIONS,
             commands=SEAT_HEAT_COMMANDS,
+        ),
+        XPengSeatSelect(
+            coordinator, mqtt_client,
+            key="left_rear_seat_ventilation_select",
+            name="Left rear seat ventilation",
+            icon="mdi:car-seat",
+            cmd_type=3,
+            value_path="msg_content.instant.seat.left_rear_seat_ventilation",
+            options=SEAT_VENT_OPTIONS,
+            commands=SEAT_VENT_COMMANDS,
+            enabled_by_default=False,
+        ),
+        XPengSeatSelect(
+            coordinator, mqtt_client,
+            key="right_rear_seat_ventilation_select",
+            name="Right rear seat ventilation",
+            icon="mdi:car-seat",
+            cmd_type=4,
+            value_path="msg_content.instant.seat.right_rear_seat_ventilation",
+            options=SEAT_VENT_OPTIONS,
+            commands=SEAT_VENT_COMMANDS,
+            enabled_by_default=False,
         ),
         XPengSteeringWheelHeatSelect(coordinator, mqtt_client),
     ]
@@ -179,12 +208,17 @@ class XPengSeatSelect(XPengEntity, SelectEntity):
         value_path: str,
         options: list[str],
         commands: dict[str, tuple[int, int]],
+        enabled_by_default: bool = True,
     ) -> None:
         super().__init__(coordinator)
         self._mqtt_client = mqtt_client
         self._cmd_type = cmd_type
         self._value_path = value_path
         self._commands = commands
+        # A disabled-by-default entity is still registered, so its state is readable once
+        # the owner enables it; nothing here hides it from the registry. Used for the rear
+        # ventilation pair, whose hardware is optional and unadvertised.
+        self._attr_entity_registry_enabled_default = enabled_by_default
         self._attr_options = options
         self._attr_unique_id = f"xpeng_{self._vin}_{key}"
         self._attr_translation_key = key

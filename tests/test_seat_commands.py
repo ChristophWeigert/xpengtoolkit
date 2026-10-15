@@ -51,6 +51,8 @@ def _seat_entities() -> dict[str, dict]:
                 "value_path": getattr(kw.get("value_path"), "value", None),
                 "options": getattr(kw.get("options"), "id", None),
                 "commands": getattr(kw.get("commands"), "id", None),
+                # Absent means enabled, which is HA's own default for the registry flag.
+                "enabled_by_default": getattr(kw.get("enabled_by_default"), "value", True),
             }
     return out
 
@@ -142,11 +144,35 @@ class SeatCommandTests(unittest.TestCase):
             _constant("SEAT_VENT_OPTIONS"),
             ["Off", "Ventilation 1", "Ventilation 2", "Ventilation 3"],
         )
-        # No rear ventilation control: a G6 has no rear ventilation hardware, so
-        # `cmd_value 2` on cmd_type 3/4 is untestable here, not merely unmeasured.
-        for key in _seat_entities():
-            if "rear" in key:
-                self.assertNotIn("ventilation", key, key)
+        # This used to assert that no rear entity mentioned ventilation, because a G6 has
+        # no rear ventilation hardware. A G9 does, and `cmd_type 3, mode 1, cmd_value 2`
+        # gave ventilation level 1 on its left rear - see the test below for how the two
+        # entities are kept out of the way of cars that cannot use them.
+
+    def test_the_rear_ventilation_pair_is_disabled_until_the_owner_enables_it(self):
+        """Measured on a G9's left rear; the right is inferred from it by symmetry.
+
+        The hardware is optional and nothing the integration reads says which car has it -
+        `remoteCapabilities` is software flags and carries no seat entry - so the entities
+        are registered disabled. Enabling them is a deliberate act by someone who can see
+        the seat, which is the only place the answer exists.
+        """
+        entities = _seat_entities()
+        for key, cmd_type, field in (
+            ("left_rear_seat_ventilation_select", 3, "left_rear_seat_ventilation"),
+            ("right_rear_seat_ventilation_select", 4, "right_rear_seat_ventilation"),
+        ):
+            self.assertEqual(entities[key]["cmd_type"], cmd_type, key)
+            self.assertTrue(entities[key]["value_path"].endswith(field), key)
+            self.assertEqual(entities[key]["commands"], "SEAT_VENT_COMMANDS", key)
+            self.assertFalse(entities[key]["enabled_by_default"], key)
+        # Everything measured on this car - including both rear heat controls - stays on.
+        for key in (
+            "driver_seat_heat_select",
+            "left_rear_seat_heat_select",
+            "right_rear_seat_heat_select",
+        ):
+            self.assertTrue(entities[key]["enabled_by_default"], key)
 
     def test_off_is_not_the_value_that_was_refused(self):
         """`cmd_value` 0 as "off" is what produced the "not supported" error."""
@@ -191,14 +217,22 @@ class SeatCommandTests(unittest.TestCase):
         for field in ("left_rear_seat_heat", "right_rear_seat_heat"):
             self.assertIn(field, const, field)
 
-    def test_the_rear_seats_get_no_ventilation_control(self):
-        """The G6 has no rear ventilation hardware, so `cmd_value 2` is unverified there.
+    def test_the_rear_seat_entities_are_the_four_controls(self):
+        """Two measured heat controls and two ventilation controls registered disabled.
 
-        A control for it would look like it worked and do nothing.
+        This replaces an assertion that there were no rear ventilation controls at all:
+        the G6 has no rear ventilation hardware, but the protocol does, and a G9 was
+        measured. Optional hardware is why they are disabled rather than dropped.
         """
         rear = {key: spec for key, spec in _seat_entities().items() if "rear" in key}
         self.assertEqual(
-            sorted(rear), ["left_rear_seat_heat_select", "right_rear_seat_heat_select"]
+            sorted(rear),
+            [
+                "left_rear_seat_heat_select",
+                "left_rear_seat_ventilation_select",
+                "right_rear_seat_heat_select",
+                "right_rear_seat_ventilation_select",
+            ],
         )
 
     def test_the_rear_seats_share_the_heat_level_map(self):
