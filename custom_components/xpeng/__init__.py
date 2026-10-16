@@ -11,6 +11,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant
 from homeassistant.helpers.event import async_call_later, async_track_time_interval
+from homeassistant.helpers.storage import Store
 
 from . import poll_status
 from .capture import open_recorder
@@ -79,6 +80,11 @@ AUTH_FAILURE_REAUTH_THRESHOLD = 5  # trigger reauth UI after this many consecuti
 # longer be renewed. One per domain is enough: it names the affected entry in
 # its placeholders, and HA shows a single card per (domain, issue_id).
 _REAUTH_ISSUE_ID = "reauth_required"
+
+#: Version of the small store that carries the watchdog's escalation clock across
+#: a reload (and a restart). See ``_silence_watchdog``: the 12h gap it enforces is
+#: a promise about the car, so it cannot live only in the session's memory.
+_WATCHDOG_STORE_VERSION = 1
 
 def _masked_vin(entry: ConfigEntry) -> str:
     """This entry's VIN with its uniquely-identifying tail hidden.
@@ -1258,10 +1264,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # never wake the car — so it is NOT gated on parked/charging state.
     # "Don't wake the car" is enforced by the no-scheduled-cmd_type:2 rule and
     # the adaptive query cadence above, not here.
+    # The escalation's clock has to outlive this setup, or "at most one wake per
+    # 12h" is only true until the next reload. Measured 2026-10-16: an options
+    # change at 22:43 rebuilt this state, and the escalation fired again at 23:13
+    # — one hour after the previous wake, not twelve. The session counters reset
+    # with the session (that is what "this session" means); the backoff clock is
+    # a promise about the car, so it is stored.
+    watchdog_store: Store = Store(
+        hass, _WATCHDOG_STORE_VERSION, f"{DOMAIN}_watchdog_{vin}"
+    )
+    try:
+        saved_watchdog: dict[str, Any] = await watchdog_store.async_load() or {}
+    except Exception:  # noqa: BLE001 - a bad store must not block setup
+        _LOGGER.warning(
+            "Could not read the watchdog store; the escalation clock starts over",
+            exc_info=True,
+        )
+        saved_watchdog = {}
     watchdog_state: dict[str, float] = {
         "last_reconnect": 0.0,
         "tick_count": 0,
-        "last_escalation": 0.0,
+        "last_escalation": float(saved_watchdog.get("last_escalation") or 0.0),
         "escalations": 0,
     }
     SILENCE_THRESHOLD = 300  # silence this long with socket up → suspect stuck
@@ -1445,6 +1468,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
         watchdog_state["last_escalation"] = now_ts
         watchdog_state["escalations"] += 1
+        # Written before the send, and independent of it: the backoff exists to
+        # bound the wake, so the clock must not depend on the publish succeeding
+        # (a refused client is exactly when a wake attempt is most likely to be
+        # spent and least likely to have done anything).
+        try:
+            await watchdog_store.async_save({"last_escalation": now_ts})
+        except Exception:  # noqa: BLE001 - never let storage stop the escalation
+            _LOGGER.warning(
+                "Could not persist the watchdog escalation clock; the next "
+                "reload may allow an earlier wake than the 12h backoff promises",
+                exc_info=True,
+            )
         try:
             if coordinator.command_policy.can_wake():
                 await hass.async_add_executor_job(

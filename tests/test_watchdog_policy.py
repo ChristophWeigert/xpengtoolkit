@@ -225,5 +225,43 @@ class TestTheEscalationIsReachable(unittest.TestCase):
         raise AssertionError("_silence_watchdog not found")
 
 
+class TestTheBackoffSurvivesAReload(unittest.TestCase):
+    """The 12h gap is a promise about the car, so it cannot live in memory only.
+
+    Measured 2026-10-16: an options change rebuilt the watchdog state at 22:43, and
+    the escalation fired again at 23:13 — one hour after the previous wake, not
+    twelve. A wake is physical, so the clock that bounds it is stored now. Checked
+    statically: the watchdog lives in __init__.py, which imports Home Assistant.
+    """
+
+    SOURCE = (_component.component_dir() / "__init__.py").read_text(encoding="utf-8")
+
+    def test_the_clock_is_read_back_at_setup(self):
+        self.assertIn("_WATCHDOG_STORE_VERSION", self.SOURCE)
+        self.assertIn("watchdog_store.async_load()", self.SOURCE)
+        self.assertIn(
+            '"last_escalation": float(saved_watchdog.get("last_escalation") or 0.0)',
+            self.SOURCE,
+        )
+
+    def test_the_clock_is_written_where_it_is_spent(self):
+        self.assertIn('await watchdog_store.async_save({"last_escalation": now_ts})', self.SOURCE)
+        self.assertLess(
+            self.SOURCE.index('watchdog_state["last_escalation"] = now_ts'),
+            self.SOURCE.index("await watchdog_store.async_save("),
+            "the clock must be stored where the wake is sent, not later",
+        )
+
+    def test_a_broken_store_does_not_block_setup(self):
+        node = ast.parse(self.SOURCE)
+        for sub in ast.walk(node):
+            if isinstance(sub, ast.AsyncFunctionDef) and sub.name == "async_setup_entry":
+                text = ast.unparse(sub)
+                self.assertIn("except Exception", text)
+                self.assertIn("saved_watchdog = {}", text)
+                return
+        raise AssertionError("async_setup_entry not found")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
