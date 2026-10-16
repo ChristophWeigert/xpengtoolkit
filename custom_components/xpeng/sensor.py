@@ -342,29 +342,18 @@ class XPengPolledSensor(XPengEntity, SensorEntity):
     live question with a stale answer, and before this the only way they
     refreshed was when the value they report happened to change.
 
-    Polling a `CoordinatorEntity` needs two overrides, and the second is not
-    optional:
-
-    * `should_poll` — `CoordinatorEntity` defines it as a cached_property
-      returning False, so the usual `_attr_should_poll` never reaches it.
-    * `async_update` — the inherited one calls `coordinator.async_request_refresh()`,
-      which is right for a poll-based coordinator and actively harmful for this
-      one. It is push-based with no `_async_update_data` to run, so the request
-      fails, `last_update_success` flips to False, and `CoordinatorEntity.available`
-      returns exactly that flag — so asking the coordinator to refresh takes
-      *every* entity in the integration unavailable, not just the asker. Hence a
-      no-op: Home Assistant writes our state after `async_update` returns,
-      reading `native_value` and the attributes directly, which is all a polling
-      sensor needs. Combined with the 30s sensor SCAN_INTERVAL, these refresh
-      often enough to stay honest and cheaply enough not to matter.
+    Polling a `CoordinatorEntity` needs `should_poll` overridden, because
+    `CoordinatorEntity` defines it as a cached_property returning False, so the
+    usual `_attr_should_poll` never reaches it. The no-op `async_update` these
+    also need is inherited from `XPengEntity` — see it for why requesting a
+    refresh on this push-based coordinator takes every entity in the integration
+    unavailable. Combined with the 30s sensor SCAN_INTERVAL, these refresh often
+    enough to stay honest and cheaply enough not to matter.
     """
 
     @property
     def should_poll(self) -> bool:
         return True
-
-    async def async_update(self) -> None:
-        """No-op on purpose — see the class docstring."""
 
 
 class XPengPollingStatusSensor(XPengPolledSensor):

@@ -222,8 +222,6 @@ SERVICE_GROUPS: Mapping[str, str] = {
     "set_charge_limit": GROUP_CHARGING,
     "open_charge_port": GROUP_CHARGING,
     "close_charge_port": GROUP_CHARGING,
-    "open_fast_charge_port": GROUP_CHARGING,
-    "close_fast_charge_port": GROUP_CHARGING,
     # Securing actions - these only ever reduce access.
     "lock": GROUP_SECURING,
     "close_windows": GROUP_SECURING,

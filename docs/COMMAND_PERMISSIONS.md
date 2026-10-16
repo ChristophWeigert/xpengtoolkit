@@ -38,7 +38,7 @@ changes it later, and *Custom* there opens the per-group matrix.
 | **Queries and data** | `capture_snapshot`, `check_ota`, `clear_stuck_commands`, `force_calendar_sync`, `force_update`, `list_hvac_schedules`, `send_navigation` | Force update, Wake vehicle, Query X-Guard (buttons) |
 | **Comfort and climate** | `climate_off`, `climate_on`, `create_hvac_schedule`, `defrost_off`, `defrost_on`, `delete_hvac_schedule`, `update_hvac_schedule` | Climate; Front defrost; Fan speed; Driver/passenger seat heating and ventilation; Steering wheel heating; one switch per HVAC schedule |
 | **Lights and alerts** | `flash_lights`, `honk_horn` | Flash lights, Honk horn (buttons); Parking lights (switch) |
-| **Charging** | `close_charge_port`, `close_fast_charge_port`, `open_charge_port`, `open_fast_charge_port`, `set_charge_limit`, `start_charge`, `stop_charge` | Start/stop charge and open/close each charge port (buttons); Charge limit (number) |
+| **Charging** | `close_charge_port`, `open_charge_port`, `set_charge_limit`, `start_charge`, `stop_charge` | Start/stop charge and open/close the charge port (buttons); Charge limit (number) |
 | **Securing actions** | `close_trunk`, `close_windows`, `lock`, `sentinel_on` | Door lock (locking); Close windows, Close trunk (buttons); X-Guard (arming); Sentinel sensitivity (number) |
 | **Access actions** | `open_trunk`, `open_windows`, `sentinel_off`, `unlock`, `vent_windows` | Door lock (unlocking); Open trunk, Open windows, Vent windows (buttons); X-Guard (disarming) |
 | **Accessory power** | `trunk_power_off`, `trunk_power_on` | Trunk power - the V2L outlet (switch); Trunk power timer (number) |

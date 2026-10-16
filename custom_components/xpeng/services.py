@@ -37,8 +37,6 @@ SERVICE_OPEN_TRUNK = "open_trunk"
 SERVICE_CLOSE_TRUNK = "close_trunk"
 SERVICE_OPEN_CHARGE_PORT = "open_charge_port"
 SERVICE_CLOSE_CHARGE_PORT = "close_charge_port"
-SERVICE_OPEN_FAST_CHARGE_PORT = "open_fast_charge_port"
-SERVICE_CLOSE_FAST_CHARGE_PORT = "close_fast_charge_port"
 SERVICE_SET_CHARGE_LIMIT = "set_charge_limit"
 SERVICE_DEFROST_ON = "defrost_on"
 SERVICE_DEFROST_OFF = "defrost_off"
@@ -387,16 +385,6 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     async def handle_close_charge_port(call: ServiceCall) -> None:
         await hass.async_add_executor_job(
             _send, hass, 4, {"cmd_type": 3, "cmd_value": 0}
-        )
-
-    async def handle_open_fast_charge_port(call: ServiceCall) -> None:
-        await hass.async_add_executor_job(
-            _send, hass, 4, {"cmd_type": 4, "cmd_value": 1}
-        )
-
-    async def handle_close_fast_charge_port(call: ServiceCall) -> None:
-        await hass.async_add_executor_job(
-            _send, hass, 4, {"cmd_type": 4, "cmd_value": 0}
         )
 
     async def handle_set_charge_limit(call: ServiceCall) -> None:
@@ -932,8 +920,6 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     _register(SERVICE_CLOSE_TRUNK, handle_close_trunk)
     _register(SERVICE_OPEN_CHARGE_PORT, handle_open_charge_port)
     _register(SERVICE_CLOSE_CHARGE_PORT, handle_close_charge_port)
-    _register(SERVICE_OPEN_FAST_CHARGE_PORT, handle_open_fast_charge_port)
-    _register(SERVICE_CLOSE_FAST_CHARGE_PORT, handle_close_fast_charge_port)
     _register(SERVICE_SET_CHARGE_LIMIT, handle_set_charge_limit, SET_CHARGE_LIMIT_SCHEMA)
     _register(SERVICE_DEFROST_ON, handle_defrost_on)
     _register(SERVICE_DEFROST_OFF, handle_defrost_off)
@@ -979,8 +965,6 @@ async def async_unload_services(hass: HomeAssistant) -> None:
         SERVICE_CLOSE_TRUNK,
         SERVICE_OPEN_CHARGE_PORT,
         SERVICE_CLOSE_CHARGE_PORT,
-        SERVICE_OPEN_FAST_CHARGE_PORT,
-        SERVICE_CLOSE_FAST_CHARGE_PORT,
         SERVICE_SET_CHARGE_LIMIT,
         SERVICE_DEFROST_ON,
         SERVICE_DEFROST_OFF,

@@ -250,11 +250,8 @@
       "charge_time_remaining": {
         "name": "Charge time remaining"
       },
-      "fast_charge_port": {
-        "name": "Fast charge port"
-      },
       "slow_charge_port": {
-        "name": "Slow charge port"
+        "name": "Charge port"
       },
       "fast_charge_added_range": {
         "name": "Fast charge added range"
@@ -560,12 +557,6 @@
       },
       "close_charge_port": {
         "name": "Close charge port"
-      },
-      "open_fast_charge_port": {
-        "name": "Open fast charge port"
-      },
-      "close_fast_charge_port": {
-        "name": "Close fast charge port"
       },
       "open_windows": {
         "name": "Open windows"

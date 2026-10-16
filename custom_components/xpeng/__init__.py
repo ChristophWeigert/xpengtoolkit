@@ -992,12 +992,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     pw_changed = new_pw != mqtt_client._password
                     cid_changed = bool(new_cid) and new_cid != mqtt_client._client_id
                     if pw_changed or cid_changed:
-                        mqtt_client._password = new_pw
-                        if new_cid:
-                            mqtt_client._client_id = new_cid
-                            cid_parts = new_cid.split(":")
-                            if len(cid_parts) >= 3:
-                                mqtt_client._user_id = cid_parts[2]
+                        mqtt_client.stage_credentials(
+                            client_id=new_cid, password=new_pw
+                        )
                         refresh_state["skip_reload"] = True
                         updated = {**entry.data, CONF_PASSWORD: new_pw}
                         if new_cid:
@@ -1330,13 +1327,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     _refresh_creds_sync, entry, refresh_state
                 )
                 if fresh and fresh.get("password"):
-                    mqtt_client._password = fresh["password"]
                     new_cid = fresh.get("clientId") or ""
-                    if new_cid:
-                        mqtt_client._client_id = new_cid
-                        cid_parts = new_cid.split(":")
-                        if len(cid_parts) >= 3:
-                            mqtt_client._user_id = cid_parts[2]
+                    mqtt_client.stage_credentials(
+                        client_id=new_cid, password=fresh["password"]
+                    )
                     # INFO, not DEBUG: this is the evidence that the safety
                     # step before a teardown actually ran.
                     _LOGGER.info(
@@ -2015,12 +2009,9 @@ async def _handle_auth_failure(
             # Stage new credentials, then reconnect via the client's reconnect
             # lock so this can't collide with the silence watchdog and spawn a
             # second paho client on the same clientId.
-            mqtt_client._password = new_password
-            if new_client_id:
-                mqtt_client._client_id = new_client_id
-                cid_parts = new_client_id.split(":")
-                if len(cid_parts) >= 3:
-                    mqtt_client._user_id = cid_parts[2]
+            mqtt_client.stage_credentials(
+                client_id=new_client_id, password=new_password
+            )
             did = await hass.async_add_executor_job(
                 mqtt_client.reconnect, "auth-failure: fresh credentials"
             )

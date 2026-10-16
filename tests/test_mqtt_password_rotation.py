@@ -260,5 +260,48 @@ class TestReconnectBackoffBeatsRotation(unittest.TestCase):
         )
 
 
+class TestStageCredentials(unittest.TestCase):
+    """Staging a freshly minted account for the next connect.
+
+    A renewal hands the client a new clientId/password/server without a config
+    entry reload, so these fields are the whole handover: whatever is staged here
+    is what the next ``connect()`` presents. Staging must not connect on its own —
+    ``reconnect()`` owns the lock that keeps two paho clients off one clientId.
+    """
+
+    def test_it_stages_the_id_password_and_server(self):
+        c = _client("P1")
+        c.stage_credentials(
+            client_id="xmart:app:99999999:zzzz",
+            password="P2",
+            server="other-host:8885",
+        )
+        self.assertEqual(c._password, "P2")
+        self.assertEqual(c._client_id, "xmart:app:99999999:zzzz")
+        self.assertEqual(c._server, "other-host:8885")
+        # The user id is the client channel, so it has to move with the id.
+        self.assertEqual(c._user_id, "99999999")
+
+    def test_empty_values_leave_what_is_there(self):
+        c = _client("P1")
+        c.stage_credentials(password="P2")
+        self.assertEqual(c._password, "P2")
+        self.assertEqual(c._client_id, "xmart:app:12345678:abcdef")
+        self.assertEqual(c._user_id, "12345678")
+        self.assertEqual(c._server, "iot-app-global.xiaopeng.com:8885")
+
+    def test_a_client_id_that_is_not_the_expected_shape_keeps_the_channel(self):
+        """A malformed id must not silently blank the topic the client reads."""
+        c = _client("P1")
+        c.stage_credentials(client_id="nonsense", password="P2")
+        self.assertEqual(c._client_id, "nonsense")
+        self.assertEqual(c._user_id, "12345678")
+
+    def test_staging_does_not_connect(self):
+        c = _client("P1")
+        c.stage_credentials(password="P2")
+        self.assertIsNone(c._client)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

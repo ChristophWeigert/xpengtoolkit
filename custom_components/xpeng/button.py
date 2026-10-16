@@ -145,7 +145,9 @@ async def async_setup_entry(
             service_type=4,
             msg_content={"cmd_type": 1, "cmd_value": 0},
         ),
-        # Charge ports
+        # Charge port. One button pair, not two: export cars have a single
+        # combined CCS2 port, and the car refuses cmd_type 4 on them (10404
+        # "could not open" / 10405 "could not close", measured 2026-10-16).
         XPengCommandButton(
             coordinator, mqtt_client,
             key="open_charge_port",
@@ -163,24 +165,6 @@ async def async_setup_entry(
             icon="mdi:ev-plug-type2",
             service_type=4,
             msg_content={"cmd_type": 3, "cmd_value": 0},
-        ),
-        XPengCommandButton(
-            coordinator, mqtt_client,
-            key="open_fast_charge_port",
-            group=GROUP_CHARGING,
-            name="Open fast charge port",
-            icon="mdi:ev-plug-ccs2",
-            service_type=4,
-            msg_content={"cmd_type": 4, "cmd_value": 1},
-        ),
-        XPengCommandButton(
-            coordinator, mqtt_client,
-            key="close_fast_charge_port",
-            group=GROUP_CHARGING,
-            name="Close fast charge port",
-            icon="mdi:ev-plug-ccs2",
-            service_type=4,
-            msg_content={"cmd_type": 4, "cmd_value": 0},
         ),
         # Windows
         XPengCommandButton(

@@ -60,12 +60,33 @@ class ImportBehaviourTests(unittest.TestCase):
         # This is what stops a stale pair from silently replacing a working one.
         self.assertIn("_import_mqtt_credentials(tokens, tenant)", SOURCE)
 
-    def test_the_repair_card_is_cleared_and_the_entry_reloaded(self):
+    def test_a_renewal_is_applied_without_a_reload(self):
+        """A renewal is the same car, so tearing every entity down buys nothing.
+
+        Both reload paths have to be handled: the entry-update listener reloads on
+        any update unless the one-shot flag says otherwise, and this function used
+        to reload as well - two teardowns of every entity per renewal, which is what
+        made the integration flap between ``unavailable`` and its values.
+        """
         self.assertIn("_clear_reauth_repair(hass, entry)", SOURCE)
         self.assertIn("async_reload(entry.entry_id)", SOURCE)
+        self.assertIn("reload_needed = client is None or _identity_moved(", SOURCE)
+        self.assertIn('refresh_state["skip_reload"] = True', SOURCE)
+        self.assertIn("await _apply_to_running_client(", SOURCE)
+
+    def test_the_running_client_path_never_reloads(self):
+        node = _function("_apply_to_running_client")
+        calls = ast.dump(node)
+        self.assertIn("stage_credentials", calls)
+        self.assertIn("reconnect", calls)
+        # The clocks a reload would have refreshed, and the success signal.
+        self.assertIn("set_credential_timestamp", calls)
+        self.assertIn("set_last_renewal", calls)
+        self.assertIn("_record_credential_success", calls)
+        self.assertNotIn("async_reload", calls)
 
     def test_the_device_identity_follows_the_tenant(self):
-        self.assertIn("configured_device_id", SOURCE)
+        self.assertIn("CONF_CONFIGURED_DEVICE_ID", SOURCE)
         self.assertIn('tenant.get("deviceId")', SOURCE)
 
     def test_the_response_carries_no_credentials(self):
@@ -93,6 +114,68 @@ class ImportBehaviourTests(unittest.TestCase):
                 text = ast.dump(call)
                 self.assertNotIn("password", text)
                 self.assertNotIn("CONF_LOGIN_TOKENS", text)
+
+
+class IdentityMovedTests(unittest.TestCase):
+    """The rule that separates a renewal from a pair for another car.
+
+    Extracted and executed the way the coordinator helpers are already tested, so
+    the decision is exercised without Home Assistant. False means "apply it to the
+    running client" (no flap); True means reload, because the VIN is in every
+    entity id and the tenant's device id is the key the pair is sealed with.
+    """
+
+    @staticmethod
+    def _fn():
+        import textwrap
+
+        start = SOURCE.index("def _identity_moved(")
+        end = start + SOURCE[start:].index("\nasync def ")
+        namespace: dict = {}
+        exec(
+            compile(
+                "CONF_VIN = 'vin'\nCONF_CONFIGURED_DEVICE_ID = 'configured_device_id'\n"
+                + textwrap.dedent(SOURCE[start:end]),
+                "<credential_import>",
+                "exec",
+            ),
+            namespace,
+        )
+        return namespace["_identity_moved"]
+
+    class _Entry:
+        def __init__(self, data, options):
+            self.data = data
+            self.options = options
+
+    def _entry(self, vin="XPENGVIN0000000000", device="dev-1"):
+        return self._Entry({"vin": vin}, {"configured_device_id": device})
+
+    def test_the_same_car_is_not_a_move(self):
+        self.assertFalse(
+            self._fn()(self._entry(), "XPENGVIN0000000000", "dev-1")
+        )
+
+    def test_a_different_vin_is_a_move(self):
+        self.assertTrue(self._fn()(self._entry(), "OTHER123456789012", "dev-1"))
+
+    def test_a_different_device_id_is_a_move(self):
+        self.assertTrue(
+            self._fn()(self._entry(), "XPENGVIN0000000000", "dev-2")
+        )
+
+    def test_an_entry_that_has_neither_yet_is_a_move(self):
+        # Nothing to compare against: the pair is about to define the identity, so
+        # take the reload rather than swap it under entities built without one.
+        self.assertTrue(self._fn()(self._entry(vin="", device=""), "XPENGVIN0000000000", "dev-1"))
+
+    def test_case_does_not_make_it_a_move(self):
+        self.assertFalse(
+            self._fn()(self._entry(vin="xpengvin0000000000"), "XPENGVIN0000000000", "dev-1")
+        )
+
+    def test_a_pair_with_no_identity_of_its_own_is_not_a_move(self):
+        self.assertFalse(self._fn()(self._entry(), "", ""))
 
 
 class HelperReuseTests(unittest.TestCase):
@@ -124,7 +207,8 @@ class LastRenewalClockTests(unittest.TestCase):
 
     def test_the_service_path_stamps_it(self):
         """Every renewal the app makes arrives through this function, so it is the clock."""
-        self.assertIn("CONF_LAST_RENEWAL: time.time()", SOURCE)
+        self.assertIn("renewed_at = time.time()", SOURCE)
+        self.assertIn("CONF_LAST_RENEWAL: renewed_at", SOURCE)
 
     def test_every_flow_side_arrival_stamps_it(self):
         self.assertIn("def _credential_stamp()", self.CF)

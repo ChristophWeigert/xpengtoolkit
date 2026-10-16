@@ -155,11 +155,10 @@ data:
 
 ### open_charge_port / close_charge_port
 
-Open and close the **slow (AC)** charge-port flap. No fields.
-
-### open_fast_charge_port / close_fast_charge_port
-
-Open and close the **fast (DC)** charge-port flap. No fields.
+Open and close the charge-port flap. No fields. Export cars have one combined
+CCS2 port, so this is the only port command: the car refuses the fast-port
+variant (`cmd_type 4`) with `10404` / `10405`, and the integration no longer
+offers it.
 
 ```yaml
 service: xpeng.open_charge_port
@@ -502,10 +501,17 @@ clear.
 ### import_credentials
 
 Validates a freshly minted `xpeng_tokens.json` / `xpeng_tenant.json` pair and
-swaps it into an existing config entry, then reloads the entry. It is the same
-validated path the **Repairs** card uses, which is the point: an unattended
-renewal driven by an automation is not a weaker path than a human clicking
-**Fix**. The renewal app drives exactly this service.
+installs it into an existing config entry. It is the same validated path the
+**Repairs** card uses, which is the point: an unattended renewal driven by an
+automation is not a weaker path than a human clicking **Fix**. The renewal app
+drives exactly this service.
+
+**A renewal does not reload the entry.** When the pair is for the same car — the
+same VIN and the same tenant `deviceId` — the new MQTT account is staged on the
+running client and it reconnects, so no entity is torn down: the values stay put
+and only `sensor.xpeng_<car>_last_renewal` moves. The entry is reloaded only when
+the pair describes a different car or device id, because the VIN is part of every
+entity id and the tenant's `deviceId` is the key the pair is sealed with.
 
 The pair is proven before anything is replaced: the integration mints MQTT
 credentials against the live API, so a stale token file, a tenant from a

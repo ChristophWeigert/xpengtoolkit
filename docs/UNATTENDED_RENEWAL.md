@@ -285,6 +285,14 @@ it has to sit inside the cap with room to retry.
 room for a retry if something fails. The automation re-fires every 10 minutes while
 the condition holds, so a failure retries on its own.
 
+A renewal is now invisible to the rest of the integration **by design**: when the
+pair is for the same car, `import_credentials` stages the new MQTT account on the
+running client instead of reloading the config entry, so no entity blips and only
+`last_renewal` moves. Builds before 0.5.0 reloaded the entry *twice* per renewal
+(the entry-update listener and the import both reloaded), which left every entity
+`unavailable` for a few seconds every 100 minutes - what looked like sensors
+flapping.
+
 ## 4. The device identity
 
 The app logs in as a *device*, and which device id that is turns out to matter more

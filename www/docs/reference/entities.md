@@ -60,20 +60,17 @@ fault. `button` entities are commands only and have no state.
 | `sensor.xpeng_<vehicle>_charge_current_limit` | sensor | A | `instant.charge.electric_current_limit` (`key="charge_limit"`) |
 | `sensor.xpeng_<vehicle>_max_charge` | sensor | % | `max_range_charge` — the configured charge target the car reports |
 | `sensor.xpeng_<vehicle>_charge_time_remaining` | sensor | min | `time_to_complete_charge_min` |
-| `sensor.xpeng_<vehicle>_fast_charge_port` | sensor (enum) | – | `0` Closed, `1` Open, `2` Connected; unmapped → `Unknown (n)` |
-| `sensor.xpeng_<vehicle>_slow_charge_port` | sensor (enum) | – | Same mapping as the fast port |
+| `sensor.xpeng_<vehicle>_slow_charge_port` | sensor (enum) | – | `0` Closed (flap shut, no cable), `1` Open (flap open, nothing in it), `2` Connected (AC cable in); unmapped → `Unknown (n)`. Export cars have one combined CCS2 port, so there is no fast-port sensor |
 | `sensor.xpeng_<vehicle>_fast_charge_added_range` | sensor | km | Range added by a DC session |
 | `sensor.xpeng_<vehicle>_charge_schedule_start` | sensor | – | Raw `reserve_charge_start_time`; format is not declared in code |
 | `sensor.xpeng_<vehicle>_charge_schedule_end` | sensor | – | Raw `reserve_charge_end_time`; format is not declared in code |
 | `binary_sensor.xpeng_<vehicle>_charging` | binary_sensor | – | ON when `charging_state == 2` **or** interval charge power > 0 — the second test catches external/EVCC charging |
-| `binary_sensor.xpeng_<vehicle>_plugged_in` | binary_sensor | – | ON when either charge-port status is ≥ 1 |
+| `binary_sensor.xpeng_<vehicle>_plugged_in` | binary_sensor | – | ON when the charge port reports `Connected` (`2`). `Open` (`1`) is a flap with nothing in it, so it is not plugged |
 | `number.xpeng_<vehicle>_charge_limit` | number (control) | % | 50–100 in steps of 5; writes the car's charge target |
 | `button.xpeng_<vehicle>_start_charging` | button | – | Start charging |
 | `button.xpeng_<vehicle>_stop_charging` | button | – | Stop charging |
-| `button.xpeng_<vehicle>_open_charge_port` | button | – | Opens the AC (slow) port |
-| `button.xpeng_<vehicle>_close_charge_port` | button | – | Closes the AC (slow) port |
-| `button.xpeng_<vehicle>_open_fast_charge_port` | button | – | Opens the DC (fast) port |
-| `button.xpeng_<vehicle>_close_fast_charge_port` | button | – | Closes the DC (fast) port |
+| `button.xpeng_<vehicle>_open_charge_port` | button | – | Opens the charge port |
+| `button.xpeng_<vehicle>_close_charge_port` | button | – | Closes the charge port |
 
 ## Charging history and energy
 
@@ -274,10 +271,8 @@ switch, the trunk-power outlet, unlocking, the trunk and the windows.
 | `button.xpeng_<vehicle>_force_update` | Wake / refresh | Force update on a separate message type |
 | `button.xpeng_<vehicle>_start_charging` | Charging | Start charging |
 | `button.xpeng_<vehicle>_stop_charging` | Charging | Stop charging |
-| `button.xpeng_<vehicle>_open_charge_port` | Charge ports | Open AC (slow) port |
-| `button.xpeng_<vehicle>_close_charge_port` | Charge ports | Close AC (slow) port |
-| `button.xpeng_<vehicle>_open_fast_charge_port` | Charge ports | Open DC (fast) port |
-| `button.xpeng_<vehicle>_close_fast_charge_port` | Charge ports | Close DC (fast) port |
+| `button.xpeng_<vehicle>_open_charge_port` | Charge port | Open the port |
+| `button.xpeng_<vehicle>_close_charge_port` | Charge port | Close the port |
 | `button.xpeng_<vehicle>_open_trunk` | Trunk | Open tailgate |
 | `button.xpeng_<vehicle>_close_trunk` | Trunk | Close tailgate |
 | `button.xpeng_<vehicle>_open_windows` | Windows | Open all windows |

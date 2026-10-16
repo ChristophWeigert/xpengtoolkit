@@ -112,19 +112,11 @@ close_trunk:
 
 open_charge_port:
   name: Open charge port
-  description: Open the slow (AC) charge port
+  description: Open the charge port (the single CCS2 port on export cars)
 
 close_charge_port:
   name: Close charge port
-  description: Close the slow (AC) charge port
-
-open_fast_charge_port:
-  name: Open fast charge port
-  description: Open the fast (DC) charge port
-
-close_fast_charge_port:
-  name: Close fast charge port
-  description: Close the fast (DC) charge port
+  description: Close the charge port (the single CCS2 port on export cars)
 
 set_charge_limit:
   name: Set charge limit

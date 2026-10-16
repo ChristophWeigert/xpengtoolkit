@@ -296,6 +296,12 @@ success is what makes that visible in Home Assistant; the app's own answer is
 room for a retry if something fails. The automation re-fires every 10 minutes while
 the condition holds, so a failure retries on its own.
 
+A renewal is now invisible to the rest of the integration: when the pair is for the
+same car, the new MQTT account is staged on the running client and no config entry is
+reloaded, so no entity blips and only `last_renewal` moves. Older builds reloaded
+(twice, once per reload path) on every cycle, which left every entity `unavailable`
+for a few seconds each time.
+
 ## The device identity
 
 The app logs in as a *device*, and which device id that is matters more than the

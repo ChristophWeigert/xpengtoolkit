@@ -196,12 +196,17 @@ CHARGING_STATES: Final = {
     15: "Scheduled",
 }
 
-# Charge port status mapping
+# Charge port status mapping. Measured on a G6 2026-10-16 against the physical
+# port: 0 while the flap is shut with no cable, 1 while the flap is open with
+# nothing in it, 2 while the AC cable is inserted.
 CHARGE_PORT_STATES: Final = {
     0: "Closed",
     1: "Open",
     2: "Connected",
 }
+
+#: The one charge-port value that means a cable is actually in the port.
+CHARGE_PORT_CONNECTED: Final = 2
 
 # Shift state mapping
 SHIFT_STATES: Final = {
@@ -336,15 +341,13 @@ SENSOR_DESCRIPTIONS: tuple[XPengSensorEntityDescription, ...] = (
         value_path="msg_content.instant.charge.time_to_complete_charge_min",
         icon="mdi:timer-sand",
     ),
-    XPengSensorEntityDescription(
-        key="fast_charge_port",
-        translation_key="fast_charge_port",
-        value_path="msg_content.instant.charge.fast_charge_port_status",
-        icon="mdi:ev-plug-ccs2",
-        device_class=SensorDeviceClass.ENUM,
-        options=list(CHARGE_PORT_STATES.values()),
-        value_fn=lambda v: CHARGE_PORT_STATES.get(v, f"Unknown ({v})"),
-    ),
+    # There is deliberately no ``fast_charge_port`` sensor. Export cars (G6, and
+    # the G9 as sold outside China) have one combined CCS2 port, and the car's
+    # ``fast_charge_port_status`` is not a plug signal on them: measured on a G6
+    # 2026-10-16, it read 2 through flap-open, flap-closed and both fast-port
+    # commands, while ``slow_charge_port_status`` tracked the port correctly.
+    # The open/close fast-port commands are refused by the car outright
+    # (10404/10405), so both the sensor and the buttons were fiction.
     XPengSensorEntityDescription(
         key="slow_charge_port",
         translation_key="slow_charge_port",
@@ -706,8 +709,14 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[XPengBinarySensorEntityDescription, ...] = (
         device_class=BinarySensorDeviceClass.PLUG,
         value_path="msg_content.instant.charge",
         value_fn=lambda v: (
-            (v.get("slow_charge_port_status", 0) >= 1
-             or v.get("fast_charge_port_status", 0) >= 1)
+            # One port, one field: the AC (Type 2) port is the only charge port
+            # an export car has, and the car reports 2 exactly when the cable is
+            # in it. 1 is "Open" - the flap is open with nothing plugged - so
+            # this is equality, not `>= 1`: treating Open as plugged is what
+            # made this sensor read ON with no cable attached. The fast-port
+            # field is not OR-ed in; on a G6 it reads 2 permanently
+            # (measured 2026-10-16), which latched this sensor ON forever.
+            v.get("slow_charge_port_status") == CHARGE_PORT_CONNECTED
             if isinstance(v, dict) else False
         ),
     ),

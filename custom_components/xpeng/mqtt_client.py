@@ -357,6 +357,33 @@ class XPengMQTTClient:
                 "XPENG MQTT not connected after 10s, paho will keep retrying"
             )
 
+    def stage_credentials(
+        self,
+        *,
+        client_id: str = "",
+        password: str = "",
+        server: str = "",
+    ) -> None:
+        """Stage a minted account for the next connect, without connecting.
+
+        ``connect()`` builds the paho client out of these fields, so a caller that
+        already has a better account (a renewal, a rotation) only has to stage it
+        and reconnect. Nothing else needs rebuilding when the identity has not
+        moved - and a full config-entry reload, which is the alternative, tears
+        every entity down and creates it again, so each renewal made the whole
+        integration flap between ``unavailable`` and its values.
+        """
+        if client_id:
+            self._client_id = client_id
+            parts = client_id.split(":")
+            if len(parts) >= 3:
+                # The user id is the client channel: Xmart/Msg/User/<uid>.
+                self._user_id = parts[2]
+        if password:
+            self._password = password
+        if server:
+            self._server = server
+
     def reconnect(self, reason: str = "") -> bool:
         """Tear down and rebuild the client, serialised against other callers.
 

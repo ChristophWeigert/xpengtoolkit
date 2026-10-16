@@ -38,6 +38,22 @@ class XPengEntity(CoordinatorEntity[XPengDataCoordinator]):
         super().__init__(coordinator)
         self._vin = coordinator.vin
 
+    async def async_update(self) -> None:
+        """No-op: there is nothing to fetch, and asking would take everything down.
+
+        The inherited ``CoordinatorEntity.async_update`` calls
+        ``coordinator.async_request_refresh()``. That is right for a poll-based
+        coordinator and actively wrong for this one: it is push-based with no
+        ``_async_update_data`` to run, so the request fails,
+        ``last_update_success`` flips to False, and ``CoordinatorEntity.available``
+        returns exactly that flag - one ``homeassistant.update_entity`` call on any
+        XPENG entity (a dashboard button, an automation) therefore takes *every*
+        XPENG entity ``unavailable`` until the next push arrives, which on a parked
+        car can be a long time. Home Assistant still writes the state after
+        ``async_update`` returns, reading ``native_value`` and the attributes
+        directly, which is all a pushed entity needs.
+        """
+
     @property
     def _policy(self) -> CommandPolicy:
         """This entry's command policy.
