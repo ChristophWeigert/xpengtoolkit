@@ -208,7 +208,7 @@ MQTT_DISCOVERY_CANDIDATES: Final = (
 from .charge_port import (
     CHARGE_PORT_STATES,
     CHARGE_STATE_OPTIONS,
-    charge_cable_attached,
+    charge_cable_state,
     charge_port_state,
     charging_state_label,
 )
@@ -729,7 +729,11 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[XPengBinarySensorEntityDescription, ...] = (
         # a G6 on 2026-10-17, with no cable attached, slow read 2 ("Connected")
         # for nine hours and fast reads 2 permanently. Reading the gun instead is
         # what stopped this sensor sitting ON with nothing plugged in.
-        value_fn=charge_cable_attached,
+        #
+        # It is tri-state on purpose: while the car waits for an armed charge plan
+        # it reports nothing at all about the cable (plugged and unplugged are the
+        # same payload), so the honest answer there is "unknown" rather than "off".
+        value_fn=charge_cable_state,
     ),
     # === Climate ===
     XPengBinarySensorEntityDescription(

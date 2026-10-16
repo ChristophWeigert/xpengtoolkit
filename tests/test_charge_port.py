@@ -144,7 +144,7 @@ class TestTheDescriptionsUseTheMapping(unittest.TestCase):
         block = self.SOURCE[self.SOURCE.index('key="plugged_in"'):]
         block = block[: block.index("XPengBinarySensorEntityDescription", 10)]
         self.assertIn('value_path="msg_content.instant.charge"', block)
-        self.assertIn("value_fn=charge_cable_attached", block)
+        self.assertIn("value_fn=charge_cable_state", block)
         self.assertNotIn("slow_charge_port_status ==", block)
 
     def test_the_port_sensor_reads_through_its_helper(self):
@@ -248,6 +248,60 @@ class TestTheChargingState(unittest.TestCase):
         self.assertIn("value_fn=charging_state_label", block)
         self.assertIn('value_path="msg_content.instant.charge"', block)
         self.assertIn("options=list(CHARGE_STATE_OPTIONS)", block)
+
+
+class TestTheBinarySensorRefusesToGuess(unittest.TestCase):
+    """Plugged, waiting for an armed plan: the car says nothing, so say nothing.
+
+    Measured 2026-10-17. The first two payloads below are byte-for-byte the same
+    charge section; only the third, taken once the session woke, mentions a cable.
+    """
+
+    WAITING = {
+        **UNPLUGGED,
+        "repeat_type": 2,
+        "reserve_charge_start_time": "22:00",
+        "reserve_charge_end_time": "31:63",
+    }
+    AWAKE = {
+        "charging_state": 1,
+        "charge_gun_status": 4,
+        "charge_connector_status": 7,
+        "slow_charge_port_status": 0,
+        "fast_charge_port_status": 2,
+        "repeat_type": 0,
+    }
+
+    def test_no_cable_and_no_plan_is_false(self):
+        self.assertIs(port.charge_cable_state(UNPLUGGED), False)
+
+    def test_plugged_and_waiting_is_unknown(self):
+        self.assertIsNone(port.charge_cable_state(self.WAITING))
+
+    def test_a_woken_session_is_true(self):
+        self.assertIs(port.charge_cable_state(self.AWAKE), True)
+
+    def test_charging_is_true(self):
+        self.assertIs(port.charge_cable_state({**self.AWAKE, "charging_state": 2}), True)
+
+    def test_a_missing_section_is_unknown(self):
+        self.assertIsNone(port.charge_cable_state(None))
+        self.assertIsNone(port.charge_cable_state("nonsense"))
+
+    def test_the_waiting_and_unplugged_payloads_really_are_identical(self):
+        # If this ever stops being true, the unknown above is no longer needed -
+        # and the test failing is how we would find out.
+        cable_keys = [
+            "charge_gun_status",
+            "charge_connector_status",
+            "slow_charge_port_status",
+            "fast_charge_port_status",
+            "charging_state",
+        ]
+        self.assertEqual(
+            {k: UNPLUGGED[k] for k in cable_keys},
+            {k: self.WAITING[k] for k in cable_keys},
+        )
 
 
 if __name__ == "__main__":

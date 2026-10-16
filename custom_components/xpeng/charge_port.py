@@ -32,6 +32,16 @@ armed, so that - not the charging-state code - is what "Scheduled" is read from.
 
 (``charging_state`` stayed 15 across that toggle, which is what 0.6.4 concluded from
 it being 15 with the scheduler off: 15 is not the scheduler's code.)
+
+And a second measurement, the one that decides ``charge_cable_state`` below. The car
+reports the cable only while the session is awake:
+
+    plugged in, waiting for the plan (asleep):   gun 0   connector 7   ports 2/2   state 15
+    unplugged, hours earlier:                    gun 0   connector 7   ports 2/2   state 15
+    plugged in, session awake (plan switched off): gun 4  connector 7   port 0      state 1
+
+The first two rows are the same payload. So for an armed plan the car's silence is
+indistinguishable from no cable, and ``plugged_in`` says so rather than guessing "off".
 """
 
 from __future__ import annotations
@@ -126,6 +136,30 @@ def charge_cable_attached(charge: Any) -> bool:
     if gun is not None and gun != CHARGE_GUN_EMPTY:
         return True
     return connector in CHARGE_CONNECTOR_ATTACHED
+
+
+def charge_cable_state(charge: Any) -> bool | None:
+    """Is a cable attached - True, False, or None when the car cannot say.
+
+    ``charge_cable_attached`` answers about positive evidence; this answers the
+    question the binary sensor is actually asked, and it refuses the third case.
+    Measured 2026-10-17: with the charge plan armed and the car asleep, plugged and
+    unplugged produce byte-for-byte the same charge section (gun 0, connector 7,
+    ports 2/2, state 15). Once the session woke - the plan was switched off - the
+    same car reported gun 4 and state 1.
+
+    So a car that is plugged in reads "unknown" while it waits for its plan rather
+    than a confident, wrong "off". Automations that key on ``off`` will not fire in
+    that window, which is the trade: the sensor no longer claims to know something
+    the car has not said.
+    """
+    if not isinstance(charge, dict):
+        return None
+    if charge_cable_attached(charge):
+        return True
+    if charge_schedule_armed(charge):
+        return None
+    return False
 
 
 def charge_port_state(charge: Any) -> str | None:
