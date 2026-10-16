@@ -18,6 +18,20 @@ The problem this exists for, measured on a G6 (export car, single CCS2 port) on
 ``binary_sensor.plugged_in`` read ON for as long as it trusted the port field, and
 ``sensor.slow_charge_port`` read "Connected" the whole time. Both now need the gun
 to see a cable.
+
+The charge schedule, measured on 2026-10-17 by toggling it in the app:
+
+    scheduler off:  repeat_type = 0, reserve_charge_start_time = '22:00'
+    scheduler on:   repeat_type = 2, reserve_charge_start_time = '22:00'
+                    reserve_charge_end_time   = '31:63'
+
+The app's own words for the plan were "scheduled AC charging, 22:00, charge to
+charge limit" - there is no end time, which is why the end field holds 31:63 and
+must not be shown as a time. ``repeat_type`` is the field that says the plan is
+armed, so that - not the charging-state code - is what "Scheduled" is read from.
+
+(``charging_state`` stayed 15 across that toggle, which is what 0.6.4 concluded from
+it being 15 with the scheduler off: 15 is not the scheduler's code.)
 """
 
 from __future__ import annotations
@@ -73,6 +87,16 @@ CHARGE_CONNECTOR_ATTACHED: Final = (1, 2, 3, 4, 5, 6)
 #: Charging, Complete.
 CHARGING_STATES_PLUGGED: Final = (1, 2, 3)
 
+#: The states ``sensor.charging_state`` may report: everything the car's own code
+#: maps to, plus "Scheduled", which is derived from the charge plan rather than
+#: from the code (see ``charging_state_label``).
+CHARGE_STATE_OPTIONS: Final = (*CHARGING_STATES.values(), "Scheduled")
+
+#: ``repeat_type`` with the charge plan switched off. Measured 2026-10-17: 0 with
+#: the app's scheduler off, 2 with it on. The test is "truthy", not "== 2", so an
+#: unobserved non-zero repeat pattern still counts as armed.
+CHARGE_SCHEDULE_OFF: Final = 0
+
 
 def charge_cable_attached(charge: Any) -> bool:
     """Is a charge cable attached?
@@ -123,6 +147,22 @@ def charge_port_state(charge: Any) -> str | None:
         return CHARGE_PORT_STATES[0]
     return CHARGE_PORT_STATES.get(port, f"Unknown ({port})")
 
+def charge_schedule_armed(charge: Any) -> bool:
+    """Is the car's own charge plan switched on?
+
+    Measured on 2026-10-17 by toggling it in the app: ``repeat_type`` was 0 with
+    the scheduler off and 2 with it on, while ``charging_state`` stayed 15 either
+    way. The plan's start time is legible (``reserve_charge_start_time``, "22:00",
+    matching the app) but its end is not when the plan charges to the limit - the
+    car reports ``31:63``, an hour and minute that do not exist - so nothing here
+    reads the end as a time.
+    """
+    if not isinstance(charge, dict):
+        return False
+    repeat = charge.get("repeat_type")
+    return repeat is not None and repeat != CHARGE_SCHEDULE_OFF
+
+
 def charging_state_label(charge: Any) -> str | None:
     """What to display for a charge section's ``charging_state``.
 
@@ -140,6 +180,11 @@ def charging_state_label(charge: Any) -> str | None:
     if code is None:
         return None
     if code == CHARGING_STATE_UNLABELLED:
+        if charge_schedule_armed(charge):
+            # The plan is armed and the car is waiting for it. This is what the
+            # app says too ("scheduled AC charging"), and it is now read from the
+            # field that tracks the plan rather than guessed from the code.
+            return "Scheduled"
         return (
             CHARGING_STATES[1]
             if charge_cable_attached(charge)

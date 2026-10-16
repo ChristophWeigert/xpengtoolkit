@@ -206,8 +206,8 @@ MQTT_DISCOVERY_CANDIDATES: Final = (
 # Assistant. Imported here because the entity descriptions below are built from
 # them.
 from .charge_port import (
-    CHARGING_STATES,
     CHARGE_PORT_STATES,
+    CHARGE_STATE_OPTIONS,
     charge_cable_attached,
     charge_port_state,
     charging_state_label,
@@ -290,10 +290,10 @@ SENSOR_DESCRIPTIONS: tuple[XPengSensorEntityDescription, ...] = (
         value_path="msg_content.instant.charge",
         icon="mdi:ev-station",
         device_class=SensorDeviceClass.ENUM,
-        options=list(CHARGING_STATES.values()),
-        # Code 15 has no trustworthy label of its own (see charge_port.py): with
-        # the app's scheduler disabled and nothing plugged in this car reports it,
-        # so it is answered from the cable instead of being called "Scheduled".
+        options=list(CHARGE_STATE_OPTIONS),
+        # Code 15 has no trustworthy label of its own (see charge_port.py). It is
+        # answered from the car's charge plan when that is armed ("Scheduled") and
+        # from the cable otherwise - never guessed from the code.
         value_fn=charging_state_label,
     ),
     XPengSensorEntityDescription(

@@ -203,12 +203,51 @@ class TestTheChargingState(unittest.TestCase):
         self.assertNotIn("Scheduled", port.CHARGING_STATES.values())
         self.assertNotIn(15, port.CHARGING_STATES)
 
+    def test_an_armed_plan_is_scheduled(self):
+        # The app's own wording, and the field that tracks it: repeat_type = 2.
+        armed = {
+            **UNPLUGGED,
+            "repeat_type": 2,
+            "reserve_charge_start_time": "22:00",
+            # The plan charges to the limit, so the car reports this instead of an
+            # end time. It must not be read as one, or crash anything.
+            "reserve_charge_end_time": "31:63",
+        }
+        self.assertEqual(port.charging_state_label(armed), "Scheduled")
+        self.assertTrue(port.charge_schedule_armed(armed))
+
+    def test_a_plan_that_is_switched_off_is_not_scheduled(self):
+        off = {**UNPLUGGED, "repeat_type": 0, "reserve_charge_start_time": "22:00"}
+        self.assertEqual(port.charging_state_label(off), "Disconnected")
+        self.assertFalse(port.charge_schedule_armed(off))
+
+    def test_charging_outranks_the_plan(self):
+        self.assertEqual(
+            port.charging_state_label({**UNPLUGGED, "repeat_type": 2, "charging_state": 2}),
+            "Charging",
+        )
+
+    def test_an_unobserved_repeat_pattern_still_counts_as_armed(self):
+        for repeat in (1, 2, 7):
+            with self.subTest(repeat_type=repeat):
+                self.assertTrue(port.charge_schedule_armed({**UNPLUGGED, "repeat_type": repeat}))
+
+    def test_a_car_without_the_field_has_no_plan(self):
+        self.assertFalse(port.charge_schedule_armed({"charging_state": 15}))
+        self.assertFalse(port.charge_schedule_armed(None))
+
+    def test_scheduled_is_reportable_again(self):
+        # It is a derived state now, so it has to be among the enum's options.
+        self.assertIn("Scheduled", port.CHARGE_STATE_OPTIONS)
+        self.assertIn("Charging", port.CHARGE_STATE_OPTIONS)
+
     def test_the_description_uses_the_label(self):
         source = (_component.component_dir() / "const.py").read_text(encoding="utf-8")
         block = source[source.index('translation_key="charging_state"') :]
         block = block[: block.index("XPengSensorEntityDescription", 10)]
         self.assertIn("value_fn=charging_state_label", block)
         self.assertIn('value_path="msg_content.instant.charge"', block)
+        self.assertIn("options=list(CHARGE_STATE_OPTIONS)", block)
 
 
 if __name__ == "__main__":
