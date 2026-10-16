@@ -1358,9 +1358,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 _LOGGER.exception("Watchdog reconnect (disconnected state) failed")
             return
         if silence < SILENCE_THRESHOLD:
-            return
-        since_last = time.time() - watchdog_state["last_reconnect"]
-        if since_last < RECONNECT_BACKOFF:
+            # A parked car answers every query with a stub, so `silence` stays
+            # small while no data arrives. Skipping the reconnect is right - an
+            # awake-but-idle car needs nothing. Skipping the ESCALATION below is
+            # not, and that is what this used to do: it returned here, so a car
+            # that answered stubs for half an hour never reached the one
+            # force-upload that would have woken it (measured 2026-10-16:
+            # state_silence 7s, seconds_since_data 1864s, escalations 0). Fall
+            # through instead; the escalation is keyed on staleness, which a stub
+            # does not clear, and its 12h backoff bounds the cost of being wrong.
+            pass
+        elif (
+            since_last := time.time() - watchdog_state["last_reconnect"]
+        ) < RECONNECT_BACKOFF:
             _LOGGER.debug(
                 "Watchdog: %.0fs silent but last reconnect was %.0fs ago — backing off",
                 silence, since_last,

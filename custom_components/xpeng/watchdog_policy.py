@@ -37,9 +37,11 @@ escalates promptly, because by then the previous escalation is long past.
 The first bound was two hours and is now half an hour. Nothing about the wake
 *rate* changes — that is the backoff's job, and a car parked and asleep all day
 is woken at most twice either way. What changes is how long a stalled
-*transition* goes unnoticed. A parked car on a working connection answers the
-passive query with a stub, which counts as a state message and keeps this quiet
-indefinitely; only a connection where nothing at all comes back escalates. In
+*transition* goes unnoticed. A parked car answers the passive query with a stub,
+and that is why the decision is keyed on staleness rather than silence: a stub
+resets the *silence* clock (so no reconnect is wasted on a car that is simply
+asleep) and not this one, because it carries nothing. A car that stub-answers for
+half an hour without delivering a byte therefore does escalate. In
 that state a drive or a charge can begin completely unseen, because the fanout
 that should have announced it is the thing that is wedged, and a passive query
 does not punch through one (observed 2026-08-30, mid-drive: ~1h of zero data

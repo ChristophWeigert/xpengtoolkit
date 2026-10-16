@@ -14,6 +14,7 @@ interesting assertions are the ones that say "no".
 
 from __future__ import annotations
 
+import ast
 import importlib.util
 import pathlib
 import sys
@@ -157,6 +158,71 @@ class TestRecovery(unittest.TestCase):
         now = 1_000_000.0
         last = now - (5 * 24 * HOUR)  # escalated five days ago
         self.assertTrue(policy.should_escalate(2.5 * HOUR, last, now))
+
+
+class TestTheEscalationIsReachable(unittest.TestCase):
+    """The policy is only as good as the tick that consults it.
+
+    Measured 2026-10-16 on a live install: `stale` climbed past the half-hour
+    bound (state_silence 7s, seconds_since_data 1864s) and `escalations` stayed
+    0, because the watchdog returned on `if silence < SILENCE_THRESHOLD` before
+    reaching the escalation block. A parked car answers every query with a stub,
+    so that branch returned on every single tick - the escalation was
+    unreachable in exactly the case it exists for.
+
+    Checked statically: the tick lives in __init__.py, which imports Home
+    Assistant.
+    """
+
+    SOURCE = (_component.component_dir() / "__init__.py").read_text(encoding="utf-8")
+
+    def _silence_branch(self) -> ast.If:
+        tree = ast.parse(self.SOURCE)
+        for node in ast.walk(tree):
+            if not (
+                isinstance(node, ast.AsyncFunctionDef)
+                and node.name == "_silence_watchdog"
+            ):
+                continue
+            for sub in ast.walk(node):
+                if not isinstance(sub, ast.If):
+                    continue
+                test = sub.test
+                if (
+                    isinstance(test, ast.Compare)
+                    and isinstance(test.left, ast.Name)
+                    and test.left.id == "silence"
+                    and any(isinstance(op, ast.Lt) for op in test.ops)
+                ):
+                    return sub
+        raise AssertionError("the silence branch is gone from _silence_watchdog")
+
+    def test_the_silence_branch_falls_through(self):
+        branch = self._silence_branch()
+        self.assertFalse(
+            any(isinstance(stmt, ast.Return) for stmt in branch.body),
+            "stepping out of the tick here skips the escalation a stubbing car needs",
+        )
+
+    def test_the_escalation_still_follows_it(self):
+        """The wake is still in the tick, and after the branch - not before it."""
+        tree = ast.parse(self.SOURCE)
+        for node in ast.walk(tree):
+            if not (
+                isinstance(node, ast.AsyncFunctionDef)
+                and node.name == "_silence_watchdog"
+            ):
+                continue
+            text = ast.unparse(node)
+            self.assertIn("sending ONE", text, "the force-upload escalation is gone")
+            self.assertIn("send_command", text, "the escalation no longer sends")
+            self.assertLess(
+                text.index("if silence < SILENCE_THRESHOLD"),
+                text.index("sending ONE"),
+                "the escalation must not sit before the silence branch",
+            )
+            return
+        raise AssertionError("_silence_watchdog not found")
 
 
 if __name__ == "__main__":
