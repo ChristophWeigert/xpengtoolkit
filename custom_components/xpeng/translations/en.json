@@ -385,9 +385,6 @@
       "xcombos": {
         "name": "X-Combos"
       },
-      "energy_report": {
-        "name": "Energy consumption (7-day avg)"
-      },
       "parked_consumption": {
         "name": "Parked consumption"
       },

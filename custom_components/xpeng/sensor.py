@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import time
-from typing import Any
+from typing import Any, Final
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -13,6 +13,7 @@ from homeassistant.components.sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory, UnitOfTemperature, UnitOfTime
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import (
     async_track_time_change,
@@ -26,6 +27,31 @@ from .entity import XPengEntity
 from .vin_descriptor import mask_vin
 
 from datetime import timedelta
+
+
+#: Unique ids this integration used to create and no longer does. Add here when a
+#: sensor is removed: Home Assistant keeps the registry entry when a platform stops
+#: creating an entity, so without this an upgraded install keeps a ghost entity that
+#: is unavailable forever.
+_REMOVED_SENSOR_UNIQUE_IDS: Final = (
+    # Removed in 0.6.6. XPENG gates the 7-day consumption figure per account: on a
+    # shared (secondary) account the endpoint returns 0.0 with no error while the
+    # owner's app shows a real number - verified 2026-10-09, app "16.9 kWh/100km"
+    # against an API 0.0. On those accounts it is a permanent zero that can only be
+    # explained, not fixed, so the entity is gone.
+    "xpeng_{vin}_energy_report",
+)
+
+
+def _prune_removed_entities(hass: HomeAssistant, vin: str) -> None:
+    """Drop registry entries for sensors this integration no longer creates."""
+    registry = er.async_get(hass)
+    for template in _REMOVED_SENSOR_UNIQUE_IDS:
+        entity_id = registry.async_get_entity_id(
+            "sensor", DOMAIN, template.format(vin=vin)
+        )
+        if entity_id is not None:
+            registry.async_remove(entity_id)
 
 
 async def async_setup_entry(
@@ -61,10 +87,11 @@ async def async_setup_entry(
         entities.append(XPengCaptureSensor(coordinator, capture_recorder))
     entities.append(XPengCommandFeedbackSensor(coordinator))
     entities.append(XPengNotificationSensor(coordinator))
+    _prune_removed_entities(hass, coordinator.vin)
+
     # REST API sensors
     entities.append(XPengMaintenanceSensor(coordinator))
     entities.append(XPengXComboSensor(coordinator))
-    entities.append(XPengEnergyReportSensor(coordinator))
     entities.append(XPengParkedConsumptionSensor(coordinator))
     entities.append(XPengOtaUpgradeSensor(coordinator))
     entities.append(XPengBetaSensor(coordinator))
@@ -728,60 +755,6 @@ class XPengXComboSensor(XPengEntity, SensorEntity):
             attrs[f"scene_{i}_id"] = s["id"]
             attrs[f"scene_{i}_name"] = s["name"]
             attrs[f"scene_{i}_active"] = s["active"]
-        return attrs
-
-
-class XPengEnergyReportSensor(XPengEntity, SensorEntity):
-    """Shows energy consumption data from REST API."""
-
-    _attr_has_entity_name = True
-    _attr_translation_key = "energy_report"
-    _attr_icon = "mdi:lightning-bolt"
-    _attr_native_unit_of_measurement = "kWh/100km"
-
-    def __init__(self, coordinator: XPengDataCoordinator) -> None:
-        super().__init__(coordinator)
-        self._attr_unique_id = f"xpeng_{self._vin}_energy_report"
-
-    @property
-    def native_value(self) -> float | None:
-        data = self.coordinator.energy_report
-        if not data:
-            return None
-        avg = data.get("avgTripEnergyPowerOf7Days")
-        if avg is not None:
-            return round(float(avg), 1)
-        return None
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        data = self.coordinator.energy_report
-        if not data:
-            return {}
-        attrs: dict[str, Any] = {}
-        if data.get("reportUrl"):
-            attrs["report_url"] = data["reportUrl"]
-        if data.get("avgTripEnergyPowerOf7Days") is not None:
-            attrs["avg_7day_kwh_per_100km"] = data["avgTripEnergyPowerOf7Days"]
-
-        # A 0.0 here is ambiguous and we should say so. XPENG gates consumption
-        # data per account: a secondary (shared) account is refused the
-        # underlying report, while the app shows the figure only to the owner.
-        # Verified 2026-10-09 - the owner's app displayed
-        # "16.9 kWh/100km - 7-day average energy consumption" while this
-        # endpoint returned exactly 0.0 for the secondary account, with no
-        # error at all. So 0.0 must not be read as "consumption is zero".
-        avg = data.get("avgTripEnergyPowerOf7Days")
-        try:
-            is_zero = avg is not None and float(avg) == 0.0
-        except (TypeError, ValueError):
-            is_zero = False
-        if is_zero:
-            attrs["zero_may_mean_restricted"] = (
-                "0.0 can mean this account is not permitted to see consumption "
-                "data (XPENG gates it per account), not that consumption is "
-                "zero. Compare against the owner account's app."
-            )
         return attrs
 
 

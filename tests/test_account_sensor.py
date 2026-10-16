@@ -66,6 +66,9 @@ def _load_sensor_module():
     _mod("homeassistant.core", HomeAssistant=_Any, callback=lambda fn: fn)
     _mod("homeassistant.helpers")
     _mod("homeassistant.helpers.entity_platform", AddEntitiesCallback=_Any)
+    # sensor.py prunes registry entries for entities it no longer creates
+    # (_prune_removed_entities), so this module has to exist here too.
+    _mod("homeassistant.helpers.entity_registry", async_get=lambda hass: _Any())
     _mod("homeassistant.helpers.event", async_track_time_change=_Any,
          async_track_time_interval=_Any)
 
