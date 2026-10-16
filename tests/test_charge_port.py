@@ -154,5 +154,62 @@ class TestTheDescriptionsUseTheMapping(unittest.TestCase):
         self.assertIn('value_path="msg_content.instant.charge"', block)
 
 
+class TestTheChargingState(unittest.TestCase):
+    """Code 15 is not "Scheduled" on this car.
+
+    The app's charge scheduler is disabled, the car is unplugged, and it reported
+    15 for nine hours; on 2026-10-16 12:07 it alternated 15 with 2 while charge
+    power was 5.2 kW. The label was a guess that read as a fact, so 15 is answered
+    from the cable now, like plugged_in.
+    """
+
+    def test_15_with_no_cable_is_disconnected(self):
+        self.assertEqual(port.charging_state_label(UNPLUGGED), "Disconnected")
+
+    def test_15_with_a_cable_is_connected(self):
+        self.assertEqual(
+            port.charging_state_label({**UNPLUGGED, "charge_gun_status": 1}),
+            "Connected",
+        )
+
+    def test_the_other_codes_are_untouched(self):
+        for code, expected in (
+            (0, "Disconnected"),
+            (1, "Connected"),
+            (2, "Charging"),
+            (3, "Complete"),
+            (4, "Error"),
+            (8, "Idle"),
+        ):
+            with self.subTest(code=code):
+                self.assertEqual(
+                    port.charging_state_label({**UNPLUGGED, "charging_state": code}),
+                    expected,
+                )
+
+    def test_an_unknown_code_still_says_so(self):
+        self.assertEqual(
+            port.charging_state_label({**UNPLUGGED, "charging_state": 99}),
+            "Unknown (99)",
+        )
+
+    def test_a_missing_code_is_not_a_state(self):
+        self.assertIsNone(port.charging_state_label({}))
+        self.assertIsNone(port.charging_state_label(None))
+
+    def test_scheduled_is_no_longer_an_option(self):
+        # It stays out of the enum: the sensor must not be able to report a state
+        # the integration cannot justify.
+        self.assertNotIn("Scheduled", port.CHARGING_STATES.values())
+        self.assertNotIn(15, port.CHARGING_STATES)
+
+    def test_the_description_uses_the_label(self):
+        source = (_component.component_dir() / "const.py").read_text(encoding="utf-8")
+        block = source[source.index('translation_key="charging_state"') :]
+        block = block[: block.index("XPengSensorEntityDescription", 10)]
+        self.assertIn("value_fn=charging_state_label", block)
+        self.assertIn('value_path="msg_content.instant.charge"', block)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

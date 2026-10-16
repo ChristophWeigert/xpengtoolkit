@@ -35,6 +35,13 @@ CHARGE_PORT_STATES: Final = {
 
 #: Charging state mapping, kept beside the port states because the plugged test
 #: needs to know which of these codes cannot happen without a cable.
+#:
+#: There is deliberately no 15 here. 15 is what this car reports with the app's
+#: charge scheduler switched off and nothing plugged in - for nine hours - and it
+#: also alternates with 2 mid-session (measured 2026-10-16 12:07, charge power
+#: 5.2 kW). It is not "Scheduled", which is what it used to be labelled, and no
+#: other label could be justified from the payload alone. ``charging_state_label``
+#: answers 15 from the cable instead.
 CHARGING_STATES: Final = {
     0: "Disconnected",
     1: "Connected",
@@ -42,8 +49,10 @@ CHARGING_STATES: Final = {
     3: "Complete",
     4: "Error",
     8: "Idle",
-    15: "Scheduled",
 }
+
+#: The one charging-state code with no trustworthy label of its own.
+CHARGING_STATE_UNLABELLED: Final = 15
 
 #: The one charge-port value that is supposed to mean a cable is in the port.
 CHARGE_PORT_CONNECTED: Final = 2
@@ -113,3 +122,27 @@ def charge_port_state(charge: Any) -> str | None:
     if port == CHARGE_PORT_CONNECTED:
         return CHARGE_PORT_STATES[0]
     return CHARGE_PORT_STATES.get(port, f"Unknown ({port})")
+
+def charging_state_label(charge: Any) -> str | None:
+    """What to display for a charge section's ``charging_state``.
+
+    Every code but 15 is what it always was. 15 is answered from the physical
+    evidence - the same test ``plugged_in`` uses - because its own meaning could
+    not be pinned: it shows up with nothing plugged in *and* mid-session, and this
+    car carries reserve times (22:00/06:00) even with the app's scheduler
+    disabled, so "Scheduled" was a guess that read as a fact. With no cable the
+    honest state is "Disconnected"; with a cable it is "Connected" (a session that
+    is not drawing).
+    """
+    if not isinstance(charge, dict):
+        return None
+    code = charge.get("charging_state")
+    if code is None:
+        return None
+    if code == CHARGING_STATE_UNLABELLED:
+        return (
+            CHARGING_STATES[1]
+            if charge_cable_attached(charge)
+            else CHARGING_STATES[0]
+        )
+    return CHARGING_STATES.get(code, f"Unknown ({code})")

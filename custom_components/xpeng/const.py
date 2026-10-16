@@ -210,6 +210,7 @@ from .charge_port import (
     CHARGE_PORT_STATES,
     charge_cable_attached,
     charge_port_state,
+    charging_state_label,
 )
 
 
@@ -286,11 +287,14 @@ SENSOR_DESCRIPTIONS: tuple[XPengSensorEntityDescription, ...] = (
     XPengSensorEntityDescription(
         key="charging_state",
         translation_key="charging_state",
-        value_path="msg_content.instant.charge.charging_state",
+        value_path="msg_content.instant.charge",
         icon="mdi:ev-station",
         device_class=SensorDeviceClass.ENUM,
         options=list(CHARGING_STATES.values()),
-        value_fn=lambda v: CHARGING_STATES.get(v, f"Unknown ({v})"),
+        # Code 15 has no trustworthy label of its own (see charge_port.py): with
+        # the app's scheduler disabled and nothing plugged in this car reports it,
+        # so it is answered from the cable instead of being called "Scheduled".
+        value_fn=charging_state_label,
     ),
     XPengSensorEntityDescription(
         key="charge_power",
