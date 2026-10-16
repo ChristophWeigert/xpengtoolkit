@@ -284,6 +284,26 @@ class TestTheBinarySensorRefusesToGuess(unittest.TestCase):
     def test_charging_is_true(self):
         self.assertIs(port.charge_cable_state({**self.AWAKE, "charging_state": 2}), True)
 
+    def test_an_armed_plan_with_a_talking_car_is_not_a_cable(self):
+        # The flag alone must not be an excuse for "unknown" any more: while the
+        # car is reporting, its "no cable" is evidence. Measured 2026-10-17 - the
+        # plan flag was still set after the app reported it disabled.
+        self.assertIs(port.charge_cable_state(self.WAITING, silent_seconds=60), False)
+
+    def test_an_armed_plan_with_a_quiet_car_is_unknown(self):
+        self.assertIsNone(
+            port.charge_cable_state(self.WAITING, silent_seconds=3 * 3600)
+        )
+
+    def test_the_silence_threshold_is_the_line(self):
+        limit = port.CHARGE_CABLE_EVIDENCE_MAX_AGE
+        self.assertIs(port.charge_cable_state(self.WAITING, silent_seconds=limit - 1), False)
+        self.assertIsNone(port.charge_cable_state(self.WAITING, silent_seconds=limit + 1))
+
+    def test_a_talking_unplugged_car_is_off_regardless(self):
+        self.assertIs(port.charge_cable_state(UNPLUGGED, silent_seconds=60), False)
+        self.assertIs(port.charge_cable_state(UNPLUGGED, silent_seconds=3 * 3600), False)
+
     def test_a_missing_section_is_unknown(self):
         self.assertIsNone(port.charge_cable_state(None))
         self.assertIsNone(port.charge_cable_state("nonsense"))
@@ -302,6 +322,32 @@ class TestTheBinarySensorRefusesToGuess(unittest.TestCase):
             {k: UNPLUGGED[k] for k in cable_keys},
             {k: self.WAITING[k] for k in cable_keys},
         )
+
+
+class TestTheEntitySuppliesTheSilence(unittest.TestCase):
+    """The custom class is only used because the generic one cannot see silence."""
+
+    BINARY_SOURCE = (_component.component_dir() / "binary_sensor.py").read_text(
+        encoding="utf-8"
+    )
+
+    def test_the_class_passes_the_meaningful_silence(self):
+        self.assertIn("class XPengPluggedInBinarySensor", self.BINARY_SOURCE)
+        self.assertIn("silent_seconds=self._silent_seconds()", self.BINARY_SOURCE)
+        self.assertIn('status.get("meaningful_silence_seconds")', self.BINARY_SOURCE)
+
+    def test_it_polls_because_the_answer_changes_with_the_clock(self):
+        # A car crossing the silence threshold sends nothing to notice it by, so an
+        # unpolled entity would keep reporting whatever it said before.
+        self.assertIn(
+            "class XPengPluggedInBinarySensor(_PolledHealthBinarySensor, XPengBinarySensor)",
+            self.BINARY_SOURCE,
+        )
+
+    def test_the_generic_entity_does_not_build_it(self):
+        # ...or the payload-only answer would win half the time, depending on which
+        # entity was added first.
+        self.assertIn("if description is not plugged_in_description", self.BINARY_SOURCE)
 
 
 if __name__ == "__main__":

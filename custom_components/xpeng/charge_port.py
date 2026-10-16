@@ -138,7 +138,19 @@ def charge_cable_attached(charge: Any) -> bool:
     return connector in CHARGE_CONNECTOR_ATTACHED
 
 
-def charge_cable_state(charge: Any) -> bool | None:
+#: Past this much silence from the car, "no cable" stops being evidence.
+#:
+#: While the car is awake it reports at least once per parked query (15 minutes by
+#: default), so a charge section this old predates the car going to sleep - and a
+#: sleeping car has said nothing about a cable plugged in since. Only matters when
+#: a plan is armed (see below); a car with no plan starts charging the moment it is
+#: plugged, which wakes it and makes it report.
+CHARGE_CABLE_EVIDENCE_MAX_AGE: Final = 20 * 60
+
+
+def charge_cable_state(
+    charge: Any, *, silent_seconds: float | None = None
+) -> bool | None:
     """Is a cable attached - True, False, or None when the car cannot say.
 
     ``charge_cable_attached`` answers about positive evidence; this answers the
@@ -148,16 +160,20 @@ def charge_cable_state(charge: Any) -> bool | None:
     ports 2/2, state 15). Once the session woke - the plan was switched off - the
     same car reported gun 4 and state 1.
 
-    So a car that is plugged in reads "unknown" while it waits for its plan rather
-    than a confident, wrong "off". Automations that key on ``off`` will not fire in
-    that window, which is the trade: the sensor no longer claims to know something
-    the car has not said.
+    ``silent_seconds`` is how long the car has gone without saying anything real
+    (``poll_status['meaningful_silence_seconds']``). It is what keeps an armed plan
+    from being a permanent excuse for "unknown": while the car is still talking its
+    "no cable" is evidence, and it only becomes silence - and therefore unknown -
+    once the car has stopped reporting. The plan is still required for the unknown,
+    because a plan is what makes this car wait quietly in the first place.
     """
     if not isinstance(charge, dict):
         return None
     if charge_cable_attached(charge):
         return True
-    if charge_schedule_armed(charge):
+    if not charge_schedule_armed(charge):
+        return False
+    if silent_seconds is None or silent_seconds > CHARGE_CABLE_EVIDENCE_MAX_AGE:
         return None
     return False
 
