@@ -101,38 +101,6 @@ class XPengBinarySensor(XPengEntity, BinarySensorEntity):
         return bool(raw)
 
 
-class XPengPluggedInBinarySensor(_PolledHealthBinarySensor, XPengBinarySensor):
-    """``plugged_in``, with the car's silence taken into account.
-
-    The description's ``value_fn`` is still ``charge_cable_state``; this class
-    supplies the second half of its input, how long the car has gone without
-    reporting anything real. The distinction only matters for a car waiting on an
-    armed charge plan, which is the one state where this model's payload says
-    nothing about the cable (see ``charge_port.py`` for the measurements).
-
-    Polled for the same reason the health sensors are: the answer changes with the
-    clock, not with a message. A car that goes quiet crosses the silence threshold
-    without anything arriving to say so, and an unpolled entity would sit on the
-    last answer - which is precisely the "off" this was written to stop claiming.
-    """
-
-    @property
-    def is_on(self) -> bool | None:
-        raw = self._get_nested_value(self.entity_description.value_path)
-        return charge_cable_state(raw, silent_seconds=self._silent_seconds())
-
-    def _silent_seconds(self) -> float | None:
-        """How long since the car last sent something meaningful, or None."""
-        status = self.coordinator.poll_status or {}
-        silence = status.get("meaningful_silence_seconds")
-        if silence is None:
-            return None
-        try:
-            return float(silence)
-        except (TypeError, ValueError):
-            return None
-
-
 class _PolledHealthBinarySensor:
     """A health binary sensor that Home Assistant polls itself.
 
@@ -176,6 +144,38 @@ def _age_seconds(now: float, timestamp: Any) -> int:
     unambiguous answer to that question.
     """
     return health.age_seconds(now, timestamp)
+
+
+class XPengPluggedInBinarySensor(_PolledHealthBinarySensor, XPengBinarySensor):
+    """``plugged_in``, with the car's silence taken into account.
+
+    The description's ``value_fn`` is still ``charge_cable_state``; this class
+    supplies the second half of its input, how long the car has gone without
+    reporting anything real. The distinction only matters for a car waiting on an
+    armed charge plan, which is the one state where this model's payload says
+    nothing about the cable (see ``charge_port.py`` for the measurements).
+
+    Polled for the same reason the health sensors are: the answer changes with the
+    clock, not with a message. A car that goes quiet crosses the silence threshold
+    without anything arriving to say so, and an unpolled entity would sit on the
+    last answer - which is precisely the "off" this was written to stop claiming.
+    """
+
+    @property
+    def is_on(self) -> bool | None:
+        raw = self._get_nested_value(self.entity_description.value_path)
+        return charge_cable_state(raw, silent_seconds=self._silent_seconds())
+
+    def _silent_seconds(self) -> float | None:
+        """How long since the car last sent something meaningful, or None."""
+        status = self.coordinator.poll_status or {}
+        silence = status.get("meaningful_silence_seconds")
+        if silence is None:
+            return None
+        try:
+            return float(silence)
+        except (TypeError, ValueError):
+            return None
 
 
 class XPengCredentialsValidBinarySensor(
