@@ -1,6 +1,7 @@
 """The XPENG integration."""
 from __future__ import annotations
 
+import functools
 import logging
 import os
 import time
@@ -12,6 +13,7 @@ from homeassistant.core import CALLBACK_TYPE, HomeAssistant
 from homeassistant.helpers.event import async_call_later, async_track_time_interval
 
 from . import poll_status
+from .capture import open_recorder
 from .command_gate import policy_for_entry
 from .watchdog_policy import (
     ESCALATE_AFTER_SECONDS,
@@ -20,6 +22,9 @@ from .watchdog_policy import (
 )
 
 from .const import (
+    CONF_CAPTURE_ENABLED,
+    CONF_CAPTURE_PATH,
+    CONF_CAPTURE_TOPICS,
     CONF_CERT_DIR,
     CONF_CLIENT_ID,
     CONF_CONFIGURED_DEVICE_ID,
@@ -45,6 +50,7 @@ from .const import (
     CONF_USABLE_BATTERY_KWH,
     CONF_VIN,
     CONF_XPENG_EMAIL,
+    DEFAULT_CAPTURE_PATH,
     DEFAULT_CERT_DIR,
     DEFAULT_CONFIGURED_DEVICE_ID,
     DEFAULT_MQTT_REFRESH_INTERVAL,
@@ -826,22 +832,61 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     mqtt_client.set_command_feedback_callback(_on_command_feedback)
 
-    # 3c. Configure MQTT listener
+    # 3c. Configure MQTT listener and raw capture. They are independent: the
+    # listener decodes each frame and drives the diagnostic sensors, capture
+    # writes the bytes to a file and drives nothing. See capture.py for why the
+    # per-frame work has to stay this small.
     listener_enabled = entry.options.get(CONF_MQTT_LISTENER_ENABLED, False)
     listener_topics_raw = entry.options.get(CONF_MQTT_LISTENER_TOPICS, "")
     discovery_enabled = entry.options.get(CONF_MQTT_TOPIC_DISCOVERY, False)
+    capture_enabled = entry.options.get(CONF_CAPTURE_ENABLED, False)
 
-    if listener_enabled:
-        from .mqtt_client import parse_listener_topics
+    from .mqtt_client import parse_listener_topics
 
-        listener_topics = parse_listener_topics(listener_topics_raw)
+    listener_topics = parse_listener_topics(listener_topics_raw)
+
+    capture_recorder = None
+    if capture_enabled:
+        # Empty means "the known CAN topics", which is what someone enabling a
+        # capture almost always wants; a typed list replaces them entirely.
+        capture_topics = parse_listener_topics(
+            entry.options.get(CONF_CAPTURE_TOPICS, "")
+        ) or list(MQTT_DISCOVERY_CANDIDATES)
+        preferred = entry.options.get(CONF_CAPTURE_PATH, DEFAULT_CAPTURE_PATH)
+        try:
+            capture_recorder, capture_dir = await hass.async_add_executor_job(
+                functools.partial(
+                    open_recorder,
+                    preferred,
+                    hass.config.path("xpeng-can"),
+                    topics=capture_topics,
+                )
+            )
+        except OSError as err:
+            # A capture that cannot be written must not take the integration down:
+            # the car's entities are the primary job.
+            _LOGGER.error(
+                "Raw capture is enabled but could not be started (%s); continuing "
+                "without it", err,
+            )
+            capture_recorder = None
+        else:
+            mqtt_client.set_capture_callback(capture_recorder.submit)
+            _LOGGER.info(
+                "Raw capture recording to %s (%d topics); decode it offline with "
+                "tools/xpeng_can_decode.py", capture_dir, len(capture_topics),
+            )
+
+    if listener_enabled or capture_recorder is not None:
         mqtt_client.configure_listener(
             enabled=True,
             topics=listener_topics,
             discovery_enabled=discovery_enabled,
             discovery_candidates=MQTT_DISCOVERY_CANDIDATES,
+            extra_topics=capture_recorder.topics if capture_recorder else (),
         )
 
+    if listener_enabled:
         # Wire listener message callback -> coordinator
         def _on_listener_message(topic: str, payload: str) -> None:
             hass.loop.call_soon_threadsafe(
@@ -850,20 +895,31 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         mqtt_client.set_listener_callback(_on_listener_message)
 
-        # Wire subscription result callback -> coordinator
-        def _on_subscription_result(
-            topic: str, accepted: bool, reason: str
-        ) -> None:
-            hass.loop.call_soon_threadsafe(
-                coordinator.record_subscription_result, topic, accepted, reason
-            )
-
-        mqtt_client.set_subscription_result_callback(_on_subscription_result)
-
         _LOGGER.info(
             "MQTT listener enabled: %d manual topics, discovery=%s",
             len(listener_topics), discovery_enabled,
         )
+
+    if listener_enabled or capture_recorder is not None:
+        # Subscription results go to the coordinator when the listener wants them
+        # and into the journal whenever a capture is running. A topic the broker
+        # refuses is the single most useful thing a capture can record: from the
+        # outside, "refused" and "silent" look identical.
+        def _on_subscription_result(
+            topic: str, accepted: bool, reason: str
+        ) -> None:
+            if capture_recorder is not None:
+                capture_recorder.note(
+                    "subscribe_ok" if accepted else "subscribe_refused",
+                    topic=topic,
+                    reason=reason,
+                )
+            if listener_enabled:
+                hass.loop.call_soon_threadsafe(
+                    coordinator.record_subscription_result, topic, accepted, reason
+                )
+
+        mqtt_client.set_subscription_result_callback(_on_subscription_result)
 
     # 4. Connect
     try:
@@ -1441,6 +1497,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     except Exception:  # noqa: BLE001 - replacing must not raise
                         _LOGGER.debug("could not cancel %s while replacing", key)
             await hass.async_add_executor_job(previous_client.disconnect)
+        previous_capture = previous.get("capture")
+        if previous_capture is not None:
+            # Its writer thread outlives the client otherwise, and two writers in
+            # one directory interleave parts under the same timestamped name.
+            await hass.async_add_executor_job(previous_capture.stop, 5.0, "replaced")
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = {
@@ -1455,6 +1516,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "cancel_rest_timer": cancel_rest_timer,
         "cancel_watchdog": cancel_watchdog,
         "refresh_state": refresh_state,
+        # The capture recorder, for the diagnostic sensor and for unload.
+        "capture": capture_recorder,
     }
 
     # 8. Forward platforms
@@ -2077,6 +2140,19 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             client = data.get("mqtt_client")
             if client is not None:
                 await hass.async_add_executor_job(client.disconnect)
+            # After the client, so the frames already accepted are drained and the
+            # capture ends with a clean END record rather than a truncated tail.
+            capture_recorder = data.get("capture")
+            if capture_recorder is not None:
+                capture_summary = await hass.async_add_executor_job(
+                    capture_recorder.stop, 10.0, "integration unloaded"
+                )
+                _LOGGER.info(
+                    "Raw capture closed: %d frames, %d dropped, %d part(s)",
+                    capture_summary.get("frames", 0),
+                    capture_summary.get("dropped", 0),
+                    len(capture_summary.get("parts", [])),
+                )
             for key in (
                 "cancel_timer",
                 "cancel_api_refresh",

@@ -32,6 +32,15 @@ from datetime import datetime as _dt, timezone as _tz
 
 DOMAIN: Final = "xpeng"
 
+#: What a caller is told when a command could not be published. Shared so the
+#: services, the buttons and the lock all say the same thing: a command that was
+#: never sent is not a command that was sent, and the difference was invisible
+#: while the only evidence was a log line (see services.py::_send).
+COMMAND_NOT_SENT_MESSAGE: Final = (
+    "Command not sent: the XPENG MQTT connection is down, so nothing reached "
+    "the car. Check 'MQTT connected' and try again."
+)
+
 
 def _safe_float(v: Any) -> float:
     """Safely convert a value to float, returning 0 on failure."""
@@ -127,6 +136,9 @@ AUTH_METHOD_IMPORT: Final = "import"
 CONF_MQTT_LISTENER_ENABLED: Final = "mqtt_listener_enabled"
 CONF_MQTT_LISTENER_TOPICS: Final = "mqtt_listener_topics"
 CONF_MQTT_TOPIC_DISCOVERY: Final = "mqtt_topic_discovery"
+CONF_CAPTURE_ENABLED: Final = "capture_enabled"
+CONF_CAPTURE_PATH: Final = "capture_path"
+CONF_CAPTURE_TOPICS: Final = "capture_topics"
 CONF_PARKED_SCAN_INTERVAL: Final = "parked_scan_interval"
 CONF_ICCID: Final = "iccid"
 CONF_USABLE_BATTERY_KWH: Final = "usable_battery_kwh"
@@ -145,6 +157,13 @@ DEFAULT_MQTT_REFRESH_INTERVAL: Final = 45  # seconds
 DEFAULT_TOKEN_FILE: Final = "/config/custom_components/xpeng/xpeng_tokens.json"
 DEFAULT_TENANT_FILE: Final = "/config/custom_components/xpeng/xpeng_tenant.json"
 DEFAULT_CERT_DIR: Final = "/config/custom_components/xpeng/certs"
+
+#: Where a capture is written by default. ``/share`` rather than ``/config`` on
+#: purpose: a config-directory capture is carried into every backup and sits in the
+#: directory Home Assistant watches, and ``/share`` is the conventional place for
+#: exactly this. Installs without ``/share`` (Container) fall back to
+#: ``<config>/xpeng-can`` - see capture.open_recorder().
+DEFAULT_CAPTURE_PATH: Final = "/share/xpeng-can"
 #: Empty means "not minted yet"; __init__.py mints one and persists it.
 DEFAULT_CONFIGURED_DEVICE_ID: Final = ""
 DEFAULT_REST_SCAN_INTERVAL: Final = 300  # seconds

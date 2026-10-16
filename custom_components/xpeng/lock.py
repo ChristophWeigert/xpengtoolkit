@@ -9,10 +9,11 @@ from typing import Any
 from homeassistant.components.lock import LockEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .command_policy import GROUP_ACCESS, GROUP_SECURING, default_policy
-from .const import DOMAIN
+from .const import COMMAND_NOT_SENT_MESSAGE, DOMAIN
 from .coordinator import XPengDataCoordinator
 from .entity import XPengEntity
 from .mqtt_client import XPengMQTTClient
@@ -79,15 +80,30 @@ class XPengLock(XPengEntity, LockEntity):
         return val == 1  # 1 = locked
 
     async def _send_and_refresh(self, msg_content: dict) -> None:
-        """Send command then wake car to refresh state."""
-        await self.hass.async_add_executor_job(
+        """Send command then wake car to refresh state.
+
+        The lock command itself must be reported if it never went out: on a
+        reconnecting client the publish is dropped (`Cannot send command: not
+        connected`) while the entity still flips to its optimistic state, so the
+        UI says "locked" for a car that was never asked (measured 2026-10-16).
+        The follow-up wake is best effort - it only asks for a state refresh -
+        so a failure there is logged, not raised.
+        """
+        sent = await self.hass.async_add_executor_job(
             self._mqtt_client.send_command, self._vin, 9, msg_content,
         )
+        if not sent:
+            raise HomeAssistantError(COMMAND_NOT_SENT_MESSAGE)
         # Wait for car to process, then force state refresh
         await asyncio.sleep(5)
-        await self.hass.async_add_executor_job(
+        refreshed = await self.hass.async_add_executor_job(
             self._mqtt_client.send_command, self._vin, 19, {"cmd_type": 2}, 2,
         )
+        if not refreshed:
+            _LOGGER.debug(
+                "Lock sent, but the follow-up state refresh was not: the MQTT "
+                "client is not connected",
+            )
 
     async def async_lock(self, **kwargs: Any) -> None:
         """Lock the vehicle."""

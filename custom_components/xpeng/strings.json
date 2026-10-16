@@ -156,6 +156,9 @@
           "mqtt_listener_enabled": "Enable MQTT listener",
           "mqtt_listener_topics": "MQTT topics to subscribe",
           "mqtt_topic_discovery": "Enable MQTT topic discovery",
+          "capture_enabled": "Record raw MQTT frames to a file",
+          "capture_path": "Capture directory",
+          "capture_topics": "Topics to capture",
           "token_file": "Login token file (legacy)",
           "tenant_file": "Tenant cache file (legacy)",
           "cert_dir": "Certificate directory",
@@ -173,6 +176,9 @@
           "mqtt_listener_enabled": "Subscribe to additional MQTT topics beyond the primary vehicle state topic",
           "mqtt_listener_topics": "Additional MQTT topics to subscribe to (one per line, or comma-separated). Supports MQTT wildcards (+ and #).",
           "mqtt_topic_discovery": "Automatically try subscribing to known XPENG broker topics (CanPack, StatPack, etc.) to discover accessible data",
+          "capture_enabled": "Write every frame from the topics below to a binary journal for offline decoding, without decoding or updating entities per frame.",
+          "capture_path": "Where captures are written. Use a path outside /config - /share is not carried into every backup. Falls back to <config>/xpeng-can if it cannot be created.",
+          "capture_topics": "One per line or comma-separated; MQTT wildcards (+, #) are supported. Leave empty for the known CAN topics.",
           "token_file": "Path to login tokens JSON from CLI login script. Only needed if not using in-HA login.",
           "tenant_file": "Path to cached tenant data. Auto-fetched if missing.",
           "cert_dir": "Absolute path to the directory holding ca-chain.crt, client-cert-0.pem and client-key.pem. Default: /config/custom_components/xpeng/certs.",
@@ -363,6 +369,9 @@
       },
       "mqtt_discovery": {
         "name": "MQTT discovery"
+      },
+      "capture": {
+        "name": "Raw capture"
       },
       "command_feedback": {
         "name": "Command feedback"

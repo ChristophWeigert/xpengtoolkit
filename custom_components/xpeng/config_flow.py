@@ -46,6 +46,9 @@ from .const import (
     AUTH_METHOD_IMPORT,
     CONF_ALLOW_WAKE,
     CONF_AUTH_METHOD,
+    CONF_CAPTURE_ENABLED,
+    CONF_CAPTURE_PATH,
+    CONF_CAPTURE_TOPICS,
     CONF_CERT_DIR,
     CONF_COMMAND_MODE,
     CONF_CLIENT_ID,
@@ -70,6 +73,7 @@ from .const import (
     CONF_VIN,
     CONF_XPENG_EMAIL,
     CONF_XPENG_PASSWORD,
+    DEFAULT_CAPTURE_PATH,
     DEFAULT_CERT_DIR,
     DEFAULT_COMMAND_MODE,
     DEFAULT_MQTT_REFRESH_INTERVAL,
@@ -1702,6 +1706,26 @@ class XPengOptionsFlow(OptionsFlow):
                             CONF_MQTT_TOPIC_DISCOVERY, False
                         ),
                     ): bool,
+                    # Capture is deliberately independent of the listener above.
+                    # The listener is a diagnostic that decodes each frame and fires
+                    # an event; capture writes the bytes to a file and does neither,
+                    # so an install can run either one on its own. See capture.py.
+                    vol.Optional(
+                        CONF_CAPTURE_ENABLED,
+                        default=current.get(CONF_CAPTURE_ENABLED, False),
+                    ): bool,
+                    vol.Optional(
+                        CONF_CAPTURE_PATH,
+                        default=current.get(
+                            CONF_CAPTURE_PATH, DEFAULT_CAPTURE_PATH
+                        ),
+                    ): str,
+                    vol.Optional(
+                        CONF_CAPTURE_TOPICS,
+                        default=current.get(CONF_CAPTURE_TOPICS, ""),
+                    ): TextSelector(
+                        TextSelectorConfig(multiline=True)
+                    ),
                     vol.Optional(
                         CONF_TOKEN_FILE,
                         default=current.get(CONF_TOKEN_FILE, ""),

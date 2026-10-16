@@ -135,6 +135,9 @@ class XPengMQTTClient:
         self._state_callback: Callable[[dict[str, Any]], None] | None = None
         self._auth_failure_callback: Callable[[], None] | None = None
         self._listener_callback: Callable[[str, str], None] | None = None
+        # Raw-frame sink for the capture recorder. Called with bytes, before any
+        # decoding, because the whole point is to keep the bytes bytes.
+        self._capture_callback: Callable[[str, bytes, int, bool], None] | None = None
         self._subscription_result_callback: Callable[[str, bool, str], None] | None = None
         self._notification_callback: Callable[[dict[str, Any]], None] | None = None
         self._command_feedback_callback: Callable[[dict[str, Any]], None] | None = None
@@ -237,6 +240,17 @@ class XPengMQTTClient:
         """Set callback for MQTT listener messages (topic, payload)."""
         self._listener_callback = callback
 
+    def set_capture_callback(
+        self, callback: Callable[[str, bytes, int, bool], None] | None
+    ) -> None:
+        """Set the raw-frame sink: (topic, payload, qos, retain).
+
+        Called from paho's network thread for every listener message, before any
+        decoding. Whatever it does must be non-blocking and must not raise; the
+        capture recorder's ``submit()`` is both, deliberately.
+        """
+        self._capture_callback = callback
+
     def set_subscription_result_callback(
         self, callback: Callable[[str, bool, str], None]
     ) -> None:
@@ -261,11 +275,17 @@ class XPengMQTTClient:
         topics: list[str],
         discovery_enabled: bool,
         discovery_candidates: tuple[str, ...] = (),
+        extra_topics: list[str] | None = None,
     ) -> None:
         """Configure the MQTT listener settings.
 
         Called before connect() to set up listener topics.
         If discovery is enabled, the discovery candidates are appended.
+
+        ``extra_topics`` are the capture recorder's topics. They are subscribed
+        whenever capture is on, independently of ``enabled`` - capture is not a
+        diagnostic and does not need the listener's decode-and-fire machinery, so
+        the two are configured separately and an install can have either alone.
         """
         self._listener_enabled = enabled
         self._listener_topics = list(topics)
@@ -274,6 +294,9 @@ class XPengMQTTClient:
             for candidate in discovery_candidates:
                 if candidate not in self._listener_topics:
                     self._listener_topics.append(candidate)
+        for topic in extra_topics or ():
+            if topic not in self._listener_topics:
+                self._listener_topics.append(topic)
         if enabled:
             _LOGGER.info(
                 "MQTT listener configured: %d topics, discovery=%s",
@@ -748,7 +771,12 @@ class XPengMQTTClient:
 
         # Check if this is a listener message (not our primary recv_topic)
         if topic != self.recv_topic:
-            self._handle_listener_message(topic, payload_bytes)
+            self._handle_listener_message(
+                topic,
+                payload_bytes,
+                qos=int(msg.qos or 0),
+                retain=bool(getattr(msg, "retain", False)),
+            )
             return
 
         # Primary vehicle-state topic: this is the only thing that counts as
@@ -845,22 +873,6 @@ class XPengMQTTClient:
             elif self._last_full_content is not None:
                 # Partial response — merge non-empty instant sections into last
                 # full state so sensors update with whatever data the car sent.
-                changed_keys = [k for k, v in instant.items() if v]
-                has_interval = bool(content.get("interval"))
-                if not changed_keys and not has_interval and not content.get(
-                    "digital_vehicle"
-                ):
-                    # Pure stub: an asleep car's ~248-byte ack with nothing new
-                    # to merge. Do NOT propagate it as a fresh push — that
-                    # freezes every sensor at its last value AND (because it
-                    # bumps last_data_timestamp) hides the MQTT silence from
-                    # the REST widget-merge fallback, so sensors can sit stale
-                    # for hours during a stuck cloud fanout. Let the silence
-                    # show.
-                    _LOGGER.debug(
-                        "Stub response (%dB) — ignoring, no new data", payload_len
-                    )
-                    return
                 merged = dict(self._last_full_content)
                 merged_instant = dict(merged.get("instant", {}))
                 for key, val in instant.items():
@@ -871,6 +883,28 @@ class XPengMQTTClient:
                     merged["interval"] = content["interval"]
                 if "digital_vehicle" in content:
                     merged["digital_vehicle"] = content["digital_vehicle"]
+
+                # Nothing new is not data. A sleeping car answers a query with a
+                # short ack - 244 B on a G6, measured 2026-10-16 - whose
+                # ``instant`` is empty and whose ``interval`` block repeats what
+                # we already hold. Deciding that by shape is what failed before:
+                # the old test only called a message a stub when it carried no
+                # ``interval`` at all, so this ack was merged instead, and merging
+                # re-stamps ``_last_meaningful_state_ts`` - the clock the silence
+                # watchdog escalates on. The one deliberate force-upload that
+                # wakes a parked car therefore never fired, and every sensor sat
+                # at its last value for hours while the diagnostics reported data
+                # seconds old.
+                #
+                # Comparing the candidate against what is already held cannot drop
+                # a real change: anything different - a section the car filled in,
+                # an interval field that moved, a value that went to zero - still
+                # merges below.
+                if merged == self._last_full_content:
+                    _LOGGER.debug(
+                        "Stub response (%dB) — nothing new to merge", payload_len
+                    )
+                    return
                 _LOGGER.debug(
                     "Partial state (%dB, keys=%s) — merged with last full state",
                     payload_len,
@@ -903,8 +937,38 @@ class XPengMQTTClient:
         except Exception:
             _LOGGER.exception("Error parsing XPENG MQTT message")
 
-    def _handle_listener_message(self, topic: str, payload: bytes) -> None:
-        """Handle a message received on a listener topic."""
+    def _handle_listener_message(
+        self,
+        topic: str,
+        payload: bytes,
+        *,
+        qos: int = 0,
+        retain: bool = False,
+    ) -> None:
+        """Handle a message received on a listener topic.
+
+        Order matters here. The capture sink is offered the frame first, as bytes
+        and with no interpretation, because it is the only consumer that needs
+        fidelity - everything below this point treats the payload as text.
+
+        Then the expensive half is skipped unless something actually wants it. On
+        0.4.30 the decode ran for every frame, including the car's 1 Hz binary CAN
+        broadcast, and that alone was a measurable share of the load: a UTF-8
+        decode with ``errors="replace"`` allocates a full replacement string per
+        frame, and the ``json.loads`` after it raises per frame. A payload that
+        does not begin with ``{`` cannot be the JSON a push notification arrives
+        in, so for binary frames with no listener callback registered there is
+        nothing below worth doing.
+        """
+        if self._capture_callback is not None:
+            try:
+                self._capture_callback(topic, payload, qos, retain)
+            except Exception:  # noqa: BLE001 - capture must not drop the connection
+                _LOGGER.exception("Capture callback failed for %s", topic)
+
+        if self._listener_callback is None and payload[:16].lstrip()[:1] != b"{":
+            return
+
         try:
             # Try to decode as UTF-8 text/JSON
             payload_str = payload.decode("utf-8", errors="replace")

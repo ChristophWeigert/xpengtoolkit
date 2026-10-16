@@ -10,11 +10,12 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant.core import Event, HomeAssistant, ServiceCall, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 
 from .command_gate import async_guard_service
 from .command_policy import default_policy, service_group
-from .const import DOMAIN
+from .const import COMMAND_NOT_SENT_MESSAGE, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -257,14 +258,24 @@ def _send(
     msg_content: dict,
     msg_type: int = 2,
 ) -> None:
-    """Helper to send a command via the stored MQTT client."""
+    """Helper to send a command via the stored MQTT client.
+
+    Raises when it never went out. It used to return quietly, so a service that
+    published nothing still reported success and the only evidence was a warning
+    in the log - which is how "I pressed Wake and nothing happened" stayed
+    invisible in the UI and in automation traces (measured 2026-10-16: the lock
+    command was dropped twice while the client was reconnecting).
+    """
     entry_data = _get_entry_data(hass)
     if not entry_data:
-        return
+        raise HomeAssistantError(
+            "No live XPENG config entry to send this command from"
+        )
     mqtt_client = entry_data["mqtt_client"]
     coordinator = entry_data["coordinator"]
     vin = coordinator.vin
-    mqtt_client.send_command(vin, service_type, msg_content, msg_type)
+    if not mqtt_client.send_command(vin, service_type, msg_content, msg_type):
+        raise HomeAssistantError(COMMAND_NOT_SENT_MESSAGE)
 
 
 async def async_setup_services(hass: HomeAssistant) -> None:

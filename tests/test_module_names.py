@@ -51,6 +51,10 @@ MODULES = (
     "device_tracker.py",
     "coordinator.py",
     "mqtt_client.py",
+    # Added with raw capture: capture.py is loaded by path in tests, so a missing
+    # import there would only surface in a live Home Assistant.
+    "capture.py",
+    "can_journal.py",
     "poll_status.py",
     "watchdog_policy.py",
     "health.py",

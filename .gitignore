@@ -7,6 +7,11 @@ custom_components/xpeng/certs/*.bks
 custom_components/xpeng/xpeng_tokens.json
 custom_components/xpeng/xpeng_tenant.json
 
+# Captures hold raw broker traffic, which may include other vehicles' data.
+# They are evidence, not source - regenerate them instead of committing them.
+*.xpgcan
+*.xpgcan.index.json
+
 # Python
 __pycache__/
 *.py[cod]

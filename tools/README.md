@@ -150,7 +150,90 @@ flow:
 | `configure_ha_entry.py` | Build (or install into `.storage/`) the config entry from an already-written token pair. Superseded by the import step, but still useful for scripted installs. |
 | `solve_and_login.py` | Interactive email+password + human slider in one script (predecessor of the onboarding tool). |
 | `mqtt_credential_check.py` | Verify a saved token pair can mint a working MQTT connection. |
+| `xpeng_can_capture.py` | Record the broker's raw traffic to a binary journal, outside Home Assistant. See [below](#recording-the-can-stream-and-decoding-it-offline). |
+| `xpeng_can_decode.py` | Read that journal offline: counts, payload shapes, hexdumps, JSON export, pluggable decoder. |
 | `probe_seat.py` | Measure what a seat command does on your own car, printing the state the car reports around each one. `--sequence` runs off, then heat 1/2/3 and ventilation 1/2/3; `--seat rear-left --scan-cmd-types` tries the rear candidates and names the state field each one moves, and `--cmd-type N` sends one you know. Worth running before trusting any of the seat code: `mode` is the level (0 = off, 1/2/3), `cmd_type` is 1 = driver / 0 = passenger / 3 = left rear / 4 = right rear (measured 2026-10-14 - the scan re-derives the rear two on a car that differs), and the car must be woken after a command or it reports nothing, because a seat command takes 7-50 s to show up. |
+
+
+## Recording the CAN stream, and decoding it offline
+
+`mqtt_topic_discovery: true` subscribes to the known CAN topics, and
+`mqtt_listener_topics: "#"` subscribes to the entire broker on top - including the
+car's 1 Hz `CanPack1s` broadcast. That combination wedged Home Assistant on
+0.4.30, because every frame meant a decode attempt on binary data, an HA event and
+a full update of every entity, which the recorder then wrote. 0.4.32 coalesced
+that work to one update per second, which fixes the wedge but is the wrong answer
+for a *recording*: per-frame timing is the thing a recording is for.
+
+There are two ways to keep the stream, and the choice turns on one fact - **XPENG
+authorises one MQTT session per account**:
+
+| | Where the frames come from | What it needs |
+|---|---|---|
+| **`capture_enabled`**, inside the integration | the connection Home Assistant already holds | nothing extra - it coexists by construction |
+| **`xpeng_can_capture.py`**, below | its own MQTT session on the XPENG broker | a second XPENG account with the car shared to it |
+
+**Use the integration option** when the capture is for the car you already have in
+Home Assistant. There is no second session to authorise, nothing decodes on the way
+in, and the per-frame cost is a single enqueue onto a fixed-size queue - if the
+disk falls behind, frames are **dropped and counted** rather than queued without
+limit, which is what makes `mqtt_listener_topics: "#"` survivable where 0.4.30 was
+not. It writes a journal under `capture_path` (default `/share/xpeng-can`), and the
+counts are on `sensor.xpeng_<vehicle>_capture`. Both options are documented under
+[Integration options](../www/docs/reference/options.md#raw-capture).
+
+**Use the tool below** on a machine that is not the Home Assistant host, or to hunt
+with a dedicated account. It mints its own session from the credentials the install
+already holds, subscribes to the same topics the integration's discovery tries, and
+writes every frame verbatim. Decoding is the same either way:
+
+| File | Purpose |
+|---|---|
+| `xpeng_can_capture.py` | Mints its own MQTT session, subscribes, and writes every frame verbatim to a binary journal. It never decodes. |
+| `xpeng_can_decode.py` | Reads a journal offline - no broker, no credentials, no car: counts and rates, distinct payload shapes, hexdumps, NDJSON export, and a `--decoder module.py:function` hook for your own parser. |
+
+```bash
+python3 tools/xpeng_can_capture.py --dry-run      # the plan; no network, no paho needed
+python3 tools/xpeng_can_capture.py --duration 60  # probe: coexist, or be refused
+
+python3 tools/xpeng_can_decode.py summary xpeng-can-*.xpgcan
+python3 tools/xpeng_can_decode.py shapes  xpeng-can-*.xpgcan --topic CanPack1s
+```
+
+Start an unfamiliar stream with `shapes`, not `dump`. It reduces a firehose to its
+distinct payloads and prints a byte-class pattern per topic - the constant bytes,
+with `..` where they vary - which is what turns "1 Hz of noise" into "16 bytes, a
+counter at offset 4, everything else fixed".
+
+Three things worth knowing before the tool's first run:
+
+- **The probe is not destructive.** The default `--client-id-mode unique` connects
+  under a client id *derived* from the minted one, so the broker either accepts both
+  sessions or refuses this one - and either way the integration keeps its session.
+  A refusal is recorded in the capture as `account_session_limited`, and the run
+  stops after three of them rather than re-minting at the broker forever. If it is
+  refused, no client id will fix it: use the integration option above, or a second
+  account.
+- **`--client-id-mode shared`** presents the integration's own id, which *does*
+  evict it (the client id is the MQTT username, and the broker drops the older
+  session with that id). That mode needs `--confirm-session-takeover`, and the
+  integration should be disabled for the length of the capture.
+- **Wildcard topics are broker-scoped, not car-scoped.** `Xmart/Car/+/...` is every
+  car the broker will hand you, not yours. `summary` reports every car id in the
+  capture, so this is visible rather than assumed, and `--vid` narrows the
+  `Xmart/Car/...` candidates to one car - but do not combine `--vid` with
+  `--wildcard '#'`, which is the whole broker again.
+
+It never publishes, so it never wakes the car, unless you pass `--force-upload`.
+
+Credentials are resolved in the order an install is most likely to have a live
+pair: explicit `--tokens`/`--tenant`, then the renewal app's `--pair-dir`
+(`/config/xpeng-secrets`, used only when both files are there - a capture usually
+runs either side of a renewal, and that pair is the one just proven to mint), then
+`--entry-file` (default `/config/.storage/core.config_entries`). So there is no
+second login and no prompt. Nothing secret is printed or written into a capture:
+the journal's metadata carries a VIN, a uid, a truncated device id and the broker
+host, and nothing else.
 
 
 A small pexpect driver used to deploy files and run commands on an HAOS box.

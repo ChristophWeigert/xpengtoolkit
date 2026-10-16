@@ -24,6 +24,9 @@ directory (see [Certificate directory](#certificate-directory)).
 | `mqtt_listener_enabled` | Enable MQTT listener | off | on / off |
 | `mqtt_listener_topics` | MQTT topics to subscribe | empty | free text, one topic per line or comma-separated |
 | `mqtt_topic_discovery` | Enable MQTT topic discovery | off | on / off |
+| `capture_enabled` | Record raw MQTT frames to a file | off | on / off |
+| `capture_path` | Capture directory | `/share/xpeng-can` | absolute path |
+| `capture_topics` | Topics to capture | empty | free text, one per line or comma-separated |
 | `token_file` | Login token file (legacy) | empty | absolute path |
 | `tenant_file` | Tenant cache file (legacy) | `/config/custom_components/xpeng/xpeng_tenant.json` | absolute path |
 | `cert_dir` | Certificate directory | `/config/custom_components/xpeng/certs` | absolute path holding three PEM files |
@@ -141,6 +144,66 @@ the accepted/refused result of every subscription is reported by
 `sensor.xpeng_<vehicle>_mqtt_discovery`. Note that the listener sensor reads
 `No messages` on a healthy install, because vehicle data arrives over the REST
 poll (see [Entities](./entities)).
+
+## Raw capture
+
+The listener above is a *diagnostic*: it decodes each frame, keeps a 4 KB preview,
+fires an event and drives two sensors. That is the right shape for "is anything
+arriving on this topic?" and the wrong shape for keeping the car's CAN stream, so
+capture is a separate pair of options that write the frames out unread.
+
+### `capture_enabled`
+
+Subscribes to the capture topics and writes every frame to a binary journal for
+offline decoding. Default **off**.
+
+Independently of `mqtt_listener_enabled` - capture needs none of the listener's
+machinery, and an install can run either one alone. Two things follow from that,
+and they are the reason it is built this way:
+
+- **Nothing is decoded on the way in.** The frame is handed to a writer thread as
+  bytes, exactly as the broker delivered them. `tools/xpeng_can_decode.py` reads
+  the file afterwards, with no broker, no credentials and no car, so a decoder can
+  be rewritten without capturing again.
+- **The per-frame cost is bounded.** The frame is put on a fixed-size queue and
+  the callback returns; a single writer thread does the framing, file I/O and
+  rotation. If the disk cannot keep up the queue fills and frames are **dropped
+  and counted** rather than queued without limit - which is what makes
+  `mqtt_listener_topics: "#"` survivable, where the per-frame decode and entity
+  update of 0.4.30 were not.
+
+The drop count is on `sensor.xpeng_<vehicle>_capture`, together with the frames
+written, the current file and the queue depth. It matters: a capture that silently
+lost a third of the stream would be worse than no capture at all.
+
+Reading a capture:
+
+```bash
+python3 tools/xpeng_can_decode.py summary capture.xpgcan
+python3 tools/xpeng_can_decode.py shapes  capture.xpgcan --topic CanPack1s
+```
+
+### `capture_path`
+
+Where captures are written. Default `/share/xpeng-can`.
+
+`/share` rather than `/config` deliberately: a capture inside the config directory
+is carried into every backup and sits in the directory Home Assistant watches.
+The directory is created if it does not exist, and an install without `/share` (a
+Container install) falls back to `<config>/xpeng-can`. If neither can be written
+the integration logs the error and carries on without capture, because the car's
+entities are the primary job.
+
+### `capture_topics`
+
+The topics to record, one per line or comma-separated. MQTT wildcards (`+` and
+`#`) are supported. Default **empty**, which means the known CAN topics - the same
+candidates `mqtt_topic_discovery` tries. Typing anything here replaces that list
+entirely.
+
+Note that `Xmart/Car/+/...` is every car the broker will hand you, not yours. The
+summary reports each car id it finds, so a capture that contains another vehicle's
+traffic says so.
 
 ## Legacy credential files
 

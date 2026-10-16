@@ -7,6 +7,7 @@ from typing import Any
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .command_policy import (
@@ -19,7 +20,7 @@ from .command_policy import (
     GROUP_SECURING,
     default_policy,
 )
-from .const import DOMAIN
+from .const import COMMAND_NOT_SENT_MESSAGE, DOMAIN
 from .coordinator import XPengDataCoordinator
 from .entity import XPengEntity
 from .mqtt_client import XPengMQTTClient
@@ -216,10 +217,15 @@ class XPengCommandButton(XPengEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         self._guard(self._policy_action)
-        await self.hass.async_add_executor_job(
+        sent = await self.hass.async_add_executor_job(
             self._mqtt_client.send_command,
             self._vin,
             self._service_type,
             self._msg_content,
             self._msg_type,
         )
+        if not sent:
+            # A press that published nothing used to look exactly like one that
+            # did: the only trace was a warning in the log. Raise instead, so the
+            # UI shows the failure and an automation trace records it.
+            raise HomeAssistantError(COMMAND_NOT_SENT_MESSAGE)

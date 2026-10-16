@@ -54,6 +54,11 @@ async def async_setup_entry(
     entities.append(XPengXosVersionSensor(coordinator))
     entities.append(XPengMqttListenerSensor(coordinator))
     entities.append(XPengMqttDiscoverySensor(coordinator))
+    # Only exists when raw capture is switched on, because the entity's whole job
+    # is to report what the recorder is doing - and there is no recorder otherwise.
+    capture_recorder = hass.data[DOMAIN][entry.entry_id].get("capture")
+    if capture_recorder is not None:
+        entities.append(XPengCaptureSensor(coordinator, capture_recorder))
     entities.append(XPengCommandFeedbackSensor(coordinator))
     entities.append(XPengNotificationSensor(coordinator))
     # REST API sensors
@@ -560,6 +565,41 @@ class XPengMqttListenerSensor(XPengEntity, SensorEntity):
                 self.coordinator.listener_last_timestamp.isoformat()
             )
         return attrs
+
+
+class XPengCaptureSensor(XPengEntity, SensorEntity):
+    """What the raw capture is doing: frames written, frames dropped, which file.
+
+    The drop counter is the reason this entity exists at all. ``capture.py`` drops
+    a frame when its queue is full rather than letting the queue grow without
+    bound, which is what stops a capture becoming the 0.4.30 failure again - but a
+    capture that silently dropped a third of the stream would be worse than no
+    capture, so the number is on an entity rather than only in a log line, and it
+    is in the state as well as the attributes.
+    """
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "capture"
+    _attr_icon = "mdi:record-recorder"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: XPengDataCoordinator, recorder: Any) -> None:
+        super().__init__(coordinator)
+        self._recorder = recorder
+        self._attr_unique_id = f"xpeng_{self._vin}_capture"
+
+    @property
+    def native_value(self) -> str:
+        stats = self._recorder.stats()
+        if not stats["running"]:
+            return f"Stopped ({stats['frames']} frames)"
+        if stats["dropped"]:
+            return f"Recording - {stats['dropped']} dropped"
+        return f"Recording - {stats['frames']} frames"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return dict(self._recorder.stats())
 
 
 class XPengMqttDiscoverySensor(XPengEntity, SensorEntity):
