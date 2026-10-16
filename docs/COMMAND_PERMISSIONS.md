@@ -35,7 +35,7 @@ changes it later, and *Custom* there opens the per-group matrix.
 
 | Capability group | Services | Entities you will see |
 |---|---|---|
-| **Queries and data** | `capture_snapshot`, `check_ota`, `clear_stuck_commands`, `force_calendar_sync`, `force_update`, `list_hvac_schedules`, `send_navigation` | Force update, Wake vehicle, Query X-Guard (buttons) |
+| **Queries and data** | `capture_snapshot`, `charging_hint`, `check_ota`, `clear_stuck_commands`, `force_calendar_sync`, `force_update`, `list_hvac_schedules`, `send_navigation` | Force update, Wake vehicle, Query X-Guard (buttons) |
 | **Comfort and climate** | `climate_off`, `climate_on`, `create_hvac_schedule`, `defrost_off`, `defrost_on`, `delete_hvac_schedule`, `update_hvac_schedule` | Climate; Front defrost; Fan speed; Driver/passenger seat heating and ventilation; Steering wheel heating; one switch per HVAC schedule |
 | **Lights and alerts** | `flash_lights`, `honk_horn` | Flash lights, Honk horn (buttons); Parking lights (switch) |
 | **Charging** | `close_charge_port`, `open_charge_port`, `set_charge_limit`, `start_charge`, `stop_charge` | Start/stop charge and open/close the charge port (buttons); Charge limit (number) |

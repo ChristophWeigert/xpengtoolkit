@@ -1,3 +1,24 @@
+charging_hint:
+  name: Charging hint
+  description: >-
+    Tell the integration that an external charger says a charge session may be
+    starting, so it polls at the active cadence instead of waiting for the car to
+    admit it. Polling only: this never wakes the car - the queries it raises are
+    passive - so a wrong hint costs cloud round trips, not battery.
+  fields:
+    duration_minutes:
+      name: Duration in minutes
+      description: >-
+        How long the hint stays armed. Call it again to extend, or pass 0 to clear
+        it. Capped at 240 minutes.
+      default: 30
+      example: 30
+      selector:
+        number:
+          min: 0
+          max: 240
+          mode: box
+
 climate_on:
   name: Climate ON
   description: Turn on climate control

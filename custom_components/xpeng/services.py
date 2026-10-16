@@ -46,6 +46,7 @@ SERVICE_EXECUTE_SCENE = "execute_scene"
 SERVICE_TOGGLE_SCENE = "toggle_scene"
 SERVICE_CLEAR_STUCK_COMMANDS = "clear_stuck_commands"
 SERVICE_CAPTURE_SNAPSHOT = "capture_snapshot"
+SERVICE_CHARGING_HINT = "charging_hint"
 SERVICE_CHECK_OTA = "check_ota"
 SERVICE_TRIGGER_OTA = "trigger_ota"
 SERVICE_CANCEL_OTA = "cancel_ota"
@@ -172,6 +173,17 @@ OTA_FEEDBACK_SCHEMA = vol.Schema(
         vol.Required("status"): vol.Coerce(int),
     }
 )
+
+CHARGING_HINT_SCHEMA = vol.Schema(
+    {
+        # 0 clears the hint; the cap keeps a stuck automation from holding the
+        # fast cadence for a whole day.
+        vol.Optional("duration_minutes", default=30): vol.All(
+            vol.Coerce(int), vol.Range(min=0, max=240)
+        ),
+    }
+)
+
 
 SEND_RAW_MQTT_SCHEMA = vol.Schema(
     {
@@ -356,6 +368,27 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     async def handle_force_update(call: ServiceCall) -> None:
         await hass.async_add_executor_job(
             _send, hass, 19, {}, 4
+        )
+
+    async def handle_charging_hint(call: ServiceCall) -> None:
+        """Let an external charger say a session may be starting.
+
+        Polling only, and deliberately the one thing this cannot do is wake the
+        car: the hint raises the *cadence* and the periodic query stays passive
+        while only the hint is set (see ``_send_periodic_query``). That is the
+        whole point - a charging car is awake, so asking it often is enough, and a
+        wrong hint then costs cloud round trips instead of the car's 12V battery.
+        """
+        entry_data = _get_entry_data(hass)
+        if not entry_data:
+            return
+        minutes = int(call.data.get("duration_minutes", 30))
+        entry_data["coordinator"].set_charging_hint(minutes * 60)
+        _LOGGER.info(
+            "Charging hint %s for %d minutes (polling cadence raised; the car is "
+            "not woken by this)",
+            "cleared" if minutes == 0 else "armed",
+            minutes,
         )
 
     async def handle_lock(call: ServiceCall) -> None:
@@ -923,6 +956,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     _register(SERVICE_FLASH_LIGHTS, handle_flash_lights)
     _register(SERVICE_HONK_HORN, handle_honk_horn)
     _register(SERVICE_FORCE_UPDATE, handle_force_update)
+    _register(SERVICE_CHARGING_HINT, handle_charging_hint, CHARGING_HINT_SCHEMA)
     _register(SERVICE_LOCK, handle_lock)
     _register(SERVICE_UNLOCK, handle_unlock)
     _register(SERVICE_START_CHARGE, handle_start_charge)
@@ -968,6 +1002,7 @@ async def async_unload_services(hass: HomeAssistant) -> None:
         SERVICE_FLASH_LIGHTS,
         SERVICE_HONK_HORN,
         SERVICE_FORCE_UPDATE,
+        SERVICE_CHARGING_HINT,
         SERVICE_LOCK,
         SERVICE_UNLOCK,
         SERVICE_START_CHARGE,

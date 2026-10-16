@@ -111,6 +111,8 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # tick would wake every entity for a number none of them use.
         self.poll_status: dict[str, Any] = {}
         self._last_full_data: dict[str, Any] | None = None
+        #: Epoch until which an external charger says a session may be running.
+        self._charging_hint_until: float = 0.0
         self.credential_timestamp: datetime | None = None
         # When a token + tenant pair was last *installed* — i.e. a renewal — as
         # opposed to credential_timestamp above, which moves every
@@ -1121,6 +1123,25 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return int(shift) in (3, 4)
         except (TypeError, ValueError):
             return None
+
+    @property
+    def external_charging_hint(self) -> bool:
+        """Has something outside the car said a charge session may be running?
+
+        Set by the ``xpeng.charging_hint`` service, which is how a charger or its
+        integration tells us "current is flowing now" without waiting for the car
+        to admit it - this car can take minutes to say so, and says nothing at all
+        while it sleeps.
+
+        It raises how often we *ask* and nothing else: the periodic query stays
+        passive while only the hint is set (see ``_send_periodic_query``), so a
+        wrong hint costs a few cloud round trips and never wakes a sleeping car.
+        """
+        return time.time() < self._charging_hint_until
+
+    def set_charging_hint(self, seconds: float) -> None:
+        """Arm (or clear, with 0) the external charging hint for ``seconds``."""
+        self._charging_hint_until = time.time() + max(0.0, float(seconds))
 
     @property
     def is_charging(self) -> bool:

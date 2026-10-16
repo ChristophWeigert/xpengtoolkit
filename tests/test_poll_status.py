@@ -270,6 +270,43 @@ class TestFormatAge(unittest.TestCase):
         self.assertNotIn("0m", seen)
 
 
+class TestTheChargingHint(unittest.TestCase):
+    """An external charger can raise the cadence without claiming the car is awake.
+
+    Measured 2026-10-17: charging for ~15 minutes, the car sent nothing until a
+    passive query was answered; the charger knew about the 7.4 kW the whole time. So
+    the hint has to make us *ask* sooner - and nothing else, because the periodic
+    query is the only thing here that can wake a car.
+    """
+
+    def test_a_hint_raises_the_cadence(self):
+        self.assertEqual(
+            poll.query_interval_seconds(
+                parked=True, is_charging=False, scan_interval=60,
+                parked_scan_interval=900, charging_hint=True,
+            ),
+            60,
+        )
+
+    def test_without_a_hint_a_parked_car_keeps_the_slow_cadence(self):
+        self.assertEqual(
+            poll.query_interval_seconds(
+                parked=True, is_charging=False, scan_interval=60,
+                parked_scan_interval=900,
+            ),
+            900,
+        )
+
+    def test_charging_still_wins(self):
+        self.assertEqual(
+            poll.query_interval_seconds(
+                parked=False, is_charging=True, scan_interval=60,
+                parked_scan_interval=900, charging_hint=True,
+            ),
+            60,
+        )
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
 

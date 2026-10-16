@@ -981,7 +981,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def _send_periodic_query(_now: Any) -> None:
         now = time.time()
         active = coordinator.is_charging or coordinator.vehicle_parked is False
-        min_gap = scan_interval if active else parked_scan_interval
+        # An external charging hint raises the cadence but NOT the kind of query:
+        # `active` alone decides whether we may force-upload, because that is the
+        # only thing here that can wake a car, and the hint is someone else's word
+        # for what the car is doing. Asking a genuinely charging car passively is
+        # enough - it is awake, so it answers with a full state (observed
+        # 2026-10-17: the reloads' passive queries returned full states the moment
+        # the session started, after hours of stubs).
+        hint = coordinator.external_charging_hint
+        min_gap = poll_status.query_interval_seconds(
+            coordinator.vehicle_parked,
+            coordinator.is_charging,
+            scan_interval,
+            parked_scan_interval,
+            hint,
+        )
         if now - query_timer_state["last_sent"] < min_gap:
             return
         query_timer_state["last_sent"] = now
@@ -1288,7 +1302,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "escalations": 0,
     }
     SILENCE_THRESHOLD = 300  # silence this long with socket up → suspect stuck
-    RECONNECT_BACKOFF = 600  # don't reconnect again within this window
+    RECONNECT_BACKOFF = 600  # active/charging: the car is awake, reconnects are cheap
+    # Parked, a reconnect is close to pointless and not free: the car answers a
+    # stub whether or not we tear the session down, so the rebuild buys nothing
+    # (measured 2026-10-17: 59 watchdog reconnects overnight, 50 of the day's
+    # refusals, and one full state - from the escalation, not from a reconnect).
+    # Cloud-side only either way: a passive query cannot wake a parked car, which
+    # is why 30 minutes here costs the car nothing at all.
+    PARKED_RECONNECT_BACKOFF = 1800
 
     async def _silence_watchdog(_now: Any) -> None:
         try:
@@ -1362,9 +1383,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # refresh+reconnect and holds the same reconnect lock.
         if refresh_state.get("refreshing"):
             return
+        parked = coordinator.vehicle_parked is not False and not coordinator.is_charging
+        reconnect_backoff = (
+            PARKED_RECONNECT_BACKOFF if parked else RECONNECT_BACKOFF
+        )
         if not mqtt_client.connected:
             since_last = time.time() - watchdog_state["last_reconnect"]
-            if since_last < RECONNECT_BACKOFF:
+            if since_last < reconnect_backoff:
                 return
             _LOGGER.warning(
                 "Watchdog: MQTT disconnected (last any-topic message %.0fs ago) "
@@ -1393,7 +1418,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             pass
         elif (
             since_last := time.time() - watchdog_state["last_reconnect"]
-        ) < RECONNECT_BACKOFF:
+        ) < reconnect_backoff:
             _LOGGER.debug(
                 "Watchdog: %.0fs silent but last reconnect was %.0fs ago — backing off",
                 silence, since_last,

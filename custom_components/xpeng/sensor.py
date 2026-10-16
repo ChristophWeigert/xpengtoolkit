@@ -445,6 +445,9 @@ class XPengPollingStatusSensor(XPengPolledSensor):
             self.coordinator.is_charging,
             float(status.get("scan_interval_seconds") or 0.0),
             float(status.get("parked_scan_interval_seconds") or 0.0),
+            # Reported, not acted on: the sensor has to describe the cadence the
+            # timer is actually using, hint included.
+            self.coordinator.external_charging_hint,
         )
         attrs: dict[str, Any] = {
             "cadence": "active" if active else "parked",

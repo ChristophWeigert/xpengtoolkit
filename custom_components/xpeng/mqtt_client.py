@@ -106,6 +106,11 @@ class XPengMQTTClient:
     ) -> None:
         self._client_id = client_id
         self._password = password
+        # When the password we hold was handed to us. A refusal is only a bug in
+        # our rotation if the credential was still current at the time - which is
+        # what this makes checkable, instead of guessing (measured 2026-10-17: 50
+        # refusals overnight, cause unknown).
+        self._password_set_at = time.time()
         # The password the CURRENT paho client was built with. The credential
         # refresh replaces `_password` every ~45s while the live client keeps
         # authenticating with this one, so the two drift apart - and a refusal
@@ -404,6 +409,7 @@ class XPengMQTTClient:
                 self._user_id = parts[2]
         if password:
             self._password = password
+            self._password_set_at = time.time()
         if server:
             self._server = server
 
@@ -639,7 +645,21 @@ class XPengMQTTClient:
             # Subscribe to listener topics after primary subscription
             self._subscribe_listener_topics()
         else:
-            _LOGGER.error("XPENG MQTT connection refused: rc=%s (rc_str=%s)", rc, rc_str)
+            age = time.time() - self._password_set_at
+            # Two very different problems, told apart by one number: a password
+            # the rotation superseded mid-connect (our bug, and a fixable one) or
+            # one that is seconds old and refused anyway (the broker/account
+            # side). The 45s rotation is the line to read them against.
+            _LOGGER.error(
+                "XPENG MQTT connection refused: rc=%s (rc_str=%s; credential "
+                "staged %.0fs ago - %s)",
+                rc,
+                rc_str,
+                age,
+                "superseded by our own rotation"
+                if age > 60
+                else "current, so the broker refused a fresh credential",
+            )
             self._connected = False
             # A refused CONNECT does not necessarily raise _on_disconnect, so the
             # sync there may never have run. Do it here too, before anything

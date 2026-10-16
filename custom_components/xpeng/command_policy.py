@@ -197,6 +197,9 @@ SERVICE_GROUPS: Mapping[str, str] = {
     # Queries and data. These cost nothing physically; they read state, push
     # content at the car's screen, or tidy server-side state.
     "force_update": GROUP_QUERIES,
+    # Changes how often we ask, never whether we may wake anything: the queries it
+    # raises are passive, so it belongs with the queries and data group.
+    "charging_hint": GROUP_QUERIES,
     "check_ota": GROUP_QUERIES,
     "list_hvac_schedules": GROUP_QUERIES,
     "capture_snapshot": GROUP_QUERIES,

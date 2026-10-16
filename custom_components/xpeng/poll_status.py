@@ -60,9 +60,19 @@ def query_interval_seconds(
     is_charging: bool,
     scan_interval: float,
     parked_scan_interval: float,
+    charging_hint: bool = False,
 ) -> float:
-    """How often the periodic MQTT query is allowed to fire right now."""
-    return scan_interval if is_active(parked, is_charging) else parked_scan_interval
+    """How often the periodic MQTT query is allowed to fire right now.
+
+    ``charging_hint`` raises the cadence without claiming the car is awake: it is
+    how an external charger says a session may be starting, so we ask more often
+    instead of waiting for the car to admit it. Whether those asks may *wake* the
+    car is the caller's decision and is not this function's business - see
+    ``_send_periodic_query``, which keeps them passive.
+    """
+    if is_active(parked, is_charging) or charging_hint:
+        return scan_interval
+    return parked_scan_interval
 
 
 def next_query_at(last_sent: float, now: float, interval: float) -> float:
