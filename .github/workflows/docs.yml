@@ -1,14 +1,11 @@
 name: Docs
 
-# Manual on purpose: the site is reviewed before it is published. Add
-#
-#   push:
-#     branches: [main]
-#     paths: ["www/**"]
-#
-# below once that is no longer wanted, and enable Pages
-# (Settings -> Pages -> Source: GitHub Actions).
+# Publish on a push that touches the site, and keep the manual trigger for
+# re-deploying without a docs change.
 on:
+  push:
+    branches: [main]
+    paths: ["www/**"]
   workflow_dispatch:
 
 permissions:
