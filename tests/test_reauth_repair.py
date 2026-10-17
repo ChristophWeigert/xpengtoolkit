@@ -359,7 +359,42 @@ class TestReauthRepair(unittest.TestCase):
     def test_successful_refresh_clears_the_card(self):
         """Otherwise the user stares at a problem they already fixed."""
         self.mod._clear_reauth_repair(_Hass(), _Entry())
-        self.assertEqual(self.registry.deleted, [("xpeng", "reauth_required")])
+        self.assertIn(("xpeng", "reauth_required"), self.registry.deleted)
+
+    def test_it_clears_home_assistants_own_card_too(self):
+        """HA's reauth card is only cleared by HA's own flow, so clear it here.
+
+        Measured 2026-10-17: the card was raised at 11:50, the unattended renewal
+        app imported a fresh pair at 11:54, the entities worked again - and the
+        card was still in Settings -> Repairs, because only *our* issue id was
+        deleted. The id is HA's, spelled out in the code and asserted here against
+        the exact string the live registry showed for this entry.
+        """
+        entry = _Entry(entry_id="01M4SK7V1B95KZFPGFGZGK0CM9")
+        self.assertEqual(
+            self.mod._ha_reauth_issue_id(entry),
+            "config_entry_reauth_xpeng_01M4SK7V1B95KZFPGFGZGK0CM9",
+        )
+        self.mod._clear_reauth_repair(_Hass(), entry)
+        self.assertIn(
+            ("xpeng", "config_entry_reauth_xpeng_01M4SK7V1B95KZFPGFGZGK0CM9"),
+            self.registry.deleted,
+        )
+
+    def test_reauth_waits_for_the_unattended_renewal(self):
+        """A few quick failures must not outrun a renewal that takes minutes.
+
+        The failures arrive every 45-60s, so five of them is five minutes, while a
+        renewal app check plus a slider-captcha login took eleven. Asking first
+        raises a re-onboarding card for credentials that fix themselves.
+        """
+        source = (COMPONENT / "__init__.py").read_text(encoding="utf-8")
+        self.assertIn("REAUTH_MIN_FAILING_SECONDS = 600", source)
+        self.assertIn("and failing_for >= REAUTH_MIN_FAILING_SECONDS", source)
+        # The clock has to start on the first failure and be cleared on success, or
+        # the window never elapses (or never resets).
+        self.assertIn('if not refresh_state.get("first_failure_at"):', source)
+        self.assertIn('refresh_state["first_failure_at"] = 0.0', source)
 
     def test_translation_keys_match_the_code(self):
         """The card and the flow must have text for every key they reference.

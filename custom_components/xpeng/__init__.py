@@ -75,6 +75,16 @@ _LOGGER = logging.getLogger(__name__)
 AUTH_FAILURE_BASE_COOLDOWN = 60  # seconds (doubles each failure)
 AUTH_FAILURE_MAX_BACKOFF = 900  # 15 minutes max
 AUTH_FAILURE_REAUTH_THRESHOLD = 5  # trigger reauth UI after this many consecutive failures
+#: ...and only after this long failing, as well as that many times.
+#:
+#: Five failures arrive in about five minutes (the retry cooldowns are 45-60s), and
+#: an unattended renewal takes longer than that: its validity check runs on a poll
+#: and a full login solves the slider captcha, which took 61s on its own when
+#: measured on 2026-10-17 (token expired 11:42, card raised 11:50, renewal imported
+#: 11:54). Asking before the route that actually works has had its turn produces a
+#: re-onboarding card for credentials that fix themselves - which is what the
+#: user saw. Ten minutes lets the renewal win the race it should win.
+REAUTH_MIN_FAILING_SECONDS = 600
 
 # Stable id for the persistent Repairs card raised when the credentials can no
 # longer be renewed. One per domain is enough: it names the affected entry in
@@ -162,16 +172,36 @@ def _raise_reauth_repair(
         # Never let a UI nicety break credential handling.
         _LOGGER.debug("could not create repair issue", exc_info=True)
 
+def _ha_reauth_issue_id(entry: ConfigEntry) -> str:
+    """Home Assistant's own reauth card id for this entry.
+
+    ``entry.async_start_reauth()`` creates an issue of its own, and HA only clears
+    it when *its* flow finishes. That is the wrong ending for an unattended
+    install: the renewal app imports a fresh token pair on its own schedule, the
+    credentials work again, and the card stays (measured 2026-10-17: card raised
+    11:50, renewal app imported at 11:54, card still listed minutes later). The id
+    is HA's, so it is spelled out here rather than imported — observed verbatim in
+    the live registry as ``config_entry_reauth_xpeng_01M4SK7V1B95KZFPGFGZGK0CM9``.
+    """
+    return f"config_entry_reauth_{DOMAIN}_{entry.entry_id}"
+
+
 def _clear_reauth_repair(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Remove the Repairs card once credentials work again."""
+    """Remove the Repairs cards once credentials work again.
+
+    Both of them: ours, and HA's own reauth prompt. Deleting ours alone was why an
+    unattended renewal left a "credentials expired, reauthenticate" card behind
+    while the entities were already working.
+    """
     try:
         from homeassistant.helpers import issue_registry as ir
     except Exception:  # pragma: no cover
         return
-    try:
-        ir.async_delete_issue(hass, DOMAIN, _REAUTH_ISSUE_ID)
-    except Exception:
-        _LOGGER.debug("could not delete repair issue", exc_info=True)
+    for issue_id in (_REAUTH_ISSUE_ID, _ha_reauth_issue_id(entry)):
+        try:
+            ir.async_delete_issue(hass, DOMAIN, issue_id)
+        except Exception:
+            _LOGGER.debug("could not delete repair issue %s", issue_id, exc_info=True)
 
 def _record_credential_success(refresh_state: dict | None) -> None:
     """Mark the credential loop healthy, for the credentials-valid sensor.
@@ -672,6 +702,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # records) and why it last did not.
         "last_success_at": None,
         "last_error": None,
+        # When the current run of failures began, for REAUTH_MIN_FAILING_SECONDS.
+        "first_failure_at": 0.0,
     }
 
     # 1b. Mint a FRESH MQTT credential before the first connect.
@@ -2123,6 +2155,7 @@ async def _handle_auth_failure(
 
             # Reset failure counter on success
             refresh_state["consecutive_failures"] = 0
+            refresh_state["first_failure_at"] = 0.0
 
             # Credentials work again, so any Repairs card about them is stale.
             _clear_reauth_repair(hass, entry)
@@ -2162,6 +2195,8 @@ async def _handle_auth_failure(
             # Increment failure counter
             refresh_state["consecutive_failures"] += 1
             failures = refresh_state["consecutive_failures"]
+            if not refresh_state.get("first_failure_at"):
+                refresh_state["first_failure_at"] = time.time()
             next_cooldown = min(
                 AUTH_FAILURE_BASE_COOLDOWN * (2 ** failures),
                 AUTH_FAILURE_MAX_BACKOFF,
@@ -2176,13 +2211,27 @@ async def _handle_auth_failure(
                 refresh_state, "credential refresh returned no password"
             )
 
-            # Trigger reauth UI after threshold consecutive failures
-            if failures >= AUTH_FAILURE_REAUTH_THRESHOLD:
+            # Trigger reauth UI after enough consecutive failures *and* enough
+            # time for the unattended renewal to have had its turn.
+            failing_for = time.time() - (
+                refresh_state.get("first_failure_at") or time.time()
+            )
+            if (
+                failures >= AUTH_FAILURE_REAUTH_THRESHOLD
+                and failing_for >= REAUTH_MIN_FAILING_SECONDS
+            ):
                 _LOGGER.warning(
-                    "Auth failed %d consecutive times — triggering re-authentication flow",
-                    failures,
+                    "Auth failed %d times over %.0f min — triggering "
+                    "re-authentication flow",
+                    failures, failing_for / 60,
                 )
                 _start_reauth_if_idle(hass, entry)
+            elif failures >= AUTH_FAILURE_REAUTH_THRESHOLD:
+                _LOGGER.info(
+                    "Auth failed %d times (%.0fs) — waiting for the renewal app "
+                    "before asking for re-onboarding",
+                    failures, failing_for,
+                )
 
     except Exception as err:
         refresh_state["consecutive_failures"] += 1
