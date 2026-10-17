@@ -146,13 +146,31 @@ Both are signed with XPENG's app-tier scheme, and both need the client key.
 
 ### Data arrives by push, not by polling
 
-There is no `update()` loop. A single long-lived MQTT connection is opened at
-startup, and the broker pushes vehicle state onto it. A passive coordinator
-receives those frames on the client's network thread and hands them to Home
-Assistant, which notifies entities that the data changed.
+There is no `update()` loop for vehicle state. A single long-lived MQTT
+connection is opened at startup, and the broker pushes vehicle state onto it. A
+passive coordinator receives those frames on the client's network thread and
+hands them to Home Assistant, which notifies entities that the data changed. The
+coordinator has no update interval; nothing pulls a value out of the cloud on a
+schedule.
 
 That is why entities update the instant the car reports something, and why they
 hold their last known value when it doesn't.
+
+That is not the same as "the integration never asks": three timers run, and none
+of them is a pull loop over the state.
+
+- The **MQTT query timer** sends the car a request to upload (`scan_interval`
+  while it is awake, `parked_scan_interval` while parked). The answer still
+  arrives as a broker push - the timer asks, it does not collect.
+- The **REST poll** fetches what MQTT does not carry - vehicle image, XOS
+  version, energy report and similar supplements - every `rest_scan_interval`
+  while active, slowing to the parked interval when parked.
+- The **Message Centre poll** fetches notifications every
+  `notification_poll_interval`.
+
+A handful of **diagnostic sensors** also poll themselves every 30 s, because
+their values change with no data arriving at all: credential age, polling
+status, the next-poll estimate.
 
 ### The car does not get woken up
 

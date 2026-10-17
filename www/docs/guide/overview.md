@@ -40,13 +40,24 @@ both need the client certificate described in [Certificates](./certificates).
 
 ## Data arrives by push, not by polling
 
-There is no `update()` loop. A single long-lived MQTT connection is opened at
-startup, and the broker pushes vehicle state onto it. A passive coordinator
-receives those frames on the client's network thread and hands them to Home
-Assistant, which notifies entities that the data changed.
+There is no `update()` loop for vehicle state. A single long-lived MQTT
+connection is opened at startup, and the broker pushes vehicle state onto it. A
+passive coordinator receives those frames on the client's network thread and
+hands them to Home Assistant, which notifies entities that the data changed. The
+coordinator has no update interval; nothing pulls a value out of the cloud on a
+schedule.
 
 That is why entities update the instant the car reports something, and why they
 hold their last known value when it does not.
+
+That is not the same as "the integration never asks". Three timers run, and none
+of them is a pull loop over the state: the **MQTT query timer** asks the car to
+upload (the answer still arrives as a push - see the next section and the
+[timer options](../reference/options#polling-intervals)), the **REST poll**
+fetches the supplementary data MQTT does not carry, and the **Message Centre
+poll** fetches notifications. A few **diagnostic sensors** also poll themselves
+every 30 s, for values that change with no data arriving — credential age,
+polling status, the next-poll estimate.
 
 ## The car is not woken up
 

@@ -30,3 +30,10 @@ in [`.cursor/rules/publish-identity.mdc`](.cursor/rules/publish-identity.mdc).
 - Releases: bump `custom_components/xpeng/manifest.json`, commit with a `0.4.x:` title,
   tag `v0.4.x`, then `gh release create 0.4.x`. The companion app is versioned
   separately in `xpeng_renew/config.yaml`.
+
+  On this exFAT workspace `git add -A` occasionally misses the file you just wrote
+  (git's stat cache cannot see the coarse mtime change). Re-run
+  `git add custom_components/xpeng/manifest.json` explicitly and check
+  `git show HEAD:custom_components/xpeng/manifest.json | grep version` before
+  tagging - a release whose manifest still says the previous version makes HACS
+  offer the update forever.
