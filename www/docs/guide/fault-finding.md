@@ -35,7 +35,7 @@ Measured on a live install, before and after a restart:
 | --- | --- | --- |
 | live paho clients | 2 | **1** |
 | entities `unknown` | 97 / 124 | **20 / 124** |
-| `last_data_update` | `No data` | live |
+| `last_data_update` | A timestamp plus a small `age_seconds` | `unknown` (no vehicle data yet since start) |
 | `polling_status` | `Reconnecting` | `Parked` |
 
 Once it has settled it stays healthy — headless, with the phone app signed out,

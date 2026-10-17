@@ -292,10 +292,24 @@ class XPengXosVersionSensor(XPengEntity, SensorEntity):
 
 
 class XPengLastUpdateSensor(XPengEntity, SensorEntity):
-    """Shows when vehicle data was last received."""
+    """Shows when vehicle data was last received — as a timestamp.
+
+    This used to return a formatted string ("18 Oct 2026 12:06:56 AM"), which
+    Home Assistant cannot localise or age, and which dashboards then rendered in
+    whatever wording the writer happened to choose (reported by a user
+    2026-10-17). `device_class: timestamp` makes HA do both: it shows the time in
+    the reader's own timezone/locale and offers "x minutes ago" itself.
+
+    Kept as its original entity id (`..._last_data_update`) rather than folded
+    into the newer ``..._last_data_timestamp``, so existing dashboards and
+    automations keep working; both now report the same timestamp. The formatted
+    `timestamp`/`age_seconds` attributes are still published for templates that
+    read them.
+    """
 
     _attr_has_entity_name = True
     _attr_translation_key = "last_update"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
     _attr_icon = "mdi:clock-check-outline"
 
     def __init__(self, coordinator: XPengDataCoordinator) -> None:
@@ -303,15 +317,14 @@ class XPengLastUpdateSensor(XPengEntity, SensorEntity):
         self._attr_unique_id = f"xpeng_{self._vin}_last_update"
 
     @property
-    def native_value(self) -> str | None:
-        ts = self.coordinator.last_data_timestamp
-        if ts is None:
-            return "No data"
-        return ts.astimezone().strftime("%d %b %Y %I:%M:%S %p")
+    def native_value(self) -> datetime | None:
+        # A timestamp sensor must hand Home Assistant a datetime (or None for
+        # unknown), never a sentinel string.
+        return getattr(self.coordinator, "last_data_timestamp", None)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        ts = self.coordinator.last_data_timestamp
+        ts = getattr(self.coordinator, "last_data_timestamp", None)
         if ts is None:
             return {}
         age = int((datetime.now(timezone.utc) - ts).total_seconds())
@@ -329,10 +342,10 @@ class XPengLastDataUpdateSensor(XPengEntity, SensorEntity):
     "how long ago" is computed when the page is drawn instead of being frozen
     into the text at write time.
 
-    How this sits next to ``XPengLastUpdateSensor``: that older sensor reports
-    the same field (``coordinator.last_data_timestamp``) as a formatted string
-    with `timestamp`/`age_seconds` attributes. This one is the entity to build
-    automations and history graphs on.
+    How this sits next to ``XPengLastUpdateSensor``: both report the same field
+    (``coordinator.last_data_timestamp``) and both are now `timestamp` sensors;
+    the older entity id is kept because dashboards already use it. This one is
+    the entity to build new automations on.
 
     Note the entity id: ``..._last_data_timestamp``, not ``..._last_data_update``.
     The object id is derived from the translated *name*, and

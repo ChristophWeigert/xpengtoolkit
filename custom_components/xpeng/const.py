@@ -76,16 +76,19 @@ def _parse_ota_status(v: Any) -> str:
     }.get(status, f"Unknown ({status})")
 
 
-def _parse_ota_timestamp(v: Any) -> str | None:
-    """Parse OTA timestamp to local human-readable format."""
+def _parse_ota_timestamp(v: Any) -> Any:
+    """Parse the OTA timestamp into a UTC datetime for a `timestamp` sensor.
+
+    It used to be a pre-formatted local string; the entity is a `timestamp`
+    sensor now, so Home Assistant localises it and can age it (same reason as
+    `last_data_update`). `None` means unknown, never a sentinel string.
+    """
     ota = _parse_ota(v)
     ts = ota.get("timestamp")
     if not ts:
         return None
     try:
-        utc_time = _dt.fromtimestamp(ts / 1000, tz=_tz.utc)
-        local_time = utc_time.astimezone()
-        return local_time.strftime("%d %b %Y %I:%M %p")
+        return _dt.fromtimestamp(ts / 1000, tz=_tz.utc)
     except (ValueError, TypeError, OSError):
         return None
 
@@ -618,6 +621,7 @@ SENSOR_DESCRIPTIONS: tuple[XPengSensorEntityDescription, ...] = (
     XPengSensorEntityDescription(
         key="ota_last_checked",
         translation_key="ota_last_checked",
+        device_class=SensorDeviceClass.TIMESTAMP,
         value_path="msg_content.digital_vehicle.ota",
         icon="mdi:clock-check-outline",
         value_fn=lambda v: _parse_ota_timestamp(v),
