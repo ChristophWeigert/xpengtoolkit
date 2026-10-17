@@ -174,7 +174,7 @@
           "mqtt_refresh_interval": "How often to refresh MQTT credentials via API (10-300 seconds)",
           "rest_scan_interval": "How often to poll REST API for vehicle image and XOS version (60-3600 seconds)",
           "mqtt_listener_enabled": "Subscribe to additional MQTT topics beyond the primary vehicle state topic",
-          "mqtt_listener_topics": "Additional MQTT topics to subscribe to (one per line, or comma-separated). Supports MQTT wildcards (+ and #).",
+          "mqtt_listener_topics": "Additional MQTT topics to subscribe to (one per line, or comma-separated). Supports MQTT wildcards (+ and #), and expands the device-id and user-id placeholders described under MQTT listener in the documentation - e.g. the app's device push channel. The listener sensor records whether the broker granted each topic.",
           "mqtt_topic_discovery": "Automatically try subscribing to known XPENG broker topics (CanPack, StatPack, etc.) to discover accessible data",
           "capture_enabled": "Write every frame from the topics below to a binary journal for offline decoding, without decoding or updating entities per frame.",
           "capture_path": "Where captures are written. Use a path outside /config - /share is not carried into every backup. Falls back to <config>/xpeng-can if it cannot be created.",
