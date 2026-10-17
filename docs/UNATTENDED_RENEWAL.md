@@ -271,8 +271,10 @@ on a dashboard, while `last_triggered` is only visible in the automation's attri
 
 ### Why a helper, and 6000 seconds
 
-`credentials_valid` carries `age_s`, but that is the time since the last *mint*
-(about 45 seconds while healthy), not the age of the session — useless for this.
+`credentials_valid` carries `age_s`, but that is the time since the last *mint* —
+and with mint-on-demand a long-lived session has no recent mint at all, so it can be
+minutes or hours old while perfectly healthy — not the age of the session, and
+useless for this.
 What matters is when the last **login** happened, and a renewal *is* a login, so
 "last successful renewal" is exactly the right clock. Stamping `input_datetime` on
 success is what makes that visible in Home Assistant - the app's own answer is

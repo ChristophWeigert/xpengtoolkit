@@ -4,6 +4,7 @@ from __future__ import annotations
 import functools
 import logging
 import os
+import threading
 import time
 from datetime import timedelta
 from typing import Any
@@ -708,6 +709,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # 1b. Mint a FRESH MQTT credential before the first connect.
     #
+    # Its expiry rides into the client, so the first connect does not mint again
+    # (mint-on-demand only mints when the credential in hand has lapsed).
+    initial_expires_at = 0.0
+    #
     # The stored `password` comes from the token file's `mqttAccount`, which was
     # minted whenever onboarding last ran. Those expire in 45-90s
     # (`expires_in=72s` observed), so on any restart more than a minute later the
@@ -724,6 +729,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _refresh_creds_sync, entry, refresh_state
         )
         if _fresh and _fresh.get("password"):
+            from .mqtt_client import expires_at_from_account
+
+            initial_expires_at = expires_at_from_account(_fresh)
             client_id_new = _fresh.get("clientId") or ""
             if client_id_new:
                 client_id = client_id_new
@@ -743,7 +751,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 _fresh.get("expiresIn", "?"),
             )
     except Exception as err:
-        # Never block setup: the refresh timer is still there as the safety net.
+        # Never block setup: the refresh timer is still there as the safety net,
+        # and the client mints on demand when it needs a credential.
         _record_credential_failure(
             refresh_state, f"startup credential mint failed: {err}"
         )
@@ -753,13 +762,69 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
 
     # 2. Create MQTT client
+    #
+    # The device id the broker authenticated rides in the account clientId
+    # (`xmart:app:<uid>:<deviceId>`; the app appends `:2.0:V<version>` before it
+    # connects). It is what identity-scoped topics are built from, so the
+    # device-scoped push channel the app subscribes can be probed as
+    # `Xp/Msg/Push/{device_id}` in the listener option.
+    _cid_parts = str(client_id or "").split(":")
+    mqtt_device_id = (
+        _cid_parts[3].strip() if len(_cid_parts) >= 4 else ""
+    ) or configured_device_id
     mqtt_client = XPengMQTTClient(
         client_id=client_id,
         password=password,
         server=server,
         user_id=user_id,
+        device_id=mqtt_device_id,
         cert_dir=cert_dir,
+        expires_at=initial_expires_at,
     )
+
+    # Mint on demand: the app's model. A credential is minted immediately before
+    # a connect when the one in hand has lapsed (``hasAccount()``'s uid +
+    # expireTime gate), and a live session is never rotated. That is what keeps
+    # the mint count low - and, since every mint/rotation is a chance for the
+    # broker to see a superseded password, what keeps the refusals away.
+    #
+    # The provider runs on the thread that is about to connect (an executor or a
+    # timer thread), so it may block; the lock keeps it from racing the timer.
+    _mint_lock = threading.Lock()
+
+    def _mint_with_lock() -> dict[str, Any] | None:
+        with _mint_lock:
+            return _refresh_creds_sync(entry, refresh_state)
+
+    def _persist_minted_credentials(minted: dict[str, Any]) -> None:
+        """Write a minted credential to the entry and stamp the sensor (loop)."""
+        password_new = str(minted.get("password") or "")
+        client_id_new = str(minted.get("clientId") or "")
+        if not password_new:
+            return
+        coordinator.set_credential_timestamp()
+        refresh_state["skip_reload"] = True
+        data = {**entry.data, CONF_PASSWORD: password_new}
+        if client_id_new:
+            data[CONF_CLIENT_ID] = client_id_new
+        hass.config_entries.async_update_entry(entry, data=data)
+
+    def _mint_for_connect() -> dict[str, Any] | None:
+        """Blocking provider the client calls when a connect needs a credential."""
+        from .mqtt_client import expires_at_from_account
+
+        minted = _mint_with_lock()
+        if not minted or not minted.get("password"):
+            return None
+        hass.loop.call_soon_threadsafe(_persist_minted_credentials, minted)
+        return {
+            "clientId": minted.get("clientId", ""),
+            "password": minted["password"],
+            "serverSsl": minted.get("serverSsl", ""),
+            "expires_at": expires_at_from_account(minted),
+        }
+
+    mqtt_client.set_credentials_provider(_mint_for_connect)
 
     # Publish the same directory for the REST client. Its helpers are called
     # with config=None throughout, so without this the REST path would use the
@@ -775,6 +840,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     configured_device_id = _resolve_configured_device_id(
         hass, entry, tenant_file, configured_device_id
     )
+
+    if configured_device_id and not mqtt_client.device_id:
+        # Older 3-field clientId: the resolved identity is the only source.
+        mqtt_client.set_device_id(configured_device_id)
+
+    if mqtt_client.device_id:
+        _LOGGER.info(
+            "XPENG device id %s — device push channel %s (the listener option "
+            "accepts Xp/Msg/Push/{device_id})",
+            mqtt_client.device_id,
+            mqtt_client.push_topic,
+        )
 
     # Publish the same id for the REST client (mirrors set_cert_dir above).
     try:
@@ -856,6 +933,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # 3b. Wire push notification callback (msg_type=3)
     def _on_push_notification(notification: dict) -> None:
+        # ACCOUNT_KICK_OFF: the account signed in elsewhere. In practice that is
+        # the local renewal app, which must log in to mint the next pair and then
+        # imports it. Tell the client so it retries quietly instead of minting on
+        # every refused CONNECT while the import lands.
+        # Imported here rather than at module scope: the test harnesses stub
+        # mqtt_client down to the symbols setup itself needs, and this helper is
+        # only ever called from the paho thread in a real install.
+        from .mqtt_client import is_account_takeover
+
+        if is_account_takeover(notification):
+            mqtt_client.note_account_takeover(str(notification.get("message") or ""))
         hass.loop.call_soon_threadsafe(
             coordinator.record_notification, notification
         )
@@ -881,7 +969,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     from .mqtt_client import parse_listener_topics
 
-    listener_topics = parse_listener_topics(listener_topics_raw)
+    listener_topics = parse_listener_topics(
+        listener_topics_raw,
+        device_id=mqtt_client.device_id,
+        user_id=user_id,
+    )
 
     capture_recorder = None
     if capture_enabled:
@@ -1075,11 +1167,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
 
         async def _refresh_mqtt_creds(_now: Any) -> None:
-            """Proactively refresh MQTT credentials via API."""
+            """Safety-net refresh: only when disconnected and out of credential.
+
+            Mint-on-demand moved the ordinary refresh to the connect path, which
+            is what the app does. This timer exists for the cases where nothing is
+            going to call ``connect()`` soon: a session that is down and stays
+            down. While a session is connected with a usable credential there is
+            nothing to mint, so it returns without an API call - the difference
+            between the old ~80 mints an hour and roughly one per reconnect.
+            """
+            if mqtt_client.connected or not mqtt_client.credentials_expired:
+                # Connected: the next reconnect mints on demand, and rotating
+                # now is what produced the refusals. Disconnected with a live
+                # credential: nothing to mint yet either.
+                return
             try:
-                new_creds = await hass.async_add_executor_job(
-                    _refresh_creds_sync, entry, refresh_state
-                )
+                from .mqtt_client import expires_at_from_account
+
+                new_creds = await hass.async_add_executor_job(_mint_with_lock)
                 if new_creds and new_creds.get("password"):
                     new_pw = new_creds["password"]
                     new_cid = new_creds.get("clientId", "")
@@ -1101,7 +1206,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     cid_changed = bool(new_cid) and new_cid != mqtt_client._client_id
                     if pw_changed or cid_changed:
                         mqtt_client.stage_credentials(
-                            client_id=new_cid, password=new_pw
+                            client_id=new_cid,
+                            password=new_pw,
+                            expires_at=expires_at_from_account(new_creds),
                         )
                         refresh_state["skip_reload"] = True
                         updated = {**entry.data, CONF_PASSWORD: new_pw}
@@ -1473,9 +1580,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     _refresh_creds_sync, entry, refresh_state
                 )
                 if fresh and fresh.get("password"):
+                    from .mqtt_client import expires_at_from_account
+
                     new_cid = fresh.get("clientId") or ""
                     mqtt_client.stage_credentials(
-                        client_id=new_cid, password=fresh["password"]
+                        client_id=new_cid,
+                        password=fresh["password"],
+                        expires_at=expires_at_from_account(fresh),
                     )
                     # INFO, not DEBUG: this is the evidence that the safety
                     # step before a teardown actually ran.
@@ -2095,6 +2206,19 @@ async def _handle_auth_failure(
         _LOGGER.warning("Credential refresh already in progress, skipping")
         return
 
+    # A refused CONNECT right after our own reconnect, or after a takeover notice
+    # from the renewal app, is the previous session still ending - not a bad
+    # credential. Minting cannot fix it (measured 2026-10-17: these bursts clear
+    # in 45-90 s on their own), so the client retries with the credential in hand
+    # and we stay out of the way. If the refusals outlast the grace, the client
+    # calls back here normally and this guard no longer matches.
+    if getattr(mqtt_client, "settling", False):
+        _LOGGER.info(
+            "MQTT auth failure while the session settles (own reconnect or "
+            "renewal import) - not minting"
+        )
+        return
+
     # Exponential backoff based on consecutive failures
     failures = refresh_state["consecutive_failures"]
     cooldown = min(
@@ -2175,8 +2299,12 @@ async def _handle_auth_failure(
             # Stage new credentials, then reconnect via the client's reconnect
             # lock so this can't collide with the silence watchdog and spawn a
             # second paho client on the same clientId.
+            from .mqtt_client import expires_at_from_account
+
             mqtt_client.stage_credentials(
-                client_id=new_client_id, password=new_password
+                client_id=new_client_id,
+                password=new_password,
+                expires_at=expires_at_from_account(new_creds),
             )
             did = await hass.async_add_executor_job(
                 mqtt_client.reconnect, "auth-failure: fresh credentials"

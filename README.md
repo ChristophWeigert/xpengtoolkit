@@ -182,8 +182,12 @@ clients under one account is the failure described in
 
 ### Credentials rotate, and the identity is per-install
 
-The MQTT password is short-lived and is re-minted from your login tokens every
-`mqtt_refresh_interval` (default 45s) - independent of the car's state.
+The MQTT password is short-lived (about 60-90 s). It is **minted on demand**:
+immediately before a connection, if the one in hand has lapsed - the same gate the
+official app uses - and an established session is never re-minted.
+`mqtt_refresh_interval` (default 45 s) is the retry cadence while disconnected and
+the staleness bound behind `binary_sensor.xpeng_<vehicle>_credentials_valid`, not a
+rotation timer.
 
 Each installation also mints its **own device identity** on first run, and that
 identity is signed into the requests and embedded in the MQTT client ID. The

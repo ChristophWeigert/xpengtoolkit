@@ -210,6 +210,28 @@ class TestCredentialsHealth(unittest.TestCase):
         self.assertFalse(result["valid"])
         self.assertEqual(result["reason"], "3 consecutive failures")
 
+    def test_a_live_connection_is_valid_without_a_recent_mint(self):
+        """Mint-on-demand: while connected there are no mints to stamp the sensor."""
+        result = _health(
+            last_success=NOW - 600,
+            connected=True,
+        )
+        self.assertTrue(result["valid"])
+        self.assertEqual(result["reason"], health.REASON_CONNECTED)
+
+    def test_connected_with_no_success_ever_is_still_valid(self):
+        result = _health(last_success=None, connected=True)
+        self.assertTrue(result["valid"])
+        self.assertEqual(result["reason"], health.REASON_CONNECTED)
+
+    def test_a_refusal_invalidates_even_a_live_connection(self):
+        result = _health(connected=True, consecutive_failures=1)
+        self.assertFalse(result["valid"])
+
+    def test_disconnected_still_uses_the_staleness_rule(self):
+        result = _health(last_success=NOW - 600, connected=False)
+        self.assertFalse(result["valid"])
+
     def test_never_succeeded_says_so(self):
         result = _health(last_success=None)
         self.assertFalse(result["valid"])
@@ -493,7 +515,13 @@ class TestShippedWiring(unittest.TestCase):
             with self.subTest(where=where, guards=guards):
                 self.assertIn(
                     where,
-                    ("_refresh_mqtt_creds", "_handle_auth_failure"),
+                    (
+                        "_refresh_mqtt_creds",
+                        "_handle_auth_failure",
+                        # Mint-on-demand: the provider only schedules this with a
+                        # minted password in hand, so it is a success site too.
+                        "_persist_minted_credentials",
+                    ),
                     f"credential_timestamp is stamped at {where}, which is not a "
                     "site where a mint succeeded",
                 )

@@ -33,6 +33,11 @@ STALE_INTERVALS = 3
 #: The loop is doing its job.
 REASON_OK = "ok"
 
+#: A live MQTT session is running with no failure recorded. With mint-on-demand
+#: (the app's model) there are deliberately no successful mints while connected,
+#: so "last mint age" alone would call a perfectly healthy session stale.
+REASON_CONNECTED = "connected, no failures recorded"
+
 #: Nothing has succeeded yet this session — a fresh start, or a login that has
 #: never once worked. Distinct from stale, and worth wording differently: it
 #: points at onboarding, not at a blip.
@@ -96,6 +101,7 @@ def credentials_health(
     last_success: float | None,
     consecutive_failures: int,
     refresh_interval: int,
+    connected: bool = False,
 ) -> dict:
     """Decide whether the MQTT credential loop is healthy right now.
 
@@ -105,8 +111,13 @@ def credentials_health(
     Returns ``{"valid", "age_s", "stale_after_s", "reason"}``:
 
     * ``stale_after_s`` — ``3 * refresh_interval``.
-    * ``valid`` — True only when something has succeeded, that success is no
-      older than ``stale_after_s``, and nothing has failed since.
+    * ``valid`` — True when a live connection exists with no recorded failure;
+      otherwise only when something has succeeded, that success is no older than
+      ``stale_after_s``, and nothing has failed since. The credential is minted on
+      demand before a connection now (the app's model), so while a session is up
+      there are *no* recent mints to point at — a healthy connection is its own
+      evidence, and without that rule the renewal app's validity poll would see
+      "stale" and renew every few minutes, evicting the very session it saw.
     * ``reason`` — a short phrase for the entity's attributes, because an off
       sensor with no explanation is the complaint this whole feature answers.
     """
@@ -116,6 +127,19 @@ def credentials_health(
     failures = int(as_float(consecutive_failures, 0.0) or 0.0)
 
     success = as_float(last_success)
+
+    if connected and failures == 0:
+        # Mint-on-demand: nothing is minted while a session is live, so a fresh
+        # success timestamp cannot be the test. A working connection with no
+        # refusal on record is.
+        return {
+            "valid": True,
+            "age_s": (
+                int(as_float(now, 0.0) - success) if success is not None else None
+            ),
+            "stale_after_s": stale_after_s,
+            "reason": REASON_CONNECTED,
+        }
     if success is None:
         return {
             "valid": False,

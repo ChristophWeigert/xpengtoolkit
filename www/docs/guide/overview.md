@@ -75,7 +75,7 @@ The timing defaults, all options on the integration under
 | --- | --- | --- |
 | MQTT query interval (`scan_interval`) | 60 s | the force-upload cadence while charging or driving |
 | Parked query interval (`parked_scan_interval`) | 3600 s | the passive-query cadence while parked |
-| MQTT credential refresh interval (`mqtt_refresh_interval`) | 45 s | how often the short-lived MQTT password is re-minted |
+| MQTT credential safety-net interval (`mqtt_refresh_interval`) | 45 s | retry cadence while disconnected, and the age bound behind `credentials_valid` |
 | REST API poll interval (`rest_scan_interval`) | 300 s | REST-sourced data such as the vehicle image and XOS version |
 | Certificate directory (`cert_dir`) | `/config/custom_components/xpeng/certs` | where the three mTLS files live |
 
@@ -97,8 +97,10 @@ fan-out cannot turn into a car woken on a schedule. See
 
 ## Credentials rotate, and the identity is per-install
 
-The MQTT password is short-lived and is re-minted from your login tokens every
-`mqtt_refresh_interval` (default 45 s), independent of the car's state.
+The MQTT password is short-lived (about 60-90 s) and is **minted on demand**: right
+before a connection, if the credential in hand has lapsed. That is the app's own
+model - a live session is never re-minted, so a healthy install makes one API call
+per (re)connect instead of one every 45 s.
 
 If the login token has aged out, the refresh recognises XPENG's
 `12010101`/`12010104` "Login status expired" response, renews the token and

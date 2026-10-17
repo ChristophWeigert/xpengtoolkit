@@ -77,12 +77,140 @@ def build_tls_context(cert_dir: str | Path) -> ssl.SSLContext:
     return ctx
 
 
-def parse_listener_topics(raw: str) -> list[str]:
-    """Parse newline/comma-separated MQTT topics from user input."""
+#: Prefix of the app's device-scoped push channel. Unlike every other topic the
+#: XPENG app uses, this one is keyed by the device identity rather than the
+#: account uid: the app subscribes ``Xp/Msg/Push/<deviceId>`` on every connect at
+#: QoS 2 (MqttClient$MqttConnectListener.onSuccess, app 3.11.0). It carries
+#: push/IM notifications (a ``messageId`` + ``content`` envelope whose
+#: ``content.msgType`` is ``"CMD"``), not vehicle state, and is never retained.
+PUSH_TOPIC_PREFIX: Final = "Xp/Msg/Push/"
+
+#: The account/takeover notice the broker pushes to ``$client/<clientId>``:
+#: ``service_type 17`` (USER_LOGOUT_SERVICE) + ``code 4003007``
+#: (ACCOUNT_KICK_OFF). It means "this account signed in on another device" -
+#: in practice the local renewal app, which must log in to mint a fresh pair and
+#: then imports it. The integration's job is to stay quiet and wait for that
+#: import, not to treat it as an auth failure.
+ACCOUNT_TAKEOVER_SERVICE: Final = 17
+ACCOUNT_TAKEOVER_CODE: Final = 4003007
+
+#: How long after our own reconnect a CONNECT refusal is read as "the broker is
+#: still settling the previous session" rather than an auth problem. Measured
+#: 2026-10-17: these bursts clear in 45-90 s with no action (both installs).
+SETTLE_WINDOW_SECONDS: Final = 120
+#: Quiet retries (same credential, no mint) before the auth-failure path may run.
+SETTLE_RETRY_DELAYS: Final = (10, 20)
+#: After a takeover notice, the renewal's import normally lands within seconds;
+#: this grace covers a slow captcha solve, and suppresses minting meanwhile.
+TAKEOVER_GRACE_SECONDS: Final = 300
+
+#: Mint this many seconds before the server-issued expiry, so a password is never
+#: used after it has lapsed while a connection attempt is being made. Live
+#: measurements give a 60-90s lifetime.
+CREDENTIAL_EXPIRY_MARGIN: Final = 15.0
+
+
+def expires_at_from_account(account: dict | None) -> float:
+    """Epoch seconds at which a minted MQTT credential stops being usable, or 0.
+
+    ``createMqttAccount`` returns ``expireTime`` as epoch milliseconds (the app
+    compares it with ``System.currentTimeMillis()``); ``expireInSec`` is the
+    integration's derived "seconds from now" convenience. Zero means "unknown",
+    which callers treat as expired - mint before use rather than guess.
+    """
+    if not isinstance(account, dict):
+        return 0.0
+    try:
+        expire_time = float(account.get("expireTime") or 0.0)
+    except (TypeError, ValueError):
+        expire_time = 0.0
+    if expire_time > 1e11:
+        # Anything above ~year 5138 in seconds is really milliseconds.
+        return expire_time / 1000.0
+    try:
+        expire_in = float(account.get("expireInSec") or 0.0)
+    except (TypeError, ValueError):
+        expire_in = 0.0
+    if expire_in > 0:
+        return time.time() + expire_in
+    return 0.0
+
+
+def is_account_takeover(notification: dict) -> bool:
+    """True when a parsed push notification is the ACCOUNT_KICK_OFF notice."""
+    if not isinstance(notification, dict):
+        return False
+    try:
+        service = int(notification.get("service_type") or 0)
+        code = int(notification.get("code") or 0)
+    except (TypeError, ValueError):
+        return False
+    return service == ACCOUNT_TAKEOVER_SERVICE and code == ACCOUNT_TAKEOVER_CODE
+
+#: Placeholders expanded in listener topics from the identity this install signs
+#: as, so an identity-scoped topic can be typed instead of pasted:
+#: ``Xp/Msg/Push/{device_id}`` (the device push channel) or
+#: ``Mona/Msg/User/{user_id}`` (sister brand), for example.
+TOPIC_PLACEHOLDERS: Final = ("device_id", "user_id")
+
+
+def _device_id_from_client_id(client_id: str) -> str:
+    """The device id embedded in an XPENG MQTT clientId, or "".
+
+    Both clientId schemas put it in the fourth ``:``-delimited segment:
+    ``xmart:app:<uid>:<deviceId>`` is what the API returns, and the app appends
+    ``:2.0:V<versionName>`` before connecting. The broker's ACL is bound to that
+    identity, so the segment is the safe source for an identity-scoped topic.
+    """
+    parts = (client_id or "").split(":")
+    if len(parts) >= 4:
+        return parts[3].strip()
+    return ""
+
+
+def unresolved_topic_placeholders(topic: str) -> list[str]:
+    """Placeholder names still present in ``topic`` (empty when all resolved)."""
+    return [name for name in TOPIC_PLACEHOLDERS if "{" + name + "}" in topic]
+
+
+def substitute_topic_placeholders(
+    topic: str, *, device_id: str = "", user_id: str = ""
+) -> str:
+    """Expand ``{device_id}`` / ``{user_id}`` in one listener topic.
+
+    A placeholder with no value is left as typed; ``configure_listener()`` then
+    drops that topic with a warning, because subscribing the literal string would
+    only earn a refusal and repeat it on every reconnect.
+    """
+    values = {
+        "device_id": (device_id or "").strip(),
+        "user_id": (user_id or "").strip(),
+    }
+    out = topic
+    for name, value in values.items():
+        if value:
+            out = out.replace("{" + name + "}", value)
+    return out
+
+
+def parse_listener_topics(
+    raw: str, *, device_id: str = "", user_id: str = ""
+) -> list[str]:
+    """Parse newline/comma-separated MQTT topics from user input.
+
+    ``{device_id}`` and ``{user_id}`` are expanded when a value is supplied, so an
+    identity-scoped topic survives a credential refresh without being retyped.
+    The 512-character cap is applied after expansion.
+    """
     topics: list[str] = []
     for chunk in raw.replace(",", "\n").splitlines():
         topic = chunk.strip()
-        if topic and len(topic) <= 512:
+        if not topic:
+            continue
+        topic = substitute_topic_placeholders(
+            topic, device_id=device_id, user_id=user_id
+        )
+        if len(topic) <= 512:
             topics.append(topic)
     return topics
 
@@ -102,7 +230,9 @@ class XPengMQTTClient:
         password: str,
         server: str,
         user_id: str,
+        device_id: str = "",
         cert_dir: str | Path | None = None,
+        expires_at: float = 0.0,
     ) -> None:
         self._client_id = client_id
         self._password = password
@@ -118,6 +248,12 @@ class XPengMQTTClient:
         self._client_password = ""
         self._server = server
         self._user_id = user_id
+        # The device identity the broker authenticated, used only to build
+        # identity-scoped topics (PUSH_TOPIC_PREFIX). Derived from the clientId
+        # when not supplied, so existing callers need no change.
+        self._device_id = (device_id or "").strip() or _device_id_from_client_id(
+            client_id
+        )
         # Where the mTLS material lives. Falls back to the bundled certs dir
         # for callers that predate the cert_dir option.
         self._cert_dir = Path(cert_dir) if cert_dir else CERT_DIR
@@ -165,6 +301,18 @@ class XPengMQTTClient:
         # callback, clientId rotation). Without this they stack and produce two
         # paho clients sharing one clientId that kick each other off the broker.
         self._reconnect_lock = threading.Lock()
+        # Settling bookkeeping: a CONNECT refused while the previous session is
+        # still being torn down (ours) or replaced (renewal) is retried with the
+        # same credential before anything is minted. See SETTLE_RETRY_DELAYS.
+        self._last_reconnect_at: float = 0.0
+        self._settle_refusals: int = 0
+        # When the credential in hand stops working, and the callback that mints a
+        # new one on demand (the app's model: mint immediately before connecting,
+        # never on a timer).
+        self._expires_at: float = float(expires_at or 0.0)
+        self._credentials_provider: Callable[[], dict[str, Any] | None] | None = None
+        self._takeover_at: float = 0.0
+        self._settle_timer: threading.Timer | None = None
 
     @property
     def connected(self) -> bool:
@@ -228,6 +376,30 @@ class XPengMQTTClient:
         Currently unparsed; messages route to listener path for observation.
         """
         return f"Xmart/MsgV2/User/{self._user_id}"
+
+    @property
+    def device_id(self) -> str:
+        """The device id embedded in the authenticated clientId (or "")."""
+        return self._device_id
+
+    def set_device_id(self, device_id: str) -> None:
+        """Set the device id when it could not be derived at construction.
+
+        The account clientId normally carries it; this covers an older 3-field
+        clientId, where the entry's resolved device id is the only source.
+        """
+        self._device_id = (device_id or "").strip()
+
+    @property
+    def push_topic(self) -> str:
+        """The device-scoped push channel, or "" when the id is unknown.
+
+        ``Xp/Msg/Push/<deviceId>`` is the topic the XPENG app subscribes on every
+        connect. Vehicle state does not need it; it is exposed so a listener
+        topic can be built from the same identity the broker authenticated
+        (``Xp/Msg/Push/{device_id}`` in the options).
+        """
+        return f"{PUSH_TOPIC_PREFIX}{self._device_id}" if self._device_id else ""
 
     def set_state_callback(
         self, callback: Callable[[dict[str, Any]], None]
@@ -293,7 +465,21 @@ class XPengMQTTClient:
         the two are configured separately and an install can have either alone.
         """
         self._listener_enabled = enabled
-        self._listener_topics = list(topics)
+        self._listener_topics = []
+        for topic in topics:
+            expanded = substitute_topic_placeholders(
+                topic, device_id=self._device_id, user_id=self._user_id
+            )
+            missing = unresolved_topic_placeholders(expanded)
+            if missing:
+                _LOGGER.warning(
+                    "MQTT listener topic %r needs %s, which this install does "
+                    "not know; dropping it",
+                    topic,
+                    ", ".join("{" + name + "}" for name in missing),
+                )
+                continue
+            self._listener_topics.append(expanded)
         self._discovery_enabled = discovery_enabled
         if discovery_enabled:
             for candidate in discovery_candidates:
@@ -322,9 +508,16 @@ class XPengMQTTClient:
                 )
 
     def connect(self) -> None:
-        """Create client, configure TLS, connect, start loop. Called ONCE."""
+        """Create client, configure TLS, connect, start loop. Called ONCE.
+
+        Mint-on-demand: if the server-issued credential has lapsed, a fresh one
+        is minted here, immediately before the CONNECT - never on a timer. Runs
+        on an executor/timer thread in every caller, so the provider may block.
+        """
         if self._client is not None:
             self.disconnect()
+
+        self._ensure_credentials()
 
         _LOGGER.info(
             "Creating XPENG MQTT client: server=%s user_id=%s",
@@ -391,6 +584,7 @@ class XPengMQTTClient:
         client_id: str = "",
         password: str = "",
         server: str = "",
+        expires_at: float = 0.0,
     ) -> None:
         """Stage a minted account for the next connect, without connecting.
 
@@ -410,10 +604,12 @@ class XPengMQTTClient:
         if password:
             self._password = password
             self._password_set_at = time.time()
+        if expires_at:
+            self._expires_at = float(expires_at)
         if server:
             self._server = server
 
-    def reconnect(self, reason: str = "") -> bool:
+    def reconnect(self, reason: str = "", *, settle: bool = False) -> bool:
         """Tear down and rebuild the client, serialised against other callers.
 
         The silence watchdog, the auth-failure callback and the clientId-
@@ -431,11 +627,127 @@ class XPengMQTTClient:
             return False
         try:
             _LOGGER.info("MQTT reconnect (%s)", reason or "unspecified")
+            self._cancel_settle_retry()
+            if not settle:
+                # Only a real trigger (watchdog, reload, credential import) opens
+                # the settle window. A settle retry must not extend its own
+                # excuse, or the auth-failure escalation could never resume.
+                self._last_reconnect_at = time.time()
             # connect() tears down any existing client first.
             self.connect()
             return True
         finally:
             self._reconnect_lock.release()
+
+    # ── mint on demand (the app's model) ──────────────────────────────────
+
+    def set_credentials_provider(
+        self, provider: Callable[[], dict[str, Any] | None] | None
+    ) -> None:
+        """Install the callback that mints a fresh credential when one is needed.
+
+        The callback runs synchronously on whatever thread is about to connect -
+        every connect path in the integration is already an executor or timer
+        thread - and returns a dict with ``client_id``/``password``/``server``/
+        ``expires_at`` (or None when minting failed). Minting on demand is what
+        the XPENG app does: ``hasAccount()`` (uid + expireTime) gates a mint in
+        ``checkConnect``, and a live session is never rotated.
+        """
+        self._credentials_provider = provider
+
+    @property
+    def expires_at(self) -> float:
+        """Epoch seconds when the credential in hand expires (0 = unknown)."""
+        return self._expires_at
+
+    @property
+    def credentials_expired(self) -> bool:
+        """Whether a connection attempt needs a fresh credential first."""
+        return self._expires_at <= 0.0 or (
+            time.time() >= self._expires_at - CREDENTIAL_EXPIRY_MARGIN
+        )
+
+    def _ensure_credentials(self) -> None:
+        """Mint before connecting when the credential in hand has lapsed."""
+        provider = self._credentials_provider
+        if provider is None or not self.credentials_expired:
+            return
+        try:
+            minted = provider()
+        except Exception:  # noqa: BLE001 - connecting with the old one may still work
+            _LOGGER.warning(
+                "On-demand MQTT credential mint failed; trying the credential in hand",
+                exc_info=True,
+            )
+            return
+        if not minted or not minted.get("password"):
+            _LOGGER.warning(
+                "On-demand MQTT credential mint returned nothing; trying the "
+                "credential in hand"
+            )
+            return
+        self.stage_credentials(
+            client_id=str(minted.get("client_id") or minted.get("clientId") or ""),
+            password=str(minted["password"]),
+            server=str(minted.get("server") or minted.get("serverSsl") or ""),
+            expires_at=float(minted.get("expires_at") or 0.0),
+        )
+        _LOGGER.debug(
+            "Minted an MQTT credential on demand (expires in %.0fs)",
+            self._expires_at - time.time(),
+        )
+
+    # ── settling: a refused CONNECT is not always an auth failure ──────────
+
+    @property
+    def settling(self) -> bool:
+        """True while a refused CONNECT may just be the previous session ending.
+
+        Two situations produce one: our own reconnect (watchdog, reload) and a
+        takeover notice from the renewal app, which logs in to mint the new pair
+        and imports it moments later. Minting cannot fix either, so the
+        auth-failure path must not run yet.
+        """
+        now = time.time()
+        return (
+            now - self._last_reconnect_at <= SETTLE_WINDOW_SECONDS
+            or now - self._takeover_at <= TAKEOVER_GRACE_SECONDS
+        )
+
+    def note_account_takeover(self, message: str = "") -> None:
+        """Record the broker's ACCOUNT_KICK_OFF notice and stay quiet for a while.
+
+        Called from the notification path. The renewal app logs in on this same
+        account (that is how it renews), which evicts this client; it then imports
+        a fresh pair. Logging in elsewhere is not an error here.
+        """
+        self._takeover_at = time.time()
+        self._settle_refusals = 0
+        _LOGGER.info(
+            "Account signed in elsewhere%s - expecting a credential import; "
+            "CONNECT retries stay quiet for %.0fs",
+            f" ({message})" if message else "",
+            TAKEOVER_GRACE_SECONDS,
+        )
+
+    def _cancel_settle_retry(self) -> None:
+        timer = self._settle_timer
+        self._settle_timer = None
+        if timer is not None:
+            timer.cancel()
+
+    def _schedule_settle_retry(self, delay: float) -> None:
+        self._cancel_settle_retry()
+        timer = threading.Timer(delay, self._settle_retry)
+        timer.daemon = True
+        self._settle_timer = timer
+        timer.start()
+
+    def _settle_retry(self) -> None:
+        """Retry the connection with the credential already staged (no mint)."""
+        if self._connected or self._client is None:
+            return
+        self.reconnect("settling: retry after refused CONNECT", settle=True)
 
     def disconnect(self) -> None:
         """Disconnect and stop the network loop. Safe to call more than once.
@@ -454,6 +766,7 @@ class XPengMQTTClient:
         client = self._client
         if client is None:
             return
+        self._cancel_settle_retry()
         _LOGGER.info(
             "Disconnecting XPENG MQTT client (clientId=%s)", self._client_id
         )
@@ -638,6 +951,8 @@ class XPengMQTTClient:
                          self.recv_topic, self.recv_topic_v2)
             self._connected = True
             self._last_msg_ts = time.time()
+            self._settle_refusals = 0
+            self._cancel_settle_retry()
             client.subscribe(self.recv_topic, qos=1)
             # V2 protocol — log payloads via the listener path so we can
             # characterise their shape before deciding how to parse them.
@@ -650,6 +965,52 @@ class XPengMQTTClient:
             # the rotation superseded mid-connect (our bug, and a fixable one) or
             # one that is seconds old and refused anyway (the broker/account
             # side). The 45s rotation is the line to read them against.
+            self._connected = False
+            # A refused CONNECT does not necessarily raise _on_disconnect, so the
+            # sync there may never have run. Do it here too, before anything
+            # else: whichever way the retry resolves, it should present the
+            # credential we actually hold.
+            self._apply_current_credentials()
+
+            if self.settling and self._settle_refusals < len(SETTLE_RETRY_DELAYS):
+                # The previous session is still being torn down (ours) or
+                # replaced (renewal). Minting cannot help - measured 2026-10-17:
+                # these bursts clear in 45-90 s on their own. Retry quietly with
+                # the same credential instead of falling into the minting loop.
+                delay = SETTLE_RETRY_DELAYS[self._settle_refusals]
+                self._settle_refusals += 1
+                _LOGGER.warning(
+                    "XPENG MQTT connection refused: rc=%s (%s); credential "
+                    "staged %.0fs ago - session still settling, retry %d/%d in %ds "
+                    "without minting",
+                    rc,
+                    rc_str,
+                    age,
+                    self._settle_refusals,
+                    len(SETTLE_RETRY_DELAYS),
+                    delay,
+                )
+                self._schedule_settle_retry(delay)
+                return
+
+            if self.settling:
+                # Short retries spent, but the grace window is still open (a
+                # renewal import can take a captcha solve). Keep retrying quietly;
+                # once the grace expires this branch stops matching and the normal
+                # auth path - including escalation - resumes.
+                delay = SETTLE_RETRY_DELAYS[-1] * 2
+                _LOGGER.warning(
+                    "XPENG MQTT connection refused: rc=%s (%s); credential "
+                    "staged %.0fs ago - still settling, retrying in %ds without "
+                    "minting",
+                    rc,
+                    rc_str,
+                    age,
+                    delay,
+                )
+                self._schedule_settle_retry(delay)
+                return
+
             _LOGGER.error(
                 "XPENG MQTT connection refused: rc=%s (rc_str=%s; credential "
                 "staged %.0fs ago - %s)",
@@ -660,14 +1021,7 @@ class XPengMQTTClient:
                 if age > 60
                 else "current, so the broker refused a fresh credential",
             )
-            self._connected = False
-            # A refused CONNECT does not necessarily raise _on_disconnect, so the
-            # sync there may never have run. Do it here too, before anything
-            # else: whichever way the callback below resolves, paho's next retry
-            # should present the credential we actually hold. Without this the
-            # retry repeats the same refused password and the refusal repeats.
-            self._apply_current_credentials()
-            # Trigger credential refresh on any auth failure
+            # Trigger credential refresh on a refusal that is not a settling one
             if self._auth_failure_callback:
                 _LOGGER.warning("Triggering credential refresh callback")
                 self._auth_failure_callback()

@@ -34,6 +34,16 @@ PAIR_SOURCE = os.path.join(VENDOR, "custom_components", "xpeng")
 DEVICE_ID_FILE = "/data/device_id.txt"
 NOTIFY_AFTER = 2
 
+#: A pair that has already been minted is delivered on its own, without logging in
+#: again: the login is what evicts the integration's MQTT session, so re-logging in
+#: to fix an import failure only lengthens the outage (measured 2026-10-17: a
+#: scheduled renewal logged in, the import failed with 502 while Home Assistant was
+#: restarting, and the install stayed dark until the next attempt).
+RETRY_IMPORT_SECONDS = 60
+#: A failure *before* a pair exists (solver, captcha, login, mint) has evicted
+#: nothing, so it can wait - and should, because every attempt costs a slider solve.
+RETRY_LOGIN_SECONDS = 300
+
 
 def _options() -> dict:
     path = os.environ.get("OPTIONS_PATH", "/data/options.json")
@@ -141,6 +151,11 @@ STATE = {
     "renewals": 0,
     "failures": 0,
     "consecutive_failures": 0,
+    #: A pair was minted (so the integration's session was evicted) but could not
+    #: be delivered. The scheduler retries the *delivery* every
+    #: RETRY_IMPORT_SECONDS, without another login.
+    "pending_import": False,
+    "import_retries": 0,
     "running": False,
     "last": None,
     # Reported by /healthz so the schedule is as visible as it was when an
@@ -332,6 +347,30 @@ def _existing_entry() -> dict | None:
     return None
 
 
+def _entry_state() -> str:
+    """Whether an XPENG entry is present, absent, or unknown because HA is down.
+
+    The distinction is the whole of the failed-renewal window: "no entry" means
+    bootstrap one from the pair, while "could not ask" means Home Assistant is
+    restarting or unreachable and the pair already minted should simply be
+    *retried*, not used to create a second entry. Before this existed, a renewal
+    that ran during an HA restart treated the 502 as "no entry", tried to start a
+    config flow, failed, and left the integration evicted with a good pair on disk
+    (measured 2026-10-17 21:48).
+    """
+    status, body = _core_json("/config/config_entries/entry", method="GET")
+    if status != 200 or not isinstance(body, list):
+        return "unknown"
+    for entry in body:
+        if (
+            isinstance(entry, dict)
+            and entry.get("domain") == "xpeng"
+            and not entry.get("disabled_by")
+        ):
+            return "present"
+    return "absent"
+
+
 def _vin_from_pair(pair_dir: str) -> str:
     """The VIN recorded in the token file, or "".
 
@@ -453,8 +492,101 @@ def _notify(title: str, message: str) -> None:
     )
 
 
+def _pair_on_disk() -> bool:
+    """Whether a complete minted pair is waiting in PAIR_DIR to be delivered."""
+    return all(
+        os.path.isfile(os.path.join(PAIR_DIR, name))
+        for name in ("xpeng_tokens.json", "xpeng_tenant.json")
+    )
+
+
+def _pair_is_fresh(max_age_s: int = 3600) -> bool:
+    """Whether the pair on disk was minted recently enough to be worth delivering.
+
+    A pair from days ago is almost certainly one that was already imported (the app
+    leaves it behind), and delivering it again would replace a working credential
+    with an older one. An hour is comfortably longer than any outage this exists to
+    shorten, and comfortably shorter than the renewal interval.
+    """
+    if not _pair_on_disk():
+        return False
+    newest = 0.0
+    for name in ("xpeng_tokens.json", "xpeng_tenant.json"):
+        try:
+            newest = max(newest, os.path.getmtime(os.path.join(PAIR_DIR, name)))
+        except OSError:
+            return False
+    return (time.time() - newest) <= max_age_s
+
+
+def _deliver_pair(pair_dir: str) -> dict:
+    """Get a minted pair into Home Assistant. Never logs in.
+
+    Three outcomes matter, and they are told apart by ``_entry_state()``:
+
+    * ``present`` - call ``xpeng.import_credentials``, which validates the pair
+      before swapping anything;
+    * ``absent``  - a fresh install. ``import_credentials`` does not exist until
+      an entry does (component setup only runs once one exists), so drive the
+      config flow instead and treat the created entry as the delivery. This is
+      what makes the first renewal finish with no human;
+    * ``unknown`` - Home Assistant is restarting or unreachable. The pair is
+      minted and safe on disk, so report it as retryable *delivery* rather than
+      as a failed renewal: another login would mint yet another pair and evict
+      whatever session had just come back.
+
+    ``retry_import`` in the result says whether another attempt at *this* pair
+    is worth making without logging in again.
+    """
+    state = _entry_state()
+
+    if state == "absent":
+        bootstrapped, outcome = _bootstrap_entry(pair_dir)
+        if not bootstrapped:
+            return {
+                "ok": False,
+                "error": outcome,
+                "retry_import": True,
+            }
+        return {"ok": True, "bootstrapped": outcome}
+
+    if state == "unknown":
+        return {
+            "ok": False,
+            "error": (
+                "Home Assistant was unreachable while delivering the fresh pair "
+                "(it may be restarting); the pair is saved and will be retried "
+                "without another login"
+            ),
+            "retry_import": True,
+        }
+
+    # ?return_response is mandatory, not a nicety: the integration registers this
+    # service with SupportsResponse.ONLY, and Home Assistant refuses a call that
+    # does not ask for the response with HTTP 400 "Service call requires responses
+    # but caller did not ask for responses". The response is also the import
+    # result - entry id, VIN, device id, client id.
+    status, body = _call_service(
+        "/services/xpeng/import_credentials?return_response",
+        {
+            "tokens_path": os.path.join(pair_dir, "xpeng_tokens.json"),
+            "tenant_path": os.path.join(pair_dir, "xpeng_tenant.json"),
+        },
+    )
+    if status != 200:
+        # A 4xx is the pair being rejected (bad/expired tokens, a mismatch): a new
+        # login is the only cure. 0/5xx is Home Assistant being unavailable, which
+        # this pair survives - retry the delivery, do not mint again.
+        return {
+            "ok": False,
+            "error": "import_credentials returned %s: %s" % (status, body),
+            "retry_import": status == 0 or status >= 500,
+        }
+    return {"ok": True, "imported": body}
+
+
 def renew() -> dict:
-    """One renewal, start to finish. Never raises."""
+    """One full renewal: log in, mint a pair, deliver it. Never raises."""
     started = time.time()
     if not EMAIL or not PASSWORD:
         return {"ok": False, "error": "email/password are not configured"}
@@ -462,57 +594,53 @@ def renew() -> dict:
     try:
         ok, detail = _mint_pair()
         if not ok:
-            return {"ok": False, "error": detail, "ms": int((time.time() - started) * 1000)}
-
-        pair_dir = _publish_pair()
-
-        # A fresh install has no entry, and with no entry `import_credentials`
-        # cannot run at all - the service is not registered until one exists. Create
-        # it from the pair that was just minted, which is also what registers the
-        # service, and treat that as the renewal: the flow stores this same pair.
-        if _existing_entry() is None:
-            bootstrapped, outcome = _bootstrap_entry(pair_dir)
-            if not bootstrapped:
-                return {
-                    "ok": False,
-                    "error": outcome,
-                    "ms": int((time.time() - started) * 1000),
-                }
-            return {
-                "ok": True,
-                "bootstrapped": outcome,
-                "onboarding": detail,
-                "ms": int((time.time() - started) * 1000),
-            }
-
-        # ?return_response is mandatory, not a nicety: the integration registers
-        # this service with SupportsResponse.ONLY, and Home Assistant refuses a
-        # call that does not ask for the response with HTTP 400 "Service call
-        # requires responses but caller did not ask for responses". The response
-        # is also the import result - entry id, VIN, device id, client id.
-        status, body = _call_service(
-            "/services/xpeng/import_credentials?return_response",
-            {
-                "tokens_path": os.path.join(pair_dir, "xpeng_tokens.json"),
-                "tenant_path": os.path.join(pair_dir, "xpeng_tenant.json"),
-            },
-        )
-        if status != 200:
+            # Nothing was minted, so nothing was evicted: retrying can wait, and
+            # should - every attempt costs a slider solve.
             return {
                 "ok": False,
-                "error": "import_credentials returned %s: %s" % (status, body),
+                "error": detail,
+                "retry_import": False,
+                "retry_in": RETRY_LOGIN_SECONDS,
                 "ms": int((time.time() - started) * 1000),
             }
+
+        pair_dir = _publish_pair()
+        result = _deliver_pair(pair_dir)
+        result["onboarding"] = detail
+        result["ms"] = int((time.time() - started) * 1000)
+        return result
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": "onboarding timed out", "ms": int((time.time() - started) * 1000)}
+    except Exception as exc:  # noqa: BLE001
         return {
-            "ok": True,
-            "imported": body,
-            "onboarding": detail,
+            "ok": False,
+            "error": "%s: %s" % (type(exc).__name__, exc),
             "ms": int((time.time() - started) * 1000),
         }
-    except subprocess.TimeoutExpired:
-        return {"ok": False, "error": "onboarding timed out"}
-    except Exception as exc:  # noqa: BLE001
-        return {"ok": False, "error": "%s: %s" % (type(exc).__name__, exc)}
+
+
+def retry_pending_import() -> dict:
+    """Deliver the pair already on disk, without logging in again."""
+    started = time.time()
+    if not _pair_on_disk():
+        return {
+            "ok": False,
+            "error": "no minted pair on disk to import",
+            "retry_import": False,
+            "ms": 0,
+        }
+    result = _deliver_pair(PAIR_DIR)
+    result["ms"] = int((time.time() - started) * 1000)
+    return result
+
+
+def _next_delay(result: dict) -> int:
+    """How long to wait before the next attempt, from what the attempt returned."""
+    if result.get("ok"):
+        return RENEW_INTERVAL
+    if result.get("retry_import"):
+        return RETRY_IMPORT_SECONDS
+    return max(RETRY_IMPORT_SECONDS, int(result.get("retry_in") or RETRY_LOGIN_SECONDS))
 
 
 def _no_entry_yet() -> bool:
@@ -530,15 +658,7 @@ def _no_entry_yet() -> bool:
     2026-10-13 on a real install - the entry was also still holding the VIN as its
     unique_id, so the flow would have refused to create a replacement either way).
     """
-    status, body = _core_json("/config/config_entries/entry", method="GET")
-    if status != 200 or not isinstance(body, list):
-        return False
-    return not any(
-        isinstance(entry, dict)
-        and entry.get("domain") == "xpeng"
-        and not entry.get("disabled_by")
-        for entry in body
-    )
+    return _entry_state() == "absent"
 
 
 def _credentials_entity() -> str:
@@ -622,7 +742,19 @@ def _scheduler(tick: float | None = None) -> None:
     # that wait is what made "trigger it once by hand" a documented step.
     if _no_entry_yet():
         _log("no config entry yet: renewing now to create it")
-        _run_locked()
+        result = _run_locked()
+        if not result["ok"] and result.get("retry_import"):
+            STATE["pending_import"] = True
+    elif _pair_on_disk() and _pair_is_fresh() and _credentials_invalid():
+        # The add-on restarted between minting a pair and delivering it (a build,
+        # a supervisor restart): the login has already evicted the session, so the
+        # pair on disk is the thing to deliver - and doing it now, without a new
+        # login, is what keeps this window short.
+        STATE["pending_import"] = True
+        _log(
+            "credentials are invalid and a freshly minted pair is on disk: "
+            "delivering it without another login"
+        )
 
     STATE["next_run"] = time.time() + RENEW_INTERVAL
     # 10s floor so a misconfigured zero cannot become a hot loop. `tick` lets a test
@@ -633,7 +765,13 @@ def _scheduler(tick: float | None = None) -> None:
         % (RENEW_INTERVAL, interval)
     )
     while True:
-        time.sleep(interval)
+        # Sleep until the next attempt is actually due, not just until the next
+        # tick: a retryable delivery failure waits RETRY_IMPORT_SECONDS, and a
+        # 300s poll would turn 60 seconds into five minutes of dark.
+        sleep_for = interval
+        if STATE["next_run"]:
+            sleep_for = min(interval, max(5, STATE["next_run"] - time.time()))
+        time.sleep(sleep_for)
         reason = _renewal_due(time.time(), STATE["next_run"], _credentials_invalid())
         if not reason:
             continue
@@ -641,11 +779,40 @@ def _scheduler(tick: float | None = None) -> None:
         if result.get("error") == "a renewal is already running":
             _log("scheduler: a renewal is already running, will retry")
             continue
-        STATE["next_run"] = time.time() + RENEW_INTERVAL
+        delay = _next_delay(result)
+        STATE["next_run"] = time.time() + delay
         STATE["schedule_reason"] = reason
         _log(
-            "scheduler: renewed (%s) ok=%s next in %ds"
-            % (reason, result.get("ok"), RENEW_INTERVAL)
+            "scheduler: %s (%s) ok=%s next in %ds%s"
+            % (
+                "delivered saved pair" if STATE["last"].get("kind") == "import"
+                else "renewed",
+                reason,
+                result.get("ok"),
+                delay,
+                " (pending import)" if STATE["pending_import"] else "",
+            )
+        )
+
+
+def _record_result(result: dict, kind: str = "renew") -> None:
+    """Counters and the user-facing notification, for one attempt."""
+    if kind == "renew":
+        STATE["renewals"] += 1
+    STATE["last"] = {**result, "at": time.time(), "kind": kind}
+    if result["ok"]:
+        STATE["consecutive_failures"] = 0
+        _log("%s ok in %sms" % (kind, result.get("ms")))
+        _notify("XPENG credentials renewed", "A fresh token pair was imported.")
+        return
+    STATE["failures"] += 1
+    STATE["consecutive_failures"] += 1
+    _log("%s failed: %s" % (kind, result.get("error")))
+    if STATE["consecutive_failures"] >= NOTIFY_AFTER:
+        _notify(
+            "XPENG renewal failing",
+            "The last %d delivery attempts failed. Most recent reason: %s"
+            % (STATE["consecutive_failures"], str(result.get("error"))[:300]),
         )
 
 
@@ -654,23 +821,29 @@ def _run_locked() -> dict:
         return {"ok": False, "error": "a renewal is already running"}
     try:
         STATE["running"] = True
+
+        # A pair minted but not delivered is delivered on its own first. The login
+        # that minted it already evicted the integration's session, so repeating
+        # the login to fix a delivery failure would only lengthen the outage.
+        if STATE["pending_import"]:
+            STATE["import_retries"] += 1
+            result = retry_pending_import()
+            if result["ok"] or result.get("retry_import"):
+                STATE["pending_import"] = not result["ok"]
+                _record_result(result, kind="import")
+                return result
+            # The pair itself was refused (not a transient HA failure), so only a
+            # fresh login can help now.
+            STATE["pending_import"] = False
+            _log(
+                "the saved pair was refused (%s); minting a new one"
+                % result.get("error")
+            )
+
         result = renew()
-        STATE["renewals"] += 1
-        STATE["last"] = {**result, "at": time.time()}
-        if result["ok"]:
-            STATE["consecutive_failures"] = 0
-            _log("renewal ok in %sms" % result.get("ms"))
-            _notify("XPENG credentials renewed", "A fresh token pair was imported.")
-        else:
-            STATE["failures"] += 1
-            STATE["consecutive_failures"] += 1
-            _log("renewal failed: %s" % result.get("error"))
-            if STATE["consecutive_failures"] >= NOTIFY_AFTER:
-                _notify(
-                    "XPENG renewal failing",
-                    "The last %d renewal attempts failed. Most recent reason: %s"
-                    % (STATE["consecutive_failures"], str(result.get("error"))[:300]),
-                )
+        if not result["ok"] and result.get("retry_import"):
+            STATE["pending_import"] = True
+        _record_result(result)
         return result
     finally:
         STATE["running"] = False
@@ -696,6 +869,8 @@ class Handler(BaseHTTPRequestHandler):
             "failures": STATE["failures"],
             "consecutive_failures": STATE["consecutive_failures"],
             "running": STATE["running"],
+            "pending_import": STATE["pending_import"],
+            "import_retries": STATE["import_retries"],
             "last": STATE["last"],
             "scheduler": {
                 "interval_s": RENEW_INTERVAL,
@@ -723,6 +898,12 @@ class Handler(BaseHTTPRequestHandler):
         if length:
             self.rfile.read(length)
         result = _run_locked()
+        # A manual trigger is a renewal: move the scheduled one out by the interval,
+        # or the timer fires minutes later and logs in again (that happened on
+        # 2026-10-17: a manual renew at 21:44, the scheduled run at 21:48 evicted the
+        # session a second time while HA was restarting, and the import failed).
+        STATE["next_run"] = time.time() + _next_delay(result)
+        _log("manual trigger: next scheduled attempt in %ds" % _next_delay(result))
         return self._json(200 if result["ok"] else 502, result)
 
     def log_message(self, fmt, *args):  # route access logs through our prefix

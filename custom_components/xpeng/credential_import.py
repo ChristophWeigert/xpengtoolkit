@@ -96,6 +96,7 @@ async def _apply_to_running_client(
     server: str,
     vin: str,
     renewed_at: Any,
+    expires_at: float = 0.0,
 ) -> None:
     """Stage a renewed pair on the live MQTT client and reconnect once.
 
@@ -103,7 +104,12 @@ async def _apply_to_running_client(
     entity registry - is still valid when the identity has not moved. Only the
     credentials are new, so only the credentials are applied.
     """
-    client.stage_credentials(client_id=client_id, password=password, server=server)
+    client.stage_credentials(
+        client_id=client_id,
+        password=password,
+        server=server,
+        expires_at=expires_at,
+    )
     reconnected = await hass.async_add_executor_job(
         client.reconnect, "credential import: renewed pair"
     )
@@ -167,6 +173,13 @@ async def async_import_credentials(
     # current and belongs together, so a stale file cannot silently replace a
     # working one.
     client_id, password, server = _import_mqtt_credentials(tokens, tenant)
+    # The imported pair may carry the mint's expiry (the onboarding tool stores
+    # the whole mqttAccount). Zero means "unknown", which the client treats as
+    # expired and mints a fresh credential on demand.
+    from .mqtt_client import expires_at_from_account
+
+    account = tokens.get("mqttAccount")
+    expires_at = expires_at_from_account(account if isinstance(account, dict) else None)
 
     resolved_vin = (
         (vin or "").strip().upper()
@@ -237,6 +250,7 @@ async def async_import_credentials(
             server=server,
             vin=resolved_vin,
             renewed_at=renewed_at,
+            expires_at=expires_at,
         )
         _LOGGER.info(
             "Imported credentials for %s (device %s) - applied, no reload",

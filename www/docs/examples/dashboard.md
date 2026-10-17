@@ -89,7 +89,8 @@ views:
 
 ::: details Why the Health card is worth keeping
 `credentials_valid` is the integration's own verdict on the current session, and
-`credential_age` only stays small while the refresh loop is actually completing.
+`credential_age` resets when a credential is minted (a reconnect or a renewal), so it
+can be large on a healthy long-lived session; pair it with `credentials_valid`.
 If the first goes `off` and stays there, or the second climbs past a few minutes,
 the car is about to stop reporting and a renewal is needed — see
 [Fault finding](../guide/fault-finding).

@@ -236,6 +236,15 @@ class XPengCredentialsValidBinarySensor(
         )
         return DEFAULT_MQTT_REFRESH_INTERVAL if interval is None else int(interval)
 
+    def _connected(self) -> bool:
+        """Whether the MQTT client currently holds a session.
+
+        Credentials mint on demand now, so while this is true there are no fresh
+        mints to stamp the sensor with; the connection itself is the evidence.
+        """
+        client = self._entry_data.get("mqtt_client")
+        return bool(getattr(client, "connected", False)) if client else False
+
     def _health(self) -> dict[str, Any]:
         state = self._refresh_state()
         return health.credentials_health(
@@ -243,6 +252,7 @@ class XPengCredentialsValidBinarySensor(
             last_success=state.get("last_success_at"),
             consecutive_failures=state.get("consecutive_failures"),
             refresh_interval=self._refresh_interval(),
+            connected=self._connected(),
         )
 
     @property

@@ -70,11 +70,18 @@ class BootstrapTests(unittest.TestCase):
 
         It would also fail on the very install this exists for, because the service
         it would call has only just been registered by creating the entry.
+
+        Since 0.1.19 the branch is chosen by a tri-state probe (``_entry_state()``)
+        rather than ``_existing_entry() is None``, because the latter cannot tell a
+        missing entry from an unreachable Home Assistant - and treating a restart as
+        "no entry" is what turned a good pair into a failed renewal.
         """
-        marker = "if _existing_entry() is None:"
+        marker = 'if state == "absent":'
         self.assertIn(marker, SERVER)
         block = SERVER[SERVER.index(marker):]
         self.assertIn('"bootstrapped"', block[:1200])
+        # The import call must be reachable only past the absent branch's return.
+        self.assertIn('return {"ok": True, "bootstrapped": outcome}', block[:1200])
 
     def test_the_bootstrap_asks_the_flow_which_step_it_landed_on(self):
         """The flow decides the step; submitting the wrong step's fields is a 400.
@@ -111,12 +118,16 @@ class BootstrapTests(unittest.TestCase):
         entry also held the VIN as its unique_id, so the flow would have answered
         `already_configured` - the bootstrap would have failed even when it did run.
         """
-        start = SERVER.index("def _no_entry_yet(")
-        block = SERVER[start:SERVER.index("def _credentials_entity(", start)]
+        # Since 0.1.19 the decision lives in the tri-state _entry_state(); a
+        # disabled entry is "absent", and a failed API call is "unknown" (which
+        # _no_entry_yet() reports as False, so no renewal is started).
+        start = SERVER.index("def _entry_state(")
+        block = SERVER[start:SERVER.index("def _no_entry_yet(", start)]
         self.assertIn('entry.get("disabled_by")', block)
         # the domain check must still be there, or every install looks bootstrapped
         self.assertIn('entry.get("domain") == "xpeng"', block)
-        # ...and "could not ask" must stay False (it must not start a renewal)
+        # ...and "could not ask" must stay its own answer, not "absent"
+        self.assertIn('return "unknown"', block)
         self.assertIn("if status != 200 or not isinstance(body, list):", block)
 
     def test_the_tool_records_the_vin_it_reads(self):

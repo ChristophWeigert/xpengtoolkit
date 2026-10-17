@@ -145,8 +145,8 @@ rows, and the staged-credentials line is logged at debug level.
 | Check | Healthy | Not healthy |
 | --- | --- | --- |
 | `binary_sensor.xpeng_<vehicle>_credentials_valid` | `on`, attribute `reason: ok` | `off` with `no successful refresh yet` (never worked since start — points at onboarding), `N consecutive failures` (the broker refused), or `no successful refresh for Ns` (stale) |
-| `sensor.xpeng_<vehicle>_credential_age` | A small age that keeps resetting — a sawtooth, roughly 45 s at the default refresh interval | An age that only climbs: the refresh loop is stuck |
-| Debug log, staged credentials | Repeating `API refresh: staged new credentials` — the password is rotated and the existing MQTT session kept alive | No refresh lines at all, or a rotating `clientId` with a reconnect on every cycle |
+| `sensor.xpeng_<vehicle>_credential_age` | Small just after a reconnect; it may climb while a session stays up, because credentials are minted on demand and not rotated on a timer | An age that never resets **together with** `credentials_valid` off: the loop cannot mint at all |
+| Debug log, mints | One `MQTT account obtained` per reconnect, and none while a session is healthy | A mint on every cycle with no healthy session in between, or a rotating `clientId` with a reconnect each time |
 | `binary_sensor.xpeng_<vehicle>_mqtt_connected` | `on` | `off`: the paho session to XPENG's broker is down |
 | `sensor.xpeng_<vehicle>_polling_status` | `Parked` for a quiet car, `Active` while charging or driving | Stuck `Reconnecting`, or `Silent` on a car you know is awake |
 | `unknown` / `unavailable` counts | Settled, with a stable handful of `unknown` fields the car does not report (20 of 124 in the measurement) | Flapping between a handful and nearly all of them |

@@ -88,15 +88,19 @@ never woken by this path at all.
 
 ### `mqtt_refresh_interval`
 
-How often fresh MQTT credentials (clientId and password) are minted through the
-cloud API. Default **45 s**, accepted **10–300 s**.
+The **safety-net** interval for MQTT credentials. Default **45 s**, accepted
+**10–300 s**.
 
-The broker's credentials are short-lived, so the integration rotates them ahead
-of the expiry rather than reconnecting with a superseded password. The refresh
-loop only runs when the integration has app-tier credentials; a token file
-without them leaves it disabled. There is no reason to lower this, and raising it
-towards `300` trades a little API traffic for a larger chance that a reconnect
-lands on a retired password.
+Fresh credentials are minted **on demand**: immediately before a connection, when
+the one in hand has expired (the broker's credentials live 60-90 s). That is what
+the official app does - `hasAccount()` gates the mint and a live session is never
+rotated - and it is why a healthy install now makes one API call per reconnect
+rather than one every 45 s. This interval covers the cases where nothing is going
+to reconnect soon: while the session is down, the mint is retried at this cadence,
+and the interval also sets the age bound used by `binary_sensor.xpeng_<vehicle>_credentials_valid`
+(3 × this value). The loop only runs when the integration has app-tier
+credentials; a token file without them leaves it disabled. There is no reason to
+lower it.
 
 ### `rest_scan_interval`
 
@@ -127,6 +131,22 @@ MQTT wildcards (`+` and `#`) are supported, and each topic is trimmed; topics
 longer than 512 characters are dropped. Subscriptions are attempted at connect
 time and the result of each one is recorded, so a topic the broker refuses is
 visible rather than silently missing.
+
+`{device_id}` and `{user_id}` are expanded from this install's identity - the
+device id the broker authenticated (the fourth segment of the MQTT `clientId`) and
+the numeric account uid - so an identity-scoped topic can be written once and
+survive a credential refresh. For example the app also subscribes a
+**device-scoped push channel**:
+
+```text
+Xp/Msg/Push/{device_id}
+```
+
+Watch `sensor.xpeng_<vehicle>_mqtt_listener`: each subscription's SUBACK is
+recorded there as `ACCEPTED` or `REJECTED`, which answers whether this account is
+granted a topic without waiting for a message. The payload on that channel is a
+push notification (a `messageId` plus a `content` envelope), not vehicle state, so
+it is for discovery - it is not parsed into entities.
 
 ### `mqtt_topic_discovery`
 
