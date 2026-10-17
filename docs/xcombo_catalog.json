@@ -1,0 +1,5583 @@
+{
+ "vehicle": {
+  "vin": "VIN …800783",
+  "carType": "FA",
+  "vehicleTypeName": "F30",
+  "osVersion": "XOS 5.9.5.8909"
+ },
+ "source": {
+  "endpoint": "POST /personal-tailor/v3/scene/menus",
+  "body": {
+   "vin": "<vin>",
+   "carType": "<vehicleTypeCode>",
+   "tecPoint": [
+    "<classCode_local>",
+    "<classCode_remote>"
+   ]
+  },
+  "action_tecPoints": [
+   "action_local",
+   "action_remote"
+  ],
+  "trigger_tecPoints": [
+   "trigger_local",
+   "trigger_remote"
+  ],
+  "detail_endpoints": [
+   "POST /personal-tailor/v3/scene/menuDetail",
+   "POST /personal-tailor/v3/scene/paramDetail"
+  ]
+ },
+ "actions": {
+  "kind": "action",
+  "categories": [
+   {
+    "name_de": "Erweitert",
+    "name_en": "Advanced / flow control",
+    "name_zh": "高级actionlocal",
+    "items": [
+     {
+      "id": "1875018049610711040",
+      "nodeId": "microScene",
+      "name_de": "Bis die Bedingung erfüllt ist",
+      "name_en": "Repeat until condition is met",
+      "name_zh": "微场景",
+      "name_zh_key": "直到满足条件时",
+      "description_de": "Zum Beispiel: Wenn die Innenraumtemperatur des Fahrzeugs 25 °C oder mehr erreicht, schalten Sie die Klimaanlage aus",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SPECIAL_CASE",
+      "classCode": [
+       "action_local",
+       "action_remote"
+      ],
+      "limitVersion": [
+       {
+        "F57AEU": "5.7.3-9.9.9",
+        "D02EU": "5.7.3-9.9.9",
+        "D03EU": "5.7.3-9.9.9",
+        "H93AEEU": "5.6.3-9.9.9",
+        "G02EU": "5.6.3-9.9.9",
+        "F30BEU": "5.5.1-9.9.9",
+        "F30IA": "5.6.0-9.9.9",
+        "H93IA": "5.6.0-9.9.9",
+        "E38EU": "5.6.0-9.9.9",
+        "E28AEU": "5.6.0-9.9.9",
+        "E38BEU": "5.5.1-9.9.9"
+       }
+      ],
+      "labels": [
+       "海外智慧场景分类",
+       "OS5.6"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": true,
+       "sub_condition": null
+      },
+      "atoms": [],
+      "params": []
+     },
+     {
+      "id": "1875020802900361216",
+      "nodeId": "ifModule",
+      "name_de": "Wenn die Bedingung erfüllt ist",
+      "name_en": "If condition is met",
+      "name_zh": "if模块",
+      "name_zh_key": "如果处于条件",
+      "description_de": "Zum Beispiel: Wenn die aktuelle Temperatur im Fahrzeug über 25 °C liegt, dann führe das Ausschalten der Klimaanlage aus.",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SPECIAL_CASE",
+      "classCode": [
+       "action_local",
+       "action_remote"
+      ],
+      "limitVersion": [
+       {
+        "F57AEU": "5.7.3-9.9.9",
+        "D02EU": "5.7.3-9.9.9",
+        "D03EU": "5.7.3-9.9.9",
+        "H93AEEU": "5.6.3-9.9.9",
+        "G02EU": "5.6.3-9.9.9",
+        "F30BEU": "5.5.1-9.9.9",
+        "F30IA": "5.6.0-9.9.9",
+        "H93IA": "5.6.0-9.9.9",
+        "E38EU": "5.6.0-9.9.9",
+        "E28AEU": "5.6.0-9.9.9",
+        "E38BEU": "5.5.1-9.9.9"
+       }
+      ],
+      "labels": [
+       "海外智慧场景分类",
+       "OS5.6"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": true,
+       "sub_condition": null
+      },
+      "atoms": [],
+      "params": []
+     },
+     {
+      "id": "1834140106101751810",
+      "nodeId": "waitDouble",
+      "name_de": "Warten",
+      "name_en": "Wait",
+      "name_zh": "等待双滚轮",
+      "name_zh_key": "等待",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "DOUBLE_SCROLL",
+      "classCode": [
+       "action_local",
+       "action_remote"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": true,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_FUNCTION",
+        "name_zh": "等待时间",
+        "tecPoint": "delay"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "等待时间范围秒",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "等待时间_秒范围",
+        "paramName": "delay",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"min\":0,\"max\":59,\"step\":1}",
+        "ranges_zh": "{\"min\":0,\"max\":59,\"step\":1}",
+        "unit": "s"
+       },
+       {
+        "group_de": "等待时间范围分",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "等待时间_分钟范围",
+        "paramName": "delay_minute",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"min\":0,\"max\":59,\"step\":1}",
+        "ranges_zh": "{\"min\":0,\"max\":59,\"step\":1}",
+        "unit": "min"
+       }
+      ]
+     },
+     {
+      "id": "1834140106114334720",
+      "nodeId": "stopRule",
+      "name_de": "Ausführung dieser Combo beenden",
+      "name_en": "Stop this X-Combo",
+      "name_zh": "停止运行此场景",
+      "name_zh_key": "停止运行此场景",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "NONE",
+      "classCode": [
+       "action_local",
+       "action_remote"
+      ],
+      "limitVersion": [
+       {}
+      ],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": true,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_FUNCTION",
+        "name_zh": "停止",
+        "tecPoint": "stop"
+       }
+      ],
+      "params": []
+     }
+    ]
+   },
+   {
+    "name_de": "Sprachassistent",
+    "name_en": "Voice assistant",
+    "name_zh": "语音助手actionlocal",
+    "items": [
+     {
+      "id": "1834140679188774912",
+      "nodeId": "broadcast",
+      "name_de": "XPENG-Ankündigung",
+      "name_en": "XPENG voice announcement (Xiaop)",
+      "name_zh": "小P播报",
+      "name_zh_key": "小P播报",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SPECIAL_CASE",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [],
+      "params": []
+     }
+    ]
+   },
+   {
+    "name_de": "Tür- & Fensterverriegelung",
+    "name_en": "Doors & windows",
+    "name_zh": "门窗actionlocal",
+    "items": [
+     {
+      "id": "1834140771226091522",
+      "nodeId": "trunkSwitch",
+      "name_de": "Kofferraum",
+      "name_en": "Trunk",
+      "name_zh": "后备箱",
+      "name_zh_key": "后备箱",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "打开后备箱",
+        "tecPoint": "command://control.trunk.open"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "关闭后备箱",
+        "tecPoint": "command://control.trunk.close"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834140771284811778",
+      "nodeId": "windowSwitch",
+      "name_de": "Fensterschalter",
+      "name_en": "Window switch",
+      "name_zh": "车窗开关",
+      "name_zh_key": "车窗开关",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "DOUBLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "打开主驾车窗",
+        "tecPoint": "command://control.window.driver.open"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "打开副驾车窗",
+        "tecPoint": "command://control.window.passenger.open"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "打开左后车窗",
+        "tecPoint": "command://control.window.left.rear.open"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "打开右后车窗",
+        "tecPoint": "command://control.window.right.rear.open"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "车窗打开百分比",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "设置车窗打开",
+        "paramName": "percent",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"0\":\"Alle schließen\",\"5\":\"5 % öffnen\",\"10\":\"10 % öffnen\",\"15\":\"15 % öffnen\",\"20\":\"20 % öffnen\",\"25\":\"25 % öffnen\",\"30\":\"30 % öffnen\",\"35\":\"35 % öffnen\",\"40\":\"40 % öffnen\",\"45\":\"45 % öffnen\",\"50\":\"50 % öffnen\",\"55\":\"55 % öffnen\",\"60\":\"60 % öffnen\",\"65\":\"65 % öffnen\",\"70\":\"70 % öffnen\",\"75\":\"75 % öffnen\",\"80\":\"80 % öffnen\",\"85\":\"85 % öffnen\",\"90\":\"90 % öffnen\",\"95\":\"95 % öffnen\",\"100\":\"Alle geöffnet\"}",
+        "ranges_zh": "{\"0\":\"全关\",\"5\":\"打开5%\",\"10\":\"打开10%\",\"15\":\"打开15%\",\"20\":\"打开20%\",\"25\":\"打开25%\",\"30\":\"打开30%\",\"35\":\"打开35%\",\"40\":\"打开40%\",\"45\":\"打开45%\",\"50\":\"打开50%\",\"55\":\"打开55%\",\"60\":\"打开60%\",\"65\":\"打开65%\",\"70\":\"打开70%\",\"75\":\"打开75%\",\"80\":\"打开80%\",\"85\":\"打开85%\",\"90\":\"打开90%\",\"95\":\"打开95%\",\"100\":\"全开\"}",
+        "unit": null
+       }
+      ]
+     },
+     {
+      "id": "1834140771314171906",
+      "nodeId": "windowAiriness",
+      "name_de": "Fensterbelüftung",
+      "name_en": "Window ventilation",
+      "name_zh": "车窗通风",
+      "name_zh_key": "车窗通风",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "打开通风模式",
+        "tecPoint": "command://control.windows.ventilate.on"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "关闭通风模式",
+        "tecPoint": "command://control.windows.ventilate.off"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834140771343532034",
+      "nodeId": "allDoorLocks",
+      "name_de": "Alle Türverriegelungen",
+      "name_en": "All door locks",
+      "name_zh": "全车门锁",
+      "name_zh_key": "全车门锁",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [
+       {}
+      ],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "全车车锁上锁",
+        "tecPoint": "command://control.door.lock.on"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "全车车锁解锁",
+        "tecPoint": "command://control.door.lock.off"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834140771406446595",
+      "nodeId": "childSafetyLock",
+      "name_de": "Kindersicherung",
+      "name_en": "Child safety lock",
+      "name_zh": "儿童锁",
+      "name_zh_key": "儿童锁",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "DOUBLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "打开儿童锁",
+        "tecPoint": "command://control.child.safety.locks.on"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "关闭儿童锁",
+        "tecPoint": "command://control.child.safety.locks.off"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834140771431612418",
+      "nodeId": "",
+      "name_de": "Fensterverriegelung",
+      "name_en": "Window lock",
+      "name_zh": "车窗锁开关",
+      "name_zh_key": "车窗锁",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [
+       {}
+      ],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": false,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "控制车窗锁 关闭/打开车窗锁",
+        "tecPoint": "setWindowLockState"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834140771444195328",
+      "nodeId": "disableLeavingLock",
+      "name_de": "Automatische Verriegelung bei Abfahrt deaktivieren",
+      "name_en": "Disable auto-lock on departure",
+      "name_zh": "禁用离开自动闭锁",
+      "name_zh_key": "禁用离开自动闭锁",
+      "description_de": "Die Combo wird nach Ende automatisch entsperrt, und Sie können Warteaktionen hinzufügen, um die Deaktivierung zu verlängern",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "NONE",
+      "classCode": [
+       "action_local",
+       "action_remote"
+      ],
+      "limitVersion": [
+       {
+        "F57AEU": "5.7.3-9.9.9",
+        "D02EU": "5.7.3-9.9.9",
+        "D03EU": "5.7.3-9.9.9",
+        "H93AEEU": "5.6.3-9.9.9",
+        "G02EU": "5.6.3-9.9.9",
+        "F30BEU": "5.5.1-9.9.9",
+        "F30IA": "5.6.0-9.9.9",
+        "H93IA": "5.6.0-9.9.9",
+        "E38EU": "5.6.0-9.9.9",
+        "E28AEU": "5.6.0-9.9.9",
+        "E38BEU": "5.5.1-9.9.9"
+       }
+      ],
+      "labels": [
+       "海外智慧场景分类",
+       "OS5.6"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "自动闭锁",
+        "tecPoint": "setBcmPollingLockDisableReq"
+       }
+      ],
+      "params": []
+     }
+    ]
+   },
+   {
+    "name_de": "Scheinwerfer",
+    "name_en": "Lights",
+    "name_zh": "车灯actionlocal",
+    "items": [
+     {
+      "id": "1834140988978757634",
+      "nodeId": "headlightSwitch",
+      "name_de": "Scheinwerfersteuerung",
+      "name_en": "Headlight control",
+      "name_zh": "大灯控制",
+      "name_zh_key": "大灯控制",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "关闭自动大灯",
+        "tecPoint": "command://control.light.auto.off"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "打开示宽灯",
+        "tecPoint": "command://control.light.position.on"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "打开近光灯",
+        "tecPoint": "command://control.light.low.on"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "打开自动大灯",
+        "tecPoint": "command://control.light.auto.on"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834140989037477890",
+      "nodeId": "rearFogLightSwitch",
+      "name_de": "Nebelschlussleuchten",
+      "name_en": "Rear fog light",
+      "name_zh": "后雾灯开关",
+      "name_zh_key": "后雾灯",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "打开后雾灯",
+        "tecPoint": "command://control.rear.mist.light.on"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "关闭后雾灯",
+        "tecPoint": "command://control.rear.mist.light.off"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1875053226691264514",
+      "nodeId": "readingLightSwitch",
+      "name_de": "Leseleuchten",
+      "name_en": "Reading lights",
+      "name_zh": "阅读灯开关",
+      "name_zh_key": "阅读灯",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "DOUBLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [
+       {
+        "F57AEU": "5.7.3-9.9.9",
+        "D02EU": "5.7.3-9.9.9",
+        "D03EU": "5.7.3-9.9.9",
+        "H93AEEU": "5.6.3-9.9.9",
+        "G02EU": "5.6.3-9.9.9",
+        "F30BEU": "5.5.1-9.9.9",
+        "F30IA": "5.6.0-9.9.9",
+        "H93IA": "5.6.0-9.9.9",
+        "E38EU": "5.6.0-9.9.9",
+        "E28AEU": "9.9.9-9.9.9",
+        "E38BEU": "5.5.1-9.9.9"
+       }
+      ],
+      "labels": [
+       "海外智慧场景分类",
+       "OS5.6"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "设置主驾阅读灯",
+        "tecPoint": "setFrontLeftDomeLightSwitchStatus"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "设置副驾阅读灯",
+        "tecPoint": "setFrontRightDomeLightSwitchStatus"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "设置左后阅读灯",
+        "tecPoint": "setRearLeftDomeLightSwitchStatus"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "设置右后阅读灯",
+        "tecPoint": "setRearRightDomeLightSwitchStatus"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "阅读灯开关状态",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "设置阅读灯",
+        "paramName": "onOff",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"1\":\"Ein\",\"0\":\"Aus\"}",
+        "ranges_zh": "{\"1\":\"打开\",\"0\":\"关闭\"}",
+        "unit": null
+       }
+      ]
+     },
+     {
+      "id": "1834140989217832962",
+      "nodeId": "ambientLightSwitch",
+      "name_de": "Schalter Umgebungslicht",
+      "name_en": "Ambient light switch",
+      "name_zh": "氛围灯开关",
+      "name_zh_key": "氛围灯开关",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "打开氛围灯",
+        "tecPoint": "command://control.light.atmosphere.on"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "关闭氛围灯",
+        "tecPoint": "command://control.light.atmosphere.off"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834140989255581697",
+      "nodeId": "ambientLightBrightness",
+      "name_de": "Helligkeit Umgebungslicht",
+      "name_en": "Ambient light brightness",
+      "name_zh": "氛围灯亮度",
+      "name_zh_key": "氛围灯亮度",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "氛围灯亮度设置",
+        "tecPoint": "command://control.light.atmosphere.brightness.set"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "氛围灯亮度范围",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "氛围灯亮度",
+        "paramName": "number",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"min\":10,\"max\":\"100\",\"step\":1}",
+        "ranges_zh": "{\"min\":10,\"max\":\"100\",\"step\":1}",
+        "unit": "%"
+       }
+      ]
+     },
+     {
+      "id": "1834140989263970304",
+      "nodeId": "ambientLightMode",
+      "name_de": "Umgebungslichtmodus & -farbe",
+      "name_en": "Ambient light mode & colour",
+      "name_zh": "氛围灯模式与颜色",
+      "name_zh_key": "氛围灯模式与颜色",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SPECIAL_CASE",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [],
+      "params": []
+     }
+    ]
+   },
+   {
+    "name_de": "Sitz",
+    "name_en": "Seats",
+    "name_zh": "座椅actionlocal",
+    "items": [
+     {
+      "id": "1834203850673618944",
+      "nodeId": "carHabitsIdSwitch",
+      "name_de": "Fahrerpräferenzschalter",
+      "name_en": "Driver habit profile switch",
+      "name_zh": "用车习惯切换IdActionlocal",
+      "name_zh_key": "用车习惯切换",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "MULTIPLE",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [
+       {}
+      ],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "设置切换用户习惯",
+        "tecPoint": "command://user.car.habit"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834203850883334146",
+      "nodeId": "masterSeatSetting",
+      "name_de": "Fahrersitzposition",
+      "name_en": "Driver seat position",
+      "name_zh": "主驾座椅调节",
+      "name_zh_key": "主驾座椅位置",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "DOUBLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "主驾座椅前后调",
+        "tecPoint": "command://control.seat.move.back"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "主驾座椅靠背前后调",
+        "tecPoint": "command://control.seat.backrest.move.back"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "主驾座椅高低调节",
+        "tecPoint": "command://control.seat.move.down"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "坐垫调到指定位置",
+        "tecPoint": "command://control.cushion.move.set"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "前后调节范围",
+        "group_zh": "前后调节",
+        "label_de": null,
+        "label_zh": "前后调节target biz",
+        "paramName": "target",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"0\":\"0 (hinterste Position)\",\"1\":\"1\",\"2\":\"2\",\"3\":\"3\",\"4\":\"4\",\"5\":\"5\",\"6\":\"6\",\"7\":\"7\",\"8\":\"8\",\"9\":\"9\",\"10\":\"10\",\"11\":\"11\",\"12\":\"12\",\"13\":\"13\",\"14\":\"14\",\"15\":\"15\",\"16\":\"16\",\"17\":\"17\",\"18\":\"18\",\"19\":\"19\",\"20\":\"20\",\"21\":\"21\",\"22\":\"22\",\"23\":\"23\",\"24\":\"24\",\"25\":\"25\",\"26\":\"26\",\"27\":\"27\",\"28\":\"28\",\"29\":\"29\",\"30\":\"30\",\"31\":\"31\",\"32\":\"32\",\"33\":\"33\",\"34\":\"34\",\"35\":\"35\",\"36\":\"36\",\"37\":\"37\",\"38\":\"38\",\"39\":\"39\",\"40\":\"40\",\"41\":\"41\",\"42\":\"42\",\"43\":\"43\",\"44\":\"44\",\"45\":\"45\",\"46\":\"46\",\"47\":\"47\",\"48\":\"48\",\"49\":\"49\",\"50\":\"50\",\"51\":\"51\",\"52\":\"52\",\"53\":\"53\",\"54\":\"54\",\"55\":\"55\",\"56\":\"56\",\"57\":\"57\",\"58\":\"58\",\"59\":\"59\",\"60\":\"60\",\"61\":\"61\",\"62\":\"62\",\"63\":\"63\",\"64\":\"64\",\"65\":\"65\",\"66\":\"66\",\"67\":\"67\",\"68\":\"68\",\"69\":\"69\",\"70\":\"70\",\"71\":\"71\",\"72\":\"72\",\"73\":\"73\",\"74\":\"74\",\"75\":\"75\",\"76\":\"76\",\"77\":\"77\",\"78\":\"78\",\"79\":\"79\",\"80\":\"80\",\"81\":\"81\",\"82\":\"82\",\"83\":\"83\",\"84\":\"84\",\"85\":\"85\",\"86\":\"86\",\"87\":\"87\",\"88\":\"88\",\"89\":\"89\",\"90\":\"90 (Vorwärts)\"}",
+        "ranges_zh": "{\"0\":\"0（最后）\",\"1\":\"1\",\"2\":\"2\",\"3\":\"3\",\"4\":\"4\",\"5\":\"5\",\"6\":\"6\",\"7\":\"7\",\"8\":\"8\",\"9\":\"9\",\"10\":\"10\",\"11\":\"11\",\"12\":\"12\",\"13\":\"13\",\"14\":\"14\",\"15\":\"15\",\"16\":\"16\",\"17\":\"17\",\"18\":\"18\",\"19\":\"19\",\"20\":\"20\",\"21\":\"21\",\"22\":\"22\",\"23\":\"23\",\"24\":\"24\",\"25\":\"25\",\"26\":\"26\",\"27\":\"27\",\"28\":\"28\",\"29\":\"29\",\"30\":\"30\",\"31\":\"31\",\"32\":\"32\",\"33\":\"33\",\"34\":\"34\",\"35\":\"35\",\"36\":\"36\",\"37\":\"37\",\"38\":\"38\",\"39\":\"39\",\"40\":\"40\",\"41\":\"41\",\"42\":\"42\",\"43\":\"43\",\"44\":\"44\",\"45\":\"45\",\"46\":\"46\",\"47\":\"47\",\"48\":\"48\",\"49\":\"49\",\"50\":\"50\",\"51\":\"51\",\"52\":\"52\",\"53\":\"53\",\"54\":\"54\",\"55\":\"55\",\"56\":\"56\",\"57\":\"57\",\"58\":\"58\",\"59\":\"59\",\"60\":\"60\",\"61\":\"61\",\"62\":\"62\",\"63\":\"63\",\"64\":\"64\",\"65\":\"65\",\"66\":\"66\",\"67\":\"67\",\"68\":\"68\",\"69\":\"69\",\"70\":\"70\",\"71\":\"71\",\"72\":\"72\",\"73\":\"73\",\"74\":\"74\",\"75\":\"75\",\"76\":\"76\",\"77\":\"77\",\"78\":\"78\",\"79\":\"79\",\"80\":\"80\",\"81\":\"81\",\"82\":\"82\",\"83\":\"83\",\"84\":\"84\",\"85\":\"85\",\"86\":\"86\",\"87\":\"87\",\"88\":\"88\",\"89\":\"89\",\"90\":\"90（前）\"}",
+        "unit": ""
+       },
+       {
+        "group_de": "靠背调节范围",
+        "group_zh": "靠背调节",
+        "label_de": null,
+        "label_zh": "靠背调节target biz",
+        "paramName": "target",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"20\":\"20 (hinten)\",\"21\":\"21\",\"22\":\"22\",\"23\":\"23\",\"24\":\"24\",\"25\":\"25\",\"26\":\"26\",\"27\":\"27\",\"28\":\"28\",\"29\":\"29\",\"30\":\"30\",\"31\":\"31\",\"32\":\"32\",\"33\":\"33\",\"34\":\"34\",\"35\":\"35\",\"36\":\"36\",\"37\":\"37\",\"38\":\"38\",\"39\":\"39\",\"40\":\"40\",\"41\":\"41\",\"42\":\"42\",\"43\":\"43\",\"44\":\"44\",\"45\":\"45\",\"46\":\"46\",\"47\":\"47\",\"48\":\"48\",\"49\":\"49\",\"50\":\"50\",\"51\":\"51\",\"52\":\"52\",\"53\":\"53\",\"54\":\"54\",\"55\":\"55\",\"56\":\"56\",\"57\":\"57\",\"58\":\"58\",\"59\":\"59\",\"60\":\"60\",\"61\":\"61\",\"62\":\"62\",\"63\":\"63\",\"64\":\"64\",\"65\":\"65\",\"66\":\"66\",\"67\":\"67\",\"68\":\"68\",\"69\":\"69\",\"70\":\"70\",\"71\":\"71\",\"72\":\"72\",\"73\":\"73\",\"74\":\"74\",\"75\":\"75\",\"76\":\"76\",\"77\":\"77\",\"78\":\"78\",\"79\":\"79\",\"80\":\"80\",\"81\":\"81\",\"82\":\"82\",\"83\":\"83\",\"84\":\"84\",\"85\":\"85 (Vorwärts)\"}",
+        "ranges_zh": "{\"20\":\"20（后）\",\"21\":\"21\",\"22\":\"22\",\"23\":\"23\",\"24\":\"24\",\"25\":\"25\",\"26\":\"26\",\"27\":\"27\",\"28\":\"28\",\"29\":\"29\",\"30\":\"30\",\"31\":\"31\",\"32\":\"32\",\"33\":\"33\",\"34\":\"34\",\"35\":\"35\",\"36\":\"36\",\"37\":\"37\",\"38\":\"38\",\"39\":\"39\",\"40\":\"40\",\"41\":\"41\",\"42\":\"42\",\"43\":\"43\",\"44\":\"44\",\"45\":\"45\",\"46\":\"46\",\"47\":\"47\",\"48\":\"48\",\"49\":\"49\",\"50\":\"50\",\"51\":\"51\",\"52\":\"52\",\"53\":\"53\",\"54\":\"54\",\"55\":\"55\",\"56\":\"56\",\"57\":\"57\",\"58\":\"58\",\"59\":\"59\",\"60\":\"60\",\"61\":\"61\",\"62\":\"62\",\"63\":\"63\",\"64\":\"64\",\"65\":\"65\",\"66\":\"66\",\"67\":\"67\",\"68\":\"68\",\"69\":\"69\",\"70\":\"70\",\"71\":\"71\",\"72\":\"72\",\"73\":\"73\",\"74\":\"74\",\"75\":\"75\",\"76\":\"76\",\"77\":\"77\",\"78\":\"78\",\"79\":\"79\",\"80\":\"80\",\"81\":\"81\",\"82\":\"82\",\"83\":\"83\",\"84\":\"84\",\"85\":\"85（前）\"}",
+        "unit": ""
+       },
+       {
+        "group_de": "高低调节范围",
+        "group_zh": "高低调节",
+        "label_de": null,
+        "label_zh": "高低调节target biz",
+        "paramName": "target",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"0\":\"0 (Niedrigste)\",\"1\":\"1\",\"2\":\"2\",\"3\":\"3\",\"4\":\"4\",\"5\":\"5\",\"6\":\"6\",\"7\":\"7\",\"8\":\"8\",\"9\":\"9\",\"10\":\"10\",\"11\":\"11\",\"12\":\"12\",\"13\":\"13\",\"14\":\"14\",\"15\":\"15\",\"16\":\"16\",\"17\":\"17\",\"18\":\"18\",\"19\":\"19\",\"20\":\"20\",\"21\":\"21\",\"22\":\"22\",\"23\":\"23\",\"24\":\"24\",\"25\":\"25\",\"26\":\"26\",\"27\":\"27\",\"28\":\"28\",\"29\":\"29\",\"30\":\"30\",\"31\":\"31\",\"32\":\"32\",\"33\":\"33\",\"34\":\"34\",\"35\":\"35\",\"36\":\"36\",\"37\":\"37\",\"38\":\"38\",\"39\":\"39\",\"40\":\"40\",\"41\":\"41\",\"42\":\"42\",\"43\":\"43\",\"44\":\"44\",\"45\":\"45\",\"46\":\"46\",\"47\":\"47\",\"48\":\"48\",\"49\":\"49\",\"50\":\"50\",\"51\":\"51\",\"52\":\"52\",\"53\":\"53\",\"54\":\"54\",\"55\":\"55\",\"56\":\"56\",\"57\":\"57\",\"58\":\"58\",\"59\":\"59\",\"60\":\"60\",\"61\":\"61\",\"62\":\"62\",\"63\":\"63\",\"64\":\"64\",\"65\":\"65\",\"66\":\"66\",\"67\":\"67\",\"68\":\"68\",\"69\":\"69\",\"70\":\"70\",\"71\":\"71\",\"72\":\"72\",\"73\":\"73\",\"74\":\"74\",\"75\":\"75\",\"76\":\"76\",\"77\":\"77\",\"78\":\"78\",\"79\":\"79\",\"80\":\"80\",\"81\":\"81\",\"82\":\"82\",\"83\":\"83\",\"84\":\"84\",\"85\":\"85\",\"86\":\"86\",\"87\":\"87\",\"88\":\"88\",\"89\":\"89\",\"90\":\"90\",\"91\":\"91\",\"92\":\"92\",\"93\":\"93\",\"94\":\"94\",\"95\":\"95\",\"96\":\"96\",\"97\":\"97\",\"98\":\"98\",\"99\":\"99\",\"100\":\"100 (Max)\"}",
+        "ranges_zh": "{\"0\":\"0（最低）\",\"1\":\"1\",\"2\":\"2\",\"3\":\"3\",\"4\":\"4\",\"5\":\"5\",\"6\":\"6\",\"7\":\"7\",\"8\":\"8\",\"9\":\"9\",\"10\":\"10\",\"11\":\"11\",\"12\":\"12\",\"13\":\"13\",\"14\":\"14\",\"15\":\"15\",\"16\":\"16\",\"17\":\"17\",\"18\":\"18\",\"19\":\"19\",\"20\":\"20\",\"21\":\"21\",\"22\":\"22\",\"23\":\"23\",\"24\":\"24\",\"25\":\"25\",\"26\":\"26\",\"27\":\"27\",\"28\":\"28\",\"29\":\"29\",\"30\":\"30\",\"31\":\"31\",\"32\":\"32\",\"33\":\"33\",\"34\":\"34\",\"35\":\"35\",\"36\":\"36\",\"37\":\"37\",\"38\":\"38\",\"39\":\"39\",\"40\":\"40\",\"41\":\"41\",\"42\":\"42\",\"43\":\"43\",\"44\":\"44\",\"45\":\"45\",\"46\":\"46\",\"47\":\"47\",\"48\":\"48\",\"49\":\"49\",\"50\":\"50\",\"51\":\"51\",\"52\":\"52\",\"53\":\"53\",\"54\":\"54\",\"55\":\"55\",\"56\":\"56\",\"57\":\"57\",\"58\":\"58\",\"59\":\"59\",\"60\":\"60\",\"61\":\"61\",\"62\":\"62\",\"63\":\"63\",\"64\":\"64\",\"65\":\"65\",\"66\":\"66\",\"67\":\"67\",\"68\":\"68\",\"69\":\"69\",\"70\":\"70\",\"71\":\"71\",\"72\":\"72\",\"73\":\"73\",\"74\":\"74\",\"75\":\"75\",\"76\":\"76\",\"77\":\"77\",\"78\":\"78\",\"79\":\"79\",\"80\":\"80\",\"81\":\"81\",\"82\":\"82\",\"83\":\"83\",\"84\":\"84\",\"85\":\"85\",\"86\":\"86\",\"87\":\"87\",\"88\":\"88\",\"89\":\"89\",\"90\":\"90\",\"91\":\"91\",\"92\":\"92\",\"93\":\"93\",\"94\":\"94\",\"95\":\"95\",\"96\":\"96\",\"97\":\"97\",\"98\":\"98\",\"99\":\"99\",\"100\":\"100（最高）\"}",
+        "unit": ""
+       },
+       {
+        "group_de": "坐垫高低调范围",
+        "group_zh": "坐垫高低调节 部分配置",
+        "label_de": null,
+        "label_zh": "坐垫高低调节target biz",
+        "paramName": "target",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"0\":\"0（最低）\",\"1\":\"1\",\"2\":\"2\",\"3\":\"3\",\"4\":\"4\",\"5\":\"5\",\"6\":\"6\",\"7\":\"7\",\"8\":\"8\",\"9\":\"9\",\"10\":\"10\",\"11\":\"11\",\"12\":\"12\",\"13\":\"13\",\"14\":\"14\",\"15\":\"15\",\"16\":\"16\",\"17\":\"17\",\"18\":\"18\",\"19\":\"19\",\"20\":\"20\",\"21\":\"21\",\"22\":\"22\",\"23\":\"23\",\"24\":\"24\",\"25\":\"25\",\"26\":\"26\",\"27\":\"27\",\"28\":\"28\",\"29\":\"29\",\"30\":\"30\",\"31\":\"31\",\"32\":\"32\",\"33\":\"33\",\"34\":\"34\",\"35\":\"35\",\"36\":\"36\",\"37\":\"37\",\"38\":\"38\",\"39\":\"39\",\"40\":\"40\",\"41\":\"41\",\"42\":\"42\",\"43\":\"43\",\"44\":\"44\",\"45\":\"45\",\"46\":\"46\",\"47\":\"47\",\"48\":\"48\",\"49\":\"49\",\"50\":\"50\",\"51\":\"51\",\"52\":\"52\",\"53\":\"53\",\"54\":\"54\",\"55\":\"55\",\"56\":\"56\",\"57\":\"57\",\"58\":\"58\",\"59\":\"59\",\"60\":\"60\",\"61\":\"61\",\"62\":\"62\",\"63\":\"63\",\"64\":\"64\",\"65\":\"65\",\"66\":\"66\",\"67\":\"67\",\"68\":\"68\",\"69\":\"69\",\"70\":\"70\",\"71\":\"71\",\"72\":\"72\",\"73\":\"73\",\"74\":\"74\",\"75\":\"75\",\"76\":\"76\",\"77\":\"77\",\"78\":\"78\",\"79\":\"79\",\"80\":\"80\",\"81\":\"81\",\"82\":\"82\",\"83\":\"83\",\"84\":\"84\",\"85\":\"85\",\"86\":\"86\",\"87\":\"87\",\"88\":\"88\",\"89\":\"89\",\"90\":\"90\",\"91\":\"91\",\"92\":\"92\",\"93\":\"93\",\"94\":\"94\",\"95\":\"95\",\"96\":\"96\",\"97\":\"97\",\"98\":\"98\",\"99\":\"99\",\"100\":\"100（最高）\"}",
+        "ranges_zh": "{\"0\":\"0（最低）\",\"1\":\"1\",\"2\":\"2\",\"3\":\"3\",\"4\":\"4\",\"5\":\"5\",\"6\":\"6\",\"7\":\"7\",\"8\":\"8\",\"9\":\"9\",\"10\":\"10\",\"11\":\"11\",\"12\":\"12\",\"13\":\"13\",\"14\":\"14\",\"15\":\"15\",\"16\":\"16\",\"17\":\"17\",\"18\":\"18\",\"19\":\"19\",\"20\":\"20\",\"21\":\"21\",\"22\":\"22\",\"23\":\"23\",\"24\":\"24\",\"25\":\"25\",\"26\":\"26\",\"27\":\"27\",\"28\":\"28\",\"29\":\"29\",\"30\":\"30\",\"31\":\"31\",\"32\":\"32\",\"33\":\"33\",\"34\":\"34\",\"35\":\"35\",\"36\":\"36\",\"37\":\"37\",\"38\":\"38\",\"39\":\"39\",\"40\":\"40\",\"41\":\"41\",\"42\":\"42\",\"43\":\"43\",\"44\":\"44\",\"45\":\"45\",\"46\":\"46\",\"47\":\"47\",\"48\":\"48\",\"49\":\"49\",\"50\":\"50\",\"51\":\"51\",\"52\":\"52\",\"53\":\"53\",\"54\":\"54\",\"55\":\"55\",\"56\":\"56\",\"57\":\"57\",\"58\":\"58\",\"59\":\"59\",\"60\":\"60\",\"61\":\"61\",\"62\":\"62\",\"63\":\"63\",\"64\":\"64\",\"65\":\"65\",\"66\":\"66\",\"67\":\"67\",\"68\":\"68\",\"69\":\"69\",\"70\":\"70\",\"71\":\"71\",\"72\":\"72\",\"73\":\"73\",\"74\":\"74\",\"75\":\"75\",\"76\":\"76\",\"77\":\"77\",\"78\":\"78\",\"79\":\"79\",\"80\":\"80\",\"81\":\"81\",\"82\":\"82\",\"83\":\"83\",\"84\":\"84\",\"85\":\"85\",\"86\":\"86\",\"87\":\"87\",\"88\":\"88\",\"89\":\"89\",\"90\":\"90\",\"91\":\"91\",\"92\":\"92\",\"93\":\"93\",\"94\":\"94\",\"95\":\"95\",\"96\":\"96\",\"97\":\"97\",\"98\":\"98\",\"99\":\"99\",\"100\":\"100（最高）\"}",
+        "unit": ""
+       }
+      ]
+     },
+     {
+      "id": "1834203850900111360",
+      "nodeId": "seatsMemory",
+      "name_de": "Beifahrersitzspeicher",
+      "name_en": "Passenger seat memory",
+      "name_zh": "副驾座椅记忆actionlocal",
+      "name_zh_key": "副驾座椅记忆",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "MULTIPLE",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [
+       {}
+      ],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "座椅记忆",
+        "tecPoint": "command://control.seat.memory.config"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834203851051106306",
+      "nodeId": "copilotSeatSetting",
+      "name_de": "Beifahrersitzposition",
+      "name_en": "Passenger seat position",
+      "name_zh": "副驾座椅调节",
+      "name_zh_key": "副驾座椅位置",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "DOUBLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "副驾座椅前后调",
+        "tecPoint": "command://control.psn.seat.move.back"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "副驾座椅靠背前后调",
+        "tecPoint": "command://control.psn.seat.backrest.move.back"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "副驾座椅高低调节",
+        "tecPoint": "command://control.psn.seat.move.down"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "前后调节范围",
+        "group_zh": "前后调节",
+        "label_de": null,
+        "label_zh": "前后调节target biz",
+        "paramName": "target",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"0\":\"0 (Ganz hinten)\",\"1\":\"1\",\"2\":\"2\",\"3\":\"3\",\"4\":\"4\",\"5\":\"5\",\"6\":\"6\",\"7\":\"7\",\"8\":\"8\",\"9\":\"9\",\"10\":\"10\",\"11\":\"11\",\"12\":\"12\",\"13\":\"13\",\"14\":\"14\",\"15\":\"15\",\"16\":\"16\",\"17\":\"17\",\"18\":\"18\",\"19\":\"19\",\"20\":\"20\",\"21\":\"21\",\"22\":\"22\",\"23\":\"23\",\"24\":\"24\",\"25\":\"25\",\"26\":\"26\",\"27\":\"27\",\"28\":\"28\",\"29\":\"29\",\"30\":\"30\",\"31\":\"31\",\"32\":\"32\",\"33\":\"33\",\"34\":\"34\",\"35\":\"35\",\"36\":\"36\",\"37\":\"37\",\"38\":\"38\",\"39\":\"39\",\"40\":\"40\",\"41\":\"41\",\"42\":\"42\",\"43\":\"43\",\"44\":\"44\",\"45\":\"45\",\"46\":\"46\",\"47\":\"47\",\"48\":\"48\",\"49\":\"49\",\"50\":\"50\",\"51\":\"51\",\"52\":\"52\",\"53\":\"53\",\"54\":\"54\",\"55\":\"55\",\"56\":\"56\",\"57\":\"57\",\"58\":\"58\",\"59\":\"59\",\"60\":\"60\",\"61\":\"61\",\"62\":\"62\",\"63\":\"63\",\"64\":\"64\",\"65\":\"65\",\"66\":\"66\",\"67\":\"67\",\"68\":\"68\",\"69\":\"69\",\"70\":\"70\",\"71\":\"71\",\"72\":\"72\",\"73\":\"73\",\"74\":\"74\",\"75\":\"75\",\"76\":\"76\",\"77\":\"77\",\"78\":\"78\",\"79\":\"79\",\"80\":\"80\",\"81\":\"81\",\"82\":\"82\",\"83\":\"83\",\"84\":\"84\",\"85\":\"85\",\"86\":\"86\",\"87\":\"87\",\"88\":\"88\",\"89\":\"89\",\"90\":\"90 (Vorne)\"}",
+        "ranges_zh": "{\"0\":\"0（最后）\",\"1\":\"1\",\"2\":\"2\",\"3\":\"3\",\"4\":\"4\",\"5\":\"5\",\"6\":\"6\",\"7\":\"7\",\"8\":\"8\",\"9\":\"9\",\"10\":\"10\",\"11\":\"11\",\"12\":\"12\",\"13\":\"13\",\"14\":\"14\",\"15\":\"15\",\"16\":\"16\",\"17\":\"17\",\"18\":\"18\",\"19\":\"19\",\"20\":\"20\",\"21\":\"21\",\"22\":\"22\",\"23\":\"23\",\"24\":\"24\",\"25\":\"25\",\"26\":\"26\",\"27\":\"27\",\"28\":\"28\",\"29\":\"29\",\"30\":\"30\",\"31\":\"31\",\"32\":\"32\",\"33\":\"33\",\"34\":\"34\",\"35\":\"35\",\"36\":\"36\",\"37\":\"37\",\"38\":\"38\",\"39\":\"39\",\"40\":\"40\",\"41\":\"41\",\"42\":\"42\",\"43\":\"43\",\"44\":\"44\",\"45\":\"45\",\"46\":\"46\",\"47\":\"47\",\"48\":\"48\",\"49\":\"49\",\"50\":\"50\",\"51\":\"51\",\"52\":\"52\",\"53\":\"53\",\"54\":\"54\",\"55\":\"55\",\"56\":\"56\",\"57\":\"57\",\"58\":\"58\",\"59\":\"59\",\"60\":\"60\",\"61\":\"61\",\"62\":\"62\",\"63\":\"63\",\"64\":\"64\",\"65\":\"65\",\"66\":\"66\",\"67\":\"67\",\"68\":\"68\",\"69\":\"69\",\"70\":\"70\",\"71\":\"71\",\"72\":\"72\",\"73\":\"73\",\"74\":\"74\",\"75\":\"75\",\"76\":\"76\",\"77\":\"77\",\"78\":\"78\",\"79\":\"79\",\"80\":\"80\",\"81\":\"81\",\"82\":\"82\",\"83\":\"83\",\"84\":\"84\",\"85\":\"85\",\"86\":\"86\",\"87\":\"87\",\"88\":\"88\",\"89\":\"89\",\"90\":\"90（前）\"}",
+        "unit": ""
+       },
+       {
+        "group_de": "靠背调节范围",
+        "group_zh": "靠背调节",
+        "label_de": null,
+        "label_zh": "靠背调节target biz",
+        "paramName": "target",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"20\":\"20 (Zurück)\",\"21\":\"21\",\"22\":\"22\",\"23\":\"23\",\"24\":\"24\",\"25\":\"25\",\"26\":\"26\",\"27\":\"27\",\"28\":\"28\",\"29\":\"29\",\"30\":\"30\",\"31\":\"31\",\"32\":\"32\",\"33\":\"33\",\"34\":\"34\",\"35\":\"35\",\"36\":\"36\",\"37\":\"37\",\"38\":\"38\",\"39\":\"39\",\"40\":\"40\",\"41\":\"41\",\"42\":\"42\",\"43\":\"43\",\"44\":\"44\",\"45\":\"45\",\"46\":\"46\",\"47\":\"47\",\"48\":\"48\",\"49\":\"49\",\"50\":\"50\",\"51\":\"51\",\"52\":\"52\",\"53\":\"53\",\"54\":\"54\",\"55\":\"55\",\"56\":\"56\",\"57\":\"57\",\"58\":\"58\",\"59\":\"59\",\"60\":\"60\",\"61\":\"61\",\"62\":\"62\",\"63\":\"63\",\"64\":\"64\",\"65\":\"65\",\"66\":\"66\",\"67\":\"67\",\"68\":\"68\",\"69\":\"69\",\"70\":\"70\",\"71\":\"71\",\"72\":\"72\",\"73\":\"73\",\"74\":\"74\",\"75\":\"75\",\"76\":\"76\",\"77\":\"77\",\"78\":\"78\",\"79\":\"79\",\"80\":\"80\",\"81\":\"81\",\"82\":\"82\",\"83\":\"83\",\"84\":\"84\",\"85\":\"85 (Vorwärts)\"}",
+        "ranges_zh": "{\"20\":\"20（后）\",\"21\":\"21\",\"22\":\"22\",\"23\":\"23\",\"24\":\"24\",\"25\":\"25\",\"26\":\"26\",\"27\":\"27\",\"28\":\"28\",\"29\":\"29\",\"30\":\"30\",\"31\":\"31\",\"32\":\"32\",\"33\":\"33\",\"34\":\"34\",\"35\":\"35\",\"36\":\"36\",\"37\":\"37\",\"38\":\"38\",\"39\":\"39\",\"40\":\"40\",\"41\":\"41\",\"42\":\"42\",\"43\":\"43\",\"44\":\"44\",\"45\":\"45\",\"46\":\"46\",\"47\":\"47\",\"48\":\"48\",\"49\":\"49\",\"50\":\"50\",\"51\":\"51\",\"52\":\"52\",\"53\":\"53\",\"54\":\"54\",\"55\":\"55\",\"56\":\"56\",\"57\":\"57\",\"58\":\"58\",\"59\":\"59\",\"60\":\"60\",\"61\":\"61\",\"62\":\"62\",\"63\":\"63\",\"64\":\"64\",\"65\":\"65\",\"66\":\"66\",\"67\":\"67\",\"68\":\"68\",\"69\":\"69\",\"70\":\"70\",\"71\":\"71\",\"72\":\"72\",\"73\":\"73\",\"74\":\"74\",\"75\":\"75\",\"76\":\"76\",\"77\":\"77\",\"78\":\"78\",\"79\":\"79\",\"80\":\"80\",\"81\":\"81\",\"82\":\"82\",\"83\":\"83\",\"84\":\"84\",\"85\":\"85（前）\"}",
+        "unit": ""
+       },
+       {
+        "group_de": "高低调节范围",
+        "group_zh": "高低调节",
+        "label_de": null,
+        "label_zh": "高低调节target biz",
+        "paramName": "target",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"0\":\"0 (Niedrigste)\",\"1\":\"1\",\"2\":\"2\",\"3\":\"3\",\"4\":\"4\",\"5\":\"5\",\"6\":\"6\",\"7\":\"7\",\"8\":\"8\",\"9\":\"9\",\"10\":\"10\",\"11\":\"11\",\"12\":\"12\",\"13\":\"13\",\"14\":\"14\",\"15\":\"15\",\"16\":\"16\",\"17\":\"17\",\"18\":\"18\",\"19\":\"19\",\"20\":\"20\",\"21\":\"21\",\"22\":\"22\",\"23\":\"23\",\"24\":\"24\",\"25\":\"25\",\"26\":\"26\",\"27\":\"27\",\"28\":\"28\",\"29\":\"29\",\"30\":\"30\",\"31\":\"31\",\"32\":\"32\",\"33\":\"33\",\"34\":\"34\",\"35\":\"35\",\"36\":\"36\",\"37\":\"37\",\"38\":\"38\",\"39\":\"39\",\"40\":\"40\",\"41\":\"41\",\"42\":\"42\",\"43\":\"43\",\"44\":\"44\",\"45\":\"45\",\"46\":\"46\",\"47\":\"47\",\"48\":\"48\",\"49\":\"49\",\"50\":\"50\",\"51\":\"51\",\"52\":\"52\",\"53\":\"53\",\"54\":\"54\",\"55\":\"55\",\"56\":\"56\",\"57\":\"57\",\"58\":\"58\",\"59\":\"59\",\"60\":\"60\",\"61\":\"61\",\"62\":\"62\",\"63\":\"63\",\"64\":\"64\",\"65\":\"65\",\"66\":\"66\",\"67\":\"67\",\"68\":\"68\",\"69\":\"69\",\"70\":\"70\",\"71\":\"71\",\"72\":\"72\",\"73\":\"73\",\"74\":\"74\",\"75\":\"75\",\"76\":\"76\",\"77\":\"77\",\"78\":\"78\",\"79\":\"79\",\"80\":\"80\",\"81\":\"81\",\"82\":\"82\",\"83\":\"83\",\"84\":\"84\",\"85\":\"85\",\"86\":\"86\",\"87\":\"87\",\"88\":\"88\",\"89\":\"89\",\"90\":\"90\",\"91\":\"91\",\"92\":\"92\",\"93\":\"93\",\"94\":\"94\",\"95\":\"95\",\"96\":\"96\",\"97\":\"97\",\"98\":\"98\",\"99\":\"99\",\"100\":\"100 (Max)\"}",
+        "ranges_zh": "{\"0\":\"0（最低）\",\"1\":\"1\",\"2\":\"2\",\"3\":\"3\",\"4\":\"4\",\"5\":\"5\",\"6\":\"6\",\"7\":\"7\",\"8\":\"8\",\"9\":\"9\",\"10\":\"10\",\"11\":\"11\",\"12\":\"12\",\"13\":\"13\",\"14\":\"14\",\"15\":\"15\",\"16\":\"16\",\"17\":\"17\",\"18\":\"18\",\"19\":\"19\",\"20\":\"20\",\"21\":\"21\",\"22\":\"22\",\"23\":\"23\",\"24\":\"24\",\"25\":\"25\",\"26\":\"26\",\"27\":\"27\",\"28\":\"28\",\"29\":\"29\",\"30\":\"30\",\"31\":\"31\",\"32\":\"32\",\"33\":\"33\",\"34\":\"34\",\"35\":\"35\",\"36\":\"36\",\"37\":\"37\",\"38\":\"38\",\"39\":\"39\",\"40\":\"40\",\"41\":\"41\",\"42\":\"42\",\"43\":\"43\",\"44\":\"44\",\"45\":\"45\",\"46\":\"46\",\"47\":\"47\",\"48\":\"48\",\"49\":\"49\",\"50\":\"50\",\"51\":\"51\",\"52\":\"52\",\"53\":\"53\",\"54\":\"54\",\"55\":\"55\",\"56\":\"56\",\"57\":\"57\",\"58\":\"58\",\"59\":\"59\",\"60\":\"60\",\"61\":\"61\",\"62\":\"62\",\"63\":\"63\",\"64\":\"64\",\"65\":\"65\",\"66\":\"66\",\"67\":\"67\",\"68\":\"68\",\"69\":\"69\",\"70\":\"70\",\"71\":\"71\",\"72\":\"72\",\"73\":\"73\",\"74\":\"74\",\"75\":\"75\",\"76\":\"76\",\"77\":\"77\",\"78\":\"78\",\"79\":\"79\",\"80\":\"80\",\"81\":\"81\",\"82\":\"82\",\"83\":\"83\",\"84\":\"84\",\"85\":\"85\",\"86\":\"86\",\"87\":\"87\",\"88\":\"88\",\"89\":\"89\",\"90\":\"90\",\"91\":\"91\",\"92\":\"92\",\"93\":\"93\",\"94\":\"94\",\"95\":\"95\",\"96\":\"96\",\"97\":\"97\",\"98\":\"98\",\"99\":\"99\",\"100\":\"100（最高）\"}",
+        "unit": ""
+       }
+      ]
+     },
+     {
+      "id": "1834203851139186690",
+      "nodeId": "seat restoration",
+      "name_de": "Sitz zurücksetzen",
+      "name_en": "Seat reset",
+      "name_zh": "座椅恢复_ALL",
+      "name_zh_key": "座椅恢复",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [
+       {
+        "F57AEU": "9.9.9-9.9.9",
+        "D02EU": "9.9.9-9.9.9",
+        "D03EU": "9.9.9-9.9.9"
+       }
+      ],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "座椅恢复",
+        "tecPoint": "command://control.seat.recovery"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834203851332124675",
+      "nodeId": "seatAirinessSetting",
+      "name_de": "Sitzbelüftung",
+      "name_en": "Seat ventilation",
+      "name_zh": "座椅通风调节",
+      "name_zh_key": "座椅通风",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "DOUBLE_SCROLL",
+      "classCode": [
+       "action_local",
+       "action_remote"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": true,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "关闭主驾座椅通风",
+        "tecPoint": "command://ac.seat.ventilate.off"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "设置主驾座椅通风挡位",
+        "tecPoint": "command://ac.seat.ventilate.driver.set"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "设置副驾座椅通风挡位",
+        "tecPoint": "setPassengerSeatBlowLevel"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834203851499896833",
+      "nodeId": "seatHeatingSetting",
+      "name_de": "Sitzheizung",
+      "name_en": "Seat heating",
+      "name_zh": "座椅加热调节",
+      "name_zh_key": "座椅加热",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "DOUBLE_SCROLL",
+      "classCode": [
+       "action_local",
+       "action_remote"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": true,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "关闭主驾座椅加热",
+        "tecPoint": "command://ac.seat.heating.close"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "设置主驾座椅加热挡位",
+        "tecPoint": "command://ac.seat.heat.drive.set"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "设置副驾座椅加热",
+        "tecPoint": "setBcmPsnSeatHeatLevel"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "设置左后座椅加热",
+        "tecPoint": "setRearLeftSeatHeatSw"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "设置右后座椅加热",
+        "tecPoint": "setRearRightSeatHeatSw"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "其他座椅加热挡位",
+        "group_zh": "副驾",
+        "label_de": null,
+        "label_zh": "设置副驾座椅通风/加热挡位",
+        "paramName": "level",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"0\":\"Aus\",\"1\":\"Ebene 1\",\"2\":\"Ebene 2\",\"3\":\"Ebene 3\"}",
+        "ranges_zh": "{\"0\":\"关闭\",\"1\":\"设为1挡\",\"2\":\"设为2挡\",\"3\":\"设为3挡\"}",
+        "unit": null
+       },
+       {
+        "group_de": "其他座椅加热挡位",
+        "group_zh": "二排左",
+        "label_de": null,
+        "label_zh": "设置副驾座椅通风/加热挡位",
+        "paramName": "level",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"0\":\"Aus\",\"1\":\"Ebene 1\",\"2\":\"Ebene 2\",\"3\":\"Ebene 3\"}",
+        "ranges_zh": "{\"0\":\"关闭\",\"1\":\"设为1挡\",\"2\":\"设为2挡\",\"3\":\"设为3挡\"}",
+        "unit": null
+       },
+       {
+        "group_de": "其他座椅加热挡位",
+        "group_zh": "二排右",
+        "label_de": null,
+        "label_zh": "设置副驾座椅通风/加热挡位",
+        "paramName": "level",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"0\":\"Aus\",\"1\":\"Ebene 1\",\"2\":\"Ebene 2\",\"3\":\"Ebene 3\"}",
+        "ranges_zh": "{\"0\":\"关闭\",\"1\":\"设为1挡\",\"2\":\"设为2挡\",\"3\":\"设为3挡\"}",
+        "unit": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name_de": "Klimaanlage",
+    "name_en": "Climate (HVAC)",
+    "name_zh": "空调actionlocal",
+    "items": [
+     {
+      "id": "1834141386124820481",
+      "nodeId": "airConditioningStatus",
+      "name_de": "Klimaanlagenschalter vorn",
+      "name_en": "Front A/C power",
+      "name_zh": "前排空调开关",
+      "name_zh_key": "前排空调开关",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local",
+       "action_remote"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": true,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "设置空调开关",
+        "tecPoint": "setHvacPowerMode"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "空调开关",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "空调通用开关",
+        "paramName": "enable",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"1\":\"Ein\",\"0\":\"Aus\"}",
+        "ranges_zh": "{\"1\":\"打开\",\"0\":\"关闭\"}",
+        "unit": null
+       }
+      ]
+     },
+     {
+      "id": "1834141386338729984",
+      "nodeId": "autoAirConditionerSwitch",
+      "name_de": "Vordere Klimaanlage AUTO",
+      "name_en": "Front A/C AUTO",
+      "name_zh": "前排空调AUTO",
+      "name_zh_key": "前排空调AUTO",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_remote",
+       "action_local"
+      ],
+      "limitVersion": [],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": true,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "设置空调Auto模式",
+        "tecPoint": "setHvacAutoMode"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "空调开关",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "空调通用开关",
+        "paramName": "enable",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"1\":\"Ein\",\"0\":\"Aus\"}",
+        "ranges_zh": "{\"1\":\"打开\",\"0\":\"关闭\"}",
+        "unit": null
+       }
+      ]
+     },
+     {
+      "id": "1834141386162569217",
+      "nodeId": "airConditioningACStatus",
+      "name_de": "Klimaanlage",
+      "name_en": "A/C compressor (AC)",
+      "name_zh": "空调AC开关",
+      "name_zh_key": "AC",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local",
+       "action_remote"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": true,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "设置AC开关",
+        "tecPoint": "setHvacTempAcMode"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "空调通用开关ac",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "空调通用开关ac",
+        "paramName": "enable",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"4\":\"Ein\",\"3\":\"Aus\"}",
+        "ranges_zh": "{\"4\":\"打开\",\"3\":\"关闭\"}",
+        "unit": null
+       }
+      ]
+     },
+     {
+      "id": "1834141386238066690",
+      "nodeId": "airConditionerTempSetting",
+      "name_de": "Temperatur",
+      "name_en": "Temperature",
+      "name_zh": "空调温度设置",
+      "name_zh_key": "温度调节",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "DOUBLE_SCROLL",
+      "classCode": [
+       "action_remote",
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": true,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "设置主驾空调温度",
+        "tecPoint": "setHvacTempDriverValue"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "设置副驾空调温度",
+        "tecPoint": "setHvacTempPsnValue"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "空调温度设置范围",
+        "group_zh": "主驾",
+        "label_de": null,
+        "label_zh": "空调温度设置(LO-HI)",
+        "paramName": "level",
+        "valueType": null,
+        "dataType": "Float",
+        "ranges_de": "{\"15.5\":\"LO\",\"16\":\"16℃\",\"17\":\"17℃\",\"18\":\"18℃\",\"19\":\"19℃\",\"20\":\"20℃\",\"21\":\"21℃\",\"22\":\"22℃\",\"23\":\"23℃\",\"24\":\"24℃\",\"25\":\"25℃\",\"26\":\"26℃\",\"27\":\"27℃\",\"28\":\"28℃\",\"29\":\"29℃\",\"30\":\"30℃\",\"31\":\"31℃\",\"32\":\"32℃\",\"32.5\":\"HI\"}",
+        "ranges_zh": "{\"15.5\":\"LO\",\"16\":\"16℃\",\"17\":\"17℃\",\"18\":\"18℃\",\"19\":\"19℃\",\"20\":\"20℃\",\"21\":\"21℃\",\"22\":\"22℃\",\"23\":\"23℃\",\"24\":\"24℃\",\"25\":\"25℃\",\"26\":\"26℃\",\"27\":\"27℃\",\"28\":\"28℃\",\"29\":\"29℃\",\"30\":\"30℃\",\"31\":\"31℃\",\"32\":\"32℃\",\"32.5\":\"HI\"}",
+        "unit": ""
+       },
+       {
+        "group_de": "空调温度设置范围",
+        "group_zh": "副驾",
+        "label_de": null,
+        "label_zh": "空调温度设置(LO-HI)",
+        "paramName": "level",
+        "valueType": null,
+        "dataType": "Float",
+        "ranges_de": "{\"15.5\":\"LO\",\"16\":\"16℃\",\"17\":\"17℃\",\"18\":\"18℃\",\"19\":\"19℃\",\"20\":\"20℃\",\"21\":\"21℃\",\"22\":\"22℃\",\"23\":\"23℃\",\"24\":\"24℃\",\"25\":\"25℃\",\"26\":\"26℃\",\"27\":\"27℃\",\"28\":\"28℃\",\"29\":\"29℃\",\"30\":\"30℃\",\"31\":\"31℃\",\"32\":\"32℃\",\"32.5\":\"HI\"}",
+        "ranges_zh": "{\"15.5\":\"LO\",\"16\":\"16℃\",\"17\":\"17℃\",\"18\":\"18℃\",\"19\":\"19℃\",\"20\":\"20℃\",\"21\":\"21℃\",\"22\":\"22℃\",\"23\":\"23℃\",\"24\":\"24℃\",\"25\":\"25℃\",\"26\":\"26℃\",\"27\":\"27℃\",\"28\":\"28℃\",\"29\":\"29℃\",\"30\":\"30℃\",\"31\":\"31℃\",\"32\":\"32℃\",\"32.5\":\"HI\"}",
+        "unit": ""
+       }
+      ]
+     },
+     {
+      "id": "1880184073805234177",
+      "nodeId": "airConditioningVolumeSetting",
+      "name_de": "Lüftergeschwindigkeit vorn",
+      "name_en": "Front fan speed",
+      "name_zh": "前排风量调节",
+      "name_zh_key": "前排风量调节",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local",
+       "action_remote"
+      ],
+      "limitVersion": [
+       {
+        "F57AEU": "5.7.3-9.9.9",
+        "D02EU": "5.7.3-9.9.9",
+        "D03EU": "5.7.3-9.9.9",
+        "H93AEEU": "5.6.3-9.9.9",
+        "G02EU": "5.6.3-9.9.9",
+        "F30BEU": "5.5.0-9.9.9",
+        "F30IA": "5.4.0-9.9.9",
+        "H93IA": "5.4.0-9.9.9",
+        "E38EU": "5.4.0-9.9.9",
+        "E28AEU": "5.4.0-9.9.9",
+        "E38BEU": "5.5.0-9.9.9"
+       }
+      ],
+      "labels": [
+       "海外智慧场景分类",
+       "OS5.6"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": true,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "设置空调风量",
+        "tecPoint": "setHvacWindSpeedLevel"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "空调风量挡位",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "设置空调风量1-10挡",
+        "paramName": "level",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"1\":\"Ebene 1\",\"2\":\"Ebene 2\",\"3\":\"Ebene 3\",\"4\":\"Ebene 4\",\"5\":\"Ebene 5\",\"6\":\"Ebene 6\",\"7\":\"Ebene 7\",\"8\":\"Ebene 8\",\"9\":\"Ebene 9\",\"10\":\"Ebene 10\"}",
+        "ranges_zh": "{\"1\":\"1挡\",\"2\":\"2挡\",\"3\":\"3挡\",\"4\":\"4挡\",\"5\":\"5挡\",\"6\":\"6挡\",\"7\":\"7挡\",\"8\":\"8挡\",\"9\":\"9挡\",\"10\":\"10挡\"}",
+        "unit": null
+       }
+      ]
+     },
+     {
+      "id": "1834141386317758465",
+      "nodeId": "circulationSetting",
+      "name_de": "Luftzirkulation",
+      "name_en": "Air circulation",
+      "name_zh": "内外循环设置",
+      "name_zh_key": "内外循环",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local",
+       "action_remote"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": true,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "设置内外循环模式",
+        "tecPoint": "setHvacCirculationMode"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "内外循环",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "空调内外循环设置",
+        "paramName": "mode",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"1\":\"Interne Zirkulation\",\"2\":\"Externe Zirkulation\"}",
+        "ranges_zh": "{\"1\":\"内循环\",\"2\":\"外循环\"}",
+        "unit": null
+       }
+      ]
+     },
+     {
+      "id": "1834141386355507200",
+      "nodeId": "rapidCoolingSwitch",
+      "name_de": "Schnellkühlung",
+      "name_en": "Rapid cooling",
+      "name_zh": "极速降温开关",
+      "name_zh_key": "极速降温",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_remote",
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": true,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "设置空调极速降温模式",
+        "tecPoint": "setWarpSpeedCoolingSwitch"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "空调开关",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "空调通用开关",
+        "paramName": "enable",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"1\":\"Ein\",\"0\":\"Aus\"}",
+        "ranges_zh": "{\"1\":\"打开\",\"0\":\"关闭\"}",
+        "unit": null
+       }
+      ]
+     },
+     {
+      "id": "1834141386376478720",
+      "nodeId": "rapidHeatingSwitch",
+      "name_de": "Schnellheizung",
+      "name_en": "Rapid heating",
+      "name_zh": "极速升温开关",
+      "name_zh_key": "极速升温",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_remote",
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": true,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "设置空调极速升温模式",
+        "tecPoint": "setWarpSpeedWarmingSwitch"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "空调开关",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "空调通用开关",
+        "paramName": "enable",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"1\":\"Ein\",\"0\":\"Aus\"}",
+        "ranges_zh": "{\"1\":\"打开\",\"0\":\"关闭\"}",
+        "unit": null
+       }
+      ]
+     },
+     {
+      "id": "1834141386414227457",
+      "nodeId": "intelligentDeodorizationSwitch",
+      "name_de": "Intelligente Geruchsbeseitigung",
+      "name_en": "Intelligent odour removal",
+      "name_zh": "智能除味180s开关",
+      "name_zh_key": "智能除味",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "设置空调智能除味模式",
+        "tecPoint": "setDeodorizeSwitch"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "智能除味开关",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "设置空调智能除味",
+        "paramName": "enable",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"1\":\"Ein\",\"0\":\"Aus\"}",
+        "ranges_zh": "{\"1\":\"打开\",\"0\":\"关闭\"}",
+        "unit": null
+       }
+      ]
+     },
+     {
+      "id": "1876101171815251969",
+      "nodeId": "airPurificationSwitch",
+      "name_de": "Luftreinigung",
+      "name_en": "Air purification",
+      "name_zh": "空气净化开关",
+      "name_zh_key": "空气净化",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local",
+       "action_remote"
+      ],
+      "limitVersion": [
+       {
+        "F57AEU": "5.7.3-9.9.9",
+        "D02EU": "5.7.3-9.9.9",
+        "D03EU": "5.7.3-9.9.9",
+        "H93AEEU": "5.6.3-9.9.9",
+        "G02EU": "5.6.3-9.9.9",
+        "F30BEU": "5.5.1-9.9.9",
+        "F30IA": "5.6.0-9.9.9",
+        "H93IA": "5.6.0-9.9.9",
+        "E38EU": "5.6.0-9.9.9",
+        "E28AEU": "5.6.0-9.9.9",
+        "E38BEU": "5.5.1-9.9.9"
+       }
+      ],
+      "labels": [
+       "海外智慧场景分类",
+       "OS5.6"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": true,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "空气净化开关",
+        "tecPoint": "setHvacQualityPurgeMode"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "空调开关",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "空调通用开关",
+        "paramName": "enable",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"1\":\"Ein\",\"0\":\"Aus\"}",
+        "ranges_zh": "{\"1\":\"打开\",\"0\":\"关闭\"}",
+        "unit": null
+       }
+      ]
+     },
+     {
+      "id": "1834141386431004672",
+      "nodeId": "energySavingModeSwitch",
+      "name_de": "Energiesparmodus",
+      "name_en": "Eco mode",
+      "name_zh": "节能模式开关",
+      "name_zh_key": "节能模式",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "设置空调节能模式",
+        "tecPoint": "setEconMode"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "空调开关",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "空调通用开关",
+        "paramName": "enable",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"1\":\"Ein\",\"0\":\"Aus\"}",
+        "ranges_zh": "{\"1\":\"打开\",\"0\":\"关闭\"}",
+        "unit": null
+       }
+      ]
+     },
+     {
+      "id": "1834141386636525570",
+      "nodeId": "blowingModeSetting",
+      "name_de": "Gebläsemodus vorn",
+      "name_en": "Front airflow mode",
+      "name_zh": "前排吹风模式",
+      "name_zh_key": "前排吹风模式",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "打开吹头",
+        "tecPoint": "command://ac.blow.head.on"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "打开吹脚",
+        "tecPoint": "command://ac.blow.foot.on"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "打开吹窗",
+        "tecPoint": "command://ac.blow.window.on"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834141387144036352",
+      "nodeId": "frontDefoggingSwitch",
+      "name_de": "Beschlag entfernen vorn",
+      "name_en": "Front defog",
+      "name_zh": "前除雾开关",
+      "name_zh_key": "前除雾",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local",
+       "action_remote"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": true,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "设置前除雾",
+        "tecPoint": "setHvacFrontDefrostMode"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "空调开关",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "空调通用开关",
+        "paramName": "enable",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"1\":\"Ein\",\"0\":\"Aus\"}",
+        "ranges_zh": "{\"1\":\"打开\",\"0\":\"关闭\"}",
+        "unit": null
+       }
+      ]
+     },
+     {
+      "id": "1834141387165007872",
+      "nodeId": "backDefoggingSwitch",
+      "name_de": "Beschlag entfernen hinten",
+      "name_en": "Rear defog",
+      "name_zh": "后除雾开关",
+      "name_zh_key": "后除雾",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local",
+       "action_remote"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": true,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "设置后除雾",
+        "tecPoint": "setBcmBackMirrorHeatMode"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "空调开关",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "空调通用开关",
+        "paramName": "enable",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"1\":\"Ein\",\"0\":\"Aus\"}",
+        "ranges_zh": "{\"1\":\"打开\",\"0\":\"关闭\"}",
+        "unit": null
+       }
+      ]
+     },
+     {
+      "id": "1834141387181785088",
+      "nodeId": "heatedMirrorsSwitch",
+      "name_de": "Beheizte Spiegel",
+      "name_en": "Heated mirrors",
+      "name_zh": "后视镜加热开关",
+      "name_zh_key": "后视镜加热",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local",
+       "action_remote"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": true,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "后视镜加热",
+        "tecPoint": "setBcmBackMirrorHeatMode"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "空调开关",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "空调通用开关",
+        "paramName": "enable",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"1\":\"Ein\",\"0\":\"Aus\"}",
+        "ranges_zh": "{\"1\":\"打开\",\"0\":\"关闭\"}",
+        "unit": null
+       }
+      ]
+     },
+     {
+      "id": "1838481825163116546",
+      "nodeId": "steeringWheel Heated",
+      "name_de": "Lenkradheizung",
+      "name_en": "Steering wheel heating",
+      "name_zh": "方向盘加热",
+      "name_zh_key": "方向盘加热",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [
+       {
+        "F57AEU": "5.7.3-9.9.9",
+        "D02EU": "5.7.3-9.9.9",
+        "D03EU": "5.7.3-9.9.9",
+        "H93AEEU": "5.6.3-9.9.9",
+        "G02EU": "5.6.3-9.9.9",
+        "F30BEU": "5.5.0-9.9.9",
+        "F30IA": "5.4.0-9.9.9",
+        "H93IA": "5.4.0-9.9.9",
+        "E38EU": "9.9.9-9.9.9",
+        "E28AEU": "9.9.9-9.9.9",
+        "E38BEU": "5.5.0-9.9.9"
+       }
+      ],
+      "labels": [
+       "海外智慧场景分类",
+       "OS5.6"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "关闭方向盘加热",
+        "tecPoint": "command://ac.steering.heating.off"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "方向盘加热设置",
+        "tecPoint": "command://ac.steering.heating.set"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834141387127259139",
+      "nodeId": "airOutletSwitch",
+      "name_de": "Lüftungsschalter",
+      "name_en": "Air outlet switch",
+      "name_zh": "出风口开关",
+      "name_zh_key": "出风口开关",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "DOUBLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [
+       {
+        "F57AEU": "9.9.9-9.9.9",
+        "D02EU": "99.9.9-99.9.9",
+        "D03EU": "99.9.9-99.9.9",
+        "H93AEEU": "5.6.3-9.9.9",
+        "G02EU": "5.6.3-9.9.9",
+        "F30BEU": "9.9.9-9.9.9",
+        "F30IA": "5.4.0-9.9.9",
+        "H93IA": "5.4.0-9.9.9",
+        "E38EU": "5.4.0-9.9.9",
+        "E28AEU": "5.4.0-9.9.9",
+        "E38BEU": "5.5.0-9.9.9"
+       }
+      ],
+      "labels": [
+       "海外智慧场景分类",
+       "OS5.6"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "打开出风口",
+        "tecPoint": "command://ac.wind.outlet.on"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "关闭出风口",
+        "tecPoint": "command://ac.wind.outlet.off"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834141386758160386",
+      "nodeId": "masterWindDirectionSetting",
+      "name_de": "Klimaanlage Fahrer",
+      "name_en": "Driver air direction",
+      "name_zh": "主驾出风口风向设置",
+      "name_zh_key": "主驾出风口",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "出风口设为单向风",
+        "tecPoint": "command://ac.wind.unidirection"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "出风口设为镜像风",
+        "tecPoint": "command://ac.wind.mirror.on"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "出风口设为对人吹",
+        "tecPoint": "command://ac.wind.front"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "出风口设为避人吹",
+        "tecPoint": "command://ac.wind.evade"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "出风口设为自由风",
+        "tecPoint": "command://ac.wind.free"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834141386871406594",
+      "nodeId": "copilotWindDirectionSetting",
+      "name_de": "Klimaanlage Beifahrer",
+      "name_en": "Passenger air direction",
+      "name_zh": "副驾出风口风向设置",
+      "name_zh_key": "副驾出风口",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "出风口设为单向风",
+        "tecPoint": "command://ac.wind.unidirection"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "出风口设为镜像风",
+        "tecPoint": "command://ac.wind.mirror.on"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "出风口设为对人吹",
+        "tecPoint": "command://ac.wind.front"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "出风口设为避人吹",
+        "tecPoint": "command://ac.wind.evade"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "出风口设为自由风",
+        "tecPoint": "command://ac.wind.free"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834141386892378112",
+      "nodeId": "SweepTheWholeCar",
+      "name_de": "Swing-Modus",
+      "name_en": "Swing (auto-sweep) mode",
+      "name_zh": "风向设为左右扫风",
+      "name_zh_key": "左右扫风",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "NONE",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [
+       {
+        "H93AEEU": "5.6.3-9.9.9",
+        "G02EU": "5.6.3-9.9.9",
+        "F30BEU": "9.9.9-9.9.9",
+        "F30IA": "5.4.0-9.9.9",
+        "H93IA": "5.4.0-9.9.9",
+        "E38EU": "5.4.0-9.9.9",
+        "E28AEU": "5.4.0-9.9.9",
+        "E38BEU": "5.5.0-9.9.9"
+       }
+      ],
+      "labels": [
+       "海外智慧场景分类",
+       "OS5.6"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "打开全车扫风",
+        "tecPoint": "command://ac.wind.auto.sweep.on"
+       }
+      ],
+      "params": []
+     }
+    ]
+   },
+   {
+    "name_de": "Fahren",
+    "name_en": "Driving",
+    "name_zh": "驾驶体验actionlocal",
+    "items": [
+     {
+      "id": "1834141523569278978",
+      "nodeId": "drivingModeSetting",
+      "name_de": "Fahrmodus",
+      "name_en": "Drive mode",
+      "name_zh": "驾驶模式调节",
+      "name_zh_key": "驾驶模式",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "驾驶模式设为舒适模式",
+        "tecPoint": "command://control.modes.driving.comfort"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "驾驶模式设为标准模式",
+        "tecPoint": "command://control.modes.driving.normal"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "驾驶模式设为运动模式",
+        "tecPoint": "command://control.modes.driving.sport"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "驾驶模式弹射/极客模式",
+        "tecPoint": "control.modes.driving.xsport"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "驾驶模式设为脱困模式",
+        "tecPoint": "command://control.modes.driving.crosscountry"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "驾驶模式设为个性化",
+        "tecPoint": "command://control.modes.driving.individual"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834141523690913794",
+      "nodeId": "energyRecovery",
+      "name_de": "Energierückgewinnung",
+      "name_en": "Regenerative braking",
+      "name_zh": "能量回收调节",
+      "name_zh_key": "能量回收",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "能量回收设为单踏板模式",
+        "tecPoint": "command://control.xpedal.on"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "能量回收设为高",
+        "tecPoint": "command://control.energy.recycle.high"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "能量回收设为中",
+        "tecPoint": "command://control.energy.recycle.medium"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "能量回收设为低",
+        "tecPoint": "command://control.energy.recycle.low"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834141523787382786",
+      "nodeId": "steeringWheelAssist",
+      "name_de": "Lenkassistent",
+      "name_en": "Steering assist",
+      "name_zh": "转向助力调节",
+      "name_zh_key": "转向助力",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "方向盘助力设为舒适",
+        "tecPoint": "command://control.modes.steering.soft"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "方向盘助力设为标准",
+        "tecPoint": "command://control.modes.steering.normal"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "方向盘助力设为运动",
+        "tecPoint": "command://control.modes.steering.sport"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1876909506969862146",
+      "nodeId": "driverStatusAlert",
+      "name_de": "Warnmeldung von der Fahrerzustandserkennung",
+      "name_en": "Driver monitoring alert",
+      "name_zh": "驾驶员状态监测提醒",
+      "name_zh_key": "驾驶员状态监测提醒",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [
+       {
+        "F57AEU": "5.7.3-9.9.9",
+        "D02EU": "5.7.3-9.9.9",
+        "D03EU": "5.7.3-9.9.9",
+        "H93AEEU": "5.6.3-9.9.9",
+        "G02EU": "5.6.3-9.9.9",
+        "F30BEU": "5.7.3-9.9.9",
+        "F30IA": "5.6.0-9.9.9",
+        "H93IA": "5.6.0-9.9.9",
+        "E38EU": "5.6.0-9.9.9",
+        "E28AEU": "5.6.0-9.9.9",
+        "E38BEU": "5.7.3-9.9.9"
+       }
+      ],
+      "labels": [
+       "5.6智慧场景海外",
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "驾驶员状态监测提醒 打开/关闭",
+        "tecPoint": "logic://carcontrol.xpilot.safety.dsm_voice_state"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1876925853119283202",
+      "nodeId": "emergencyLaneKeepingReminders",
+      "name_de": "Notfall-Spurhalteassistent",
+      "name_en": "Emergency lane keeping",
+      "name_zh": "紧急车道保持",
+      "name_zh_key": "紧急车道保持",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [
+       {
+        "F57AEU": "5.7.3-9.9.9",
+        "D02EU": "5.7.3-9.9.9",
+        "D03EU": "5.7.3-9.9.9",
+        "H93AEEU": "5.6.3-9.9.9",
+        "G02EU": "5.6.3-9.9.9",
+        "F30BEU": "5.7.3-9.9.9",
+        "F30IA": "5.6.0-9.9.9",
+        "H93IA": "5.6.0-9.9.9",
+        "E38EU": "5.6.0-9.9.9",
+        "E28AEU": "5.6.0-9.9.9",
+        "E38BEU": "5.7.3-9.9.9"
+       }
+      ],
+      "labels": [
+       "5.6智慧场景海外",
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "紧急车道保持 声效预警+纠正/预警+纠正",
+        "tecPoint": "logic://carcontrol.xpilot.safety.overseas_elk"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1876928328126431234",
+      "nodeId": "SpeedingReminders",
+      "name_de": "Warnton intelligenter Assistent Geschwindigkeitsbegrenzung",
+      "name_en": "Intelligent speed-limit alert",
+      "name_zh": "智能限速辅助报警声",
+      "name_zh_key": "智能限速辅助报警声",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [
+       {
+        "F57AEU": "5.7.3-9.9.9",
+        "D02EU": "5.7.3-9.9.9",
+        "D03EU": "5.7.3-9.9.9",
+        "H93AEEU": "5.6.3-9.9.9",
+        "G02EU": "5.6.3-9.9.9",
+        "F30BEU": "5.7.3-9.9.9",
+        "F30IA": "5.6.0-9.9.9",
+        "H93IA": "5.6.0-9.9.9",
+        "E38EU": "5.6.0-9.9.9",
+        "E28AEU": "5.6.0-9.9.9",
+        "E38BEU": "5.7.3-9.9.9"
+       }
+      ],
+      "labels": [
+       "5.6智慧场景海外",
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "超速提醒 打开/关闭",
+        "tecPoint": "logic://carcontrol.xpilot.safety.isla_alert"
+       }
+      ],
+      "params": []
+     }
+    ]
+   },
+   {
+    "name_de": "Anzeige",
+    "name_en": "Display",
+    "name_zh": "显示actionlocal",
+    "items": [
+     {
+      "id": "1834141646172979203",
+      "nodeId": "screenSwitch",
+      "name_de": "Bildschirmanzeige-Schalter",
+      "name_en": "Screen on/off",
+      "name_zh": "屏幕显示开关(测试）",
+      "name_zh_key": "屏幕显示开关",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "DOUBLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "打开屏幕",
+        "tecPoint": "command://system.polit.screen.on"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "关闭屏幕",
+        "tecPoint": "command://system.polit.screen.off"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834141646294614018",
+      "nodeId": "brightnessSwitch",
+      "name_de": "Bildschirmhelligkeitseinstellung",
+      "name_en": "Screen brightness",
+      "name_zh": "亮度设置",
+      "name_zh_key": "屏幕亮度设置",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "DOUBLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "主驾屏幕亮度设置",
+        "tecPoint": "command://system.screen.brightness.set.percent"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "仪表盘亮度设置",
+        "tecPoint": "command://system.icm.brightness.set.percent"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "亮度设置范围",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "屏幕亮度",
+        "paramName": "target",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"min\":1,\"max\":100,\"step\":1}",
+        "ranges_zh": "{\"min\":1,\"max\":100,\"step\":1}",
+        "unit": "%"
+       }
+      ]
+     },
+     {
+      "id": "1834141646642741251",
+      "nodeId": "screenBrightness",
+      "name_de": "Automatischer Bildschirmschalter",
+      "name_en": "Automatic screen brightness",
+      "name_zh": "屏幕亮度调节",
+      "name_zh_key": "屏幕亮度自动调节",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "DOUBLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [
+       {}
+      ],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "打开屏幕自动亮度调节",
+        "tecPoint": "system.polit.screen.brightness.auto.on"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "关闭屏幕自动亮度调节",
+        "tecPoint": "system.polit.screen.brightness.auto.off"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "打开仪表亮度自动调节",
+        "tecPoint": "system.icm.brightness.auto.on"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "关闭仪表亮度自动调节",
+        "tecPoint": "system.icm.brightness.auto.off"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834141646391083010",
+      "nodeId": "screenTheme",
+      "name_de": "Tag-/Nachtmodus",
+      "name_en": "Day/night mode",
+      "name_zh": "屏幕主题",
+      "name_zh_key": "白天/黑夜模式",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "屏幕主题设为自动模式",
+        "tecPoint": "command://system.theme.mode.auto"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "屏幕主题设为白天模式",
+        "tecPoint": "command://system.theme.mode.day"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "屏幕主题设为夜间模式",
+        "tecPoint": "command://system.theme.mode.night"
+       }
+      ],
+      "params": []
+     }
+    ]
+   },
+   {
+    "name_de": "Stimme",
+    "name_en": "Audio",
+    "name_zh": "声音actionlocal",
+    "items": [
+     {
+      "id": "1834512548091658242",
+      "nodeId": "volumeSetting",
+      "name_de": "Lautstärke",
+      "name_en": "Volume",
+      "name_zh": "音量调节",
+      "name_zh_key": "音量调节",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "DOUBLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "音量设置",
+        "tecPoint": "command://system.volume.set"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "音量调节范围",
+        "group_zh": "媒体音量",
+        "label_de": null,
+        "label_zh": "音量调节【0-19】",
+        "paramName": "change_value",
+        "valueType": null,
+        "dataType": "ChangeValue",
+        "ranges_de": "{\"min\":0,\"max\":19,\"step\":1}",
+        "ranges_zh": "{\"min\":0,\"max\":19,\"step\":1}",
+        "unit": ""
+       },
+       {
+        "group_de": "音量调节范围",
+        "group_zh": "导航播报音量",
+        "label_de": null,
+        "label_zh": "音量调节【0-30】",
+        "paramName": "change_value",
+        "valueType": null,
+        "dataType": "ChangeValue",
+        "ranges_de": "{\"min\":0,\"max\":30,\"step\":1}",
+        "ranges_zh": "{\"min\":0,\"max\":30,\"step\":1}",
+        "unit": null
+       },
+       {
+        "group_de": "音量调节范围",
+        "group_zh": "语音播报音量",
+        "label_de": null,
+        "label_zh": "音量调节【0-30】",
+        "paramName": "change_value",
+        "valueType": null,
+        "dataType": "ChangeValue",
+        "ranges_de": "{\"min\":0,\"max\":30,\"step\":1}",
+        "ranges_zh": "{\"min\":0,\"max\":30,\"step\":1}",
+        "unit": null
+       }
+      ]
+     },
+     {
+      "id": "1834512548125212673",
+      "nodeId": "soundPositionSetting",
+      "name_de": "Klangfeld-Einstellung",
+      "name_en": "Sound stage position",
+      "name_zh": "声场位置设置",
+      "name_zh_key": "声场位置设置",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "声场位置设置",
+        "tecPoint": "command://system.music.sound.direction.set"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "声场位置",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "声场位置bizaction【前中、全中、后中】",
+        "paramName": "direction",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"7\":\"Vorne Mitte\",\"3\":\"Gesamtes Fahrzeug Mitte\",\"5\":\"Hinten Mitte\"}",
+        "ranges_zh": "{\"7\":\"前排中间\",\"3\":\"全车中间\",\"5\":\"后排中间\"}",
+        "unit": null
+       }
+      ]
+     },
+     {
+      "id": "1834512548162961409",
+      "nodeId": "soundFeaturesSetting",
+      "name_de": "Klangmodus",
+      "name_en": "Sound mode",
+      "name_zh": "音效模式",
+      "name_zh_key": "音效模式",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [
+       {
+        "F57AEU": "5.7.3-9.9.9",
+        "D02EU": "5.7.3-9.9.9",
+        "D03EU": "5.7.3-9.9.9",
+        "H93AEEU": "5.6.3-9.9.9",
+        "G02EU": "5.6.3-9.9.9",
+        "F30BEU": "5.5.0-9.9.9",
+        "F30IA": "5.4.0-9.9.9",
+        "H93IA": "5.4.0-9.9.9",
+        "E38EU": "5.4.0-9.9.9",
+        "E28AEU": "5.4.0-9.9.9",
+        "E38BEU": "5.5.0-9.9.9"
+       }
+      ],
+      "labels": [
+       "海外智慧场景分类",
+       "OS5.6"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "音效风格设置",
+        "tecPoint": "command://system.music.sound.effect.style.set"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "音效模式",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "音效风格bizactoin",
+        "paramName": "style",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"10\":\"Dynamisch\",\"0\":\"Original\",\"12\":\"Kino\"}",
+        "ranges_zh": "{\"10\":\"动感\",\"0\":\"原声\",\"12\":\"影院\"}",
+        "unit": null
+       }
+      ]
+     },
+     {
+      "id": "1834512548200710144",
+      "nodeId": "masterDriverAudioModeSetting",
+      "name_de": "Fahrer-Audiomodus",
+      "name_en": "Driver audio mode",
+      "name_zh": "主驾音响模式设置",
+      "name_zh_key": "主驾音响模式",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [
+       {
+        "F57AEU": "5.7.3-9.9.9",
+        "D02EU": "5.7.3-9.9.9",
+        "D03EU": "5.7.3-9.9.9",
+        "H93AEEU": "5.6.3-9.9.9",
+        "G02EU": "5.6.3-9.9.9",
+        "F30BEU": "5.5.0-9.9.9",
+        "F30IA": "5.4.0-9.9.9",
+        "H93IA": "5.4.0-9.9.9",
+        "E38EU": "9.9.9-9.9.9",
+        "E28AEU": "5.4.0-9.9.9",
+        "E38BEU": "5.5.0-9.9.9"
+       }
+      ],
+      "labels": [
+       "海外智慧场景分类",
+       "OS5.6"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "主驾音响设置",
+        "tecPoint": "command://system.headrest.model.set"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "主驾音响模式",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "主驾音响",
+        "paramName": "mode",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"0\":\"Teilenmodus\",\"1\":\"Fahrmodus\",\"2\":\"Privater Modus\"}",
+        "ranges_zh": "{\"0\":\"共享模式\",\"1\":\"驾享模式\",\"2\":\"私享模式\"}",
+        "unit": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name_de": "Geräteanschluss",
+    "name_en": "Device connections",
+    "name_zh": "设备连接actionlocal",
+    "items": [
+     {
+      "id": "1834141750921527298",
+      "nodeId": "bluetoothSwitch",
+      "name_de": "Bluetooth-Schalter",
+      "name_en": "Bluetooth switch",
+      "name_zh": "蓝牙开关actionlocal_e38",
+      "name_zh_key": "蓝牙开关",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "打开主屏蓝牙",
+        "tecPoint": "command://system.pilot.bluetooth.on"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "关闭主屏蓝牙",
+        "tecPoint": "command://system.pilot.bluetooth.off"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834141750946693120",
+      "nodeId": "bluetoothConnectsDevice",
+      "name_de": "Bluetooth-verbundene Geräte",
+      "name_en": "Bluetooth connected device",
+      "name_zh": "蓝牙连接设备",
+      "name_zh_key": "蓝牙连接设备",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "MULTIPLE",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "蓝牙连接指定设备",
+        "tecPoint": "command://control.bluetooth.connect"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834141751034773506",
+      "nodeId": "carHotspotEnable",
+      "name_de": "Fahrzeug-Hotspot",
+      "name_en": "Car hotspot",
+      "name_zh": "车载热点",
+      "name_zh_key": "车载热点",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [
+       {}
+      ],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "控制热点开关 打开/关闭",
+        "tecPoint": "command://control.hotspot.status"
+       }
+      ],
+      "params": []
+     }
+    ]
+   },
+   {
+    "name_de": "Fahrzeugsteuerung",
+    "name_en": "Vehicle control",
+    "name_zh": "车辆控制actionlocal",
+    "items": [
+     {
+      "id": "1834141811535118337",
+      "nodeId": "rearviewMirrorsSetting",
+      "name_de": "Seitenspiegel",
+      "name_en": "Side mirrors",
+      "name_zh": "后视镜调节",
+      "name_zh_key": "后视镜",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "展开后视镜",
+        "tecPoint": "setRearViewMirror"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "后视镜调节状态",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "设置后视镜",
+        "paramName": "type",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"1\":\"Ausklappen\",\"0\":\"Falten\"}",
+        "ranges_zh": "{\"1\":\"展开\",\"0\":\"折叠\"}",
+        "unit": null
+       }
+      ]
+     },
+     {
+      "id": "1834141811547701248",
+      "nodeId": "setWhistle",
+      "name_de": "Hupe",
+      "name_en": "Horn",
+      "name_zh": "鸣笛",
+      "name_zh_key": "鸣笛",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "NONE",
+      "classCode": [
+       "action_local",
+       "action_remote"
+      ],
+      "limitVersion": [
+       {}
+      ],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": true,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "鸣笛",
+        "tecPoint": "setBcmCpdAlarmHornOnceReq"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834141811572867074",
+      "nodeId": "mobileDevicesWirelessChargingSwitch",
+      "name_de": "Kabelloses Laden auf Fahrerseite",
+      "name_en": "Driver-side wireless charging",
+      "name_zh": "移动设备无线充电开关",
+      "name_zh_key": "主驾驶无线充电开关",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "打开无线充电",
+        "tecPoint": "command://control.wireless.charging.on"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "关闭无线充电",
+        "tecPoint": "command://control.wireless.charging.off"
+       }
+      ],
+      "params": []
+     }
+    ]
+   },
+   {
+    "name_de": "Kofferraum-Stromversorgung",
+    "name_en": "Trunk power",
+    "name_zh": "后备箱电源action",
+    "items": [
+     {
+      "id": "1834141879820877826",
+      "nodeId": "delayOutage",
+      "name_de": "Kofferraum-Stromverzögerung Aus",
+      "name_en": "Trunk power delayed-off",
+      "name_zh": "后备箱电源延时断电",
+      "name_zh_key": "后备箱电源延时断电",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [
+       {
+        "F57AEU": "5.7.3-9.9.9",
+        "D02EU": "5.7.3-9.9.9",
+        "D03EU": "5.7.3-9.9.9",
+        "H93AEEU": "5.6.3-9.9.9",
+        "G02EU": "5.6.3-9.9.9",
+        "F30BEU": "5.5.0-9.9.9",
+        "F30IA": "5.4.0-9.9.9",
+        "H93IA": "5.4.0-9.9.9",
+        "E38EU": "5.4.0-9.9.9",
+        "E28AEU": "9.9.9-9.9.9",
+        "E38BEU": "5.5.0-9.9.9"
+       }
+      ],
+      "labels": [
+       "海外智慧场景分类",
+       "OS5.6"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "打开延时断电",
+        "tecPoint": "command://charge.trankpower.power.on"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "关闭延时断电",
+        "tecPoint": "command://charge.trankpower.power.off"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834141880106090499",
+      "nodeId": "setPowerOffPeriodAndDuration",
+      "name_de": "Kofferraum-Stromverzögerung Aus Zyklus & Dauer",
+      "name_en": "Trunk power off cycle & duration",
+      "name_zh": "后备箱电源延时断电周期与时长",
+      "name_zh_key": "后备箱电源延时断电周期与时长",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "DOUBLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [
+       {
+        "F57AEU": "5.5.0-9.9.9",
+        "D02EU": "5.5.0-9.9.9",
+        "D03EU": "5.5.0-9.9.9",
+        "H93AEEU": "5.6.3-9.9.9",
+        "G02EU": "5.6.3-9.9.9",
+        "F30BEU": "5.5.0-9.9.9",
+        "F30IA": "5.4.0-9.9.9",
+        "H93IA": "5.4.0-9.9.9",
+        "E38EU": "5.4.0-9.9.9",
+        "E28AEU": "9.9.9-9.9.9",
+        "E38BEU": "5.5.0-9.9.9"
+       }
+      ],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "设置延时断电周期和时长",
+        "tecPoint": "command://charge.trunk.power.set"
+       }
+      ],
+      "params": []
+     }
+    ]
+   },
+   {
+    "name_de": "Energie wird geladen",
+    "name_en": "Charging",
+    "name_zh": "充电actionlocal",
+    "items": [
+     {
+      "id": "1834141938945490946",
+      "nodeId": "chargingPortOperation",
+      "name_de": "Abdeckung Ladeanschluss",
+      "name_en": "Charge port cover",
+      "name_zh": "充电口操作",
+      "name_zh_key": "充电口盖",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [
+       {
+        "F57AEU": "9.9.9-9.9.9",
+        "D02EU": "99.9.9-99.9.9",
+        "D03EU": "99.9.9-99.9.9",
+        "H93AEEU": "5.6.3-9.9.9",
+        "G02EU": "5.6.3-9.9.9",
+        "F30BEU": "5.5.0-9.9.9",
+        "F30IA": "5.4.0-9.9.9",
+        "H93IA": "5.4.0-9.9.9",
+        "E38EU": "5.4.0-9.9.9",
+        "E28AEU": "9.9.9-9.9.9",
+        "E38BEU": "5.5.0-9.9.9"
+       }
+      ],
+      "labels": [
+       "海外智慧场景分类",
+       "OS5.6"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "充电口操作-直流充电口盖打开",
+        "tecPoint": "command://charge.direct.port.on"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "充电口操作-直流充电口盖关闭",
+        "tecPoint": "command://charge.direct.port.off"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834141938958073856",
+      "nodeId": "endCharge",
+      "name_de": "Ladevorgang Ende",
+      "name_en": "End charging",
+      "name_zh": "结束充电",
+      "name_zh_key": "结束充电",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "NONE",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [
+       {}
+      ],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "充电结束",
+        "tecPoint": "stopCharge"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834141938979045377",
+      "nodeId": "chargingLimitSetting",
+      "name_de": "Einstellung Ladebegrenzung",
+      "name_en": "Charge limit",
+      "name_zh": "充电限值设置",
+      "name_zh_key": "充电限值设置",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [
+       {}
+      ],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "充电限值修改",
+        "tecPoint": "setTboxChargeLimitValue"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "充电限值设置范围",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "充电限值修改参数",
+        "paramName": "req",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"min\":50,\"max\":100,\"step\":1}",
+        "ranges_zh": "{\"min\":50,\"max\":100,\"step\":1}",
+        "unit": "％"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name_de": "Sentry-Modus",
+    "name_en": "Sentry mode",
+    "name_zh": "哨兵actionlocal",
+    "items": [
+     {
+      "id": "1876201322709385218",
+      "nodeId": "sentinelMode",
+      "name_de": "Sentry-Modus",
+      "name_en": "Sentry mode",
+      "name_zh": "哨兵模式",
+      "name_zh_key": "哨兵模式",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local",
+       "action_remote"
+      ],
+      "limitVersion": [
+       {
+        "F57AEU": "5.7.3-9.9.9",
+        "D02EU": "5.7.3-9.9.9",
+        "D03EU": "5.7.3-9.9.9",
+        "H93AEEU": "5.6.3-9.9.9",
+        "G02EU": "5.6.3-9.9.9",
+        "F30BEU": "5.5.1-9.9.9",
+        "F30IA": "5.6.0-9.9.9",
+        "H93IA": "5.6.0-9.9.9",
+        "E38EU": "5.6.0-9.9.9",
+        "E28AEU": "5.6.0-9.9.9",
+        "E38BEU": "5.5.1-9.9.9"
+       }
+      ],
+      "labels": [
+       "海外智慧场景分类",
+       "OS5.6"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": true,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "哨兵模式",
+        "tecPoint": "setCarGuardModeLevel"
+       }
+      ],
+      "params": []
+     }
+    ]
+   },
+   {
+    "name_de": "360° Kamera",
+    "name_en": "360 camera",
+    "name_zh": "360影像",
+    "items": [
+     {
+      "id": "1834142006646931458",
+      "nodeId": "openImage",
+      "name_de": "Bild öffnen",
+      "name_en": "Open camera view",
+      "name_zh": "打开影像",
+      "name_zh_key": "打开影像",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [
+       {}
+      ],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "打开前摄像头",
+        "tecPoint": "command://camera.front.on"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "打开后摄像头",
+        "tecPoint": "command://camera.rear.on.new"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "打开左摄像头",
+        "tecPoint": "command://camera.left.on"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "打开右摄像头",
+        "tecPoint": "command://camera.right.on"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "四轮毂视角",
+        "tecPoint": "command://camera.wheelhub.four"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "前轮毂视角",
+        "tecPoint": "command://camera.wheelhub.front"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834142006806315010",
+      "nodeId": "open3DImage",
+      "name_de": "3D-Bild öffnen",
+      "name_en": "Open 3D camera view",
+      "name_zh": "打开3D影像",
+      "name_zh_key": "打开3D影像",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [
+       {}
+      ],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "3D前视角",
+        "tecPoint": "command://camera.display.three.d.front"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "3D后视角",
+        "tecPoint": "command://camera.display.three.d.rear"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "3D左视角",
+        "tecPoint": "command://camera.display.three.d.left"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "3D右视角",
+        "tecPoint": "command://camera.display.three.d.right"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "3D左前视角",
+        "tecPoint": "command://camera.display.three.d.left-front"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "3D右前视角",
+        "tecPoint": "command://camera.display.three.d.right-front"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "3D左后视角",
+        "tecPoint": "command://camera.display.three.d.left-rear"
+       },
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "3D右后视角",
+        "tecPoint": "command://camera.display.three.d.right-rear"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834142006827286528",
+      "nodeId": "closingImagePage",
+      "name_de": "Bild schließen",
+      "name_en": "Close camera view",
+      "name_zh": "关闭影像页面",
+      "name_zh_key": "关闭影像页面",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "NONE",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [
+       {}
+      ],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "关闭摄像头页面",
+        "tecPoint": "gui.page.close.camera"
+       }
+      ],
+      "params": []
+     }
+    ]
+   },
+   {
+    "name_de": "Navigation",
+    "name_en": "Navigation",
+    "name_zh": "导航actionlocal",
+    "items": [
+     {
+      "id": "1981175681989345280",
+      "nodeId": "navigationDestination",
+      "name_de": "Navigationsziel",
+      "name_en": "Navigation destination",
+      "name_zh": "导航目的地",
+      "name_zh_key": "导航目的地",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SPECIAL_CASE",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [
+       {}
+      ],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "开始导航bizcom",
+        "tecPoint": "bizcom://private.custom.navi.control.start"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1981175682014511104",
+      "nodeId": "exitNavigation",
+      "name_de": "Navigation beenden",
+      "name_en": "End navigation",
+      "name_zh": "退出导航",
+      "name_zh_key": "退出导航",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "NONE",
+      "classCode": [
+       "action_local"
+      ],
+      "limitVersion": [
+       {}
+      ],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "退出导航bizcom",
+        "tecPoint": "bizcom://ainavi.control.close"
+       }
+      ],
+      "params": []
+     }
+    ]
+   },
+   {
+    "name_de": "Benachrichtigung senden",
+    "name_en": "Send notification",
+    "name_zh": "发送通知actionlocal/actionremote",
+    "items": [
+     {
+      "id": "1834142136270192640",
+      "nodeId": "sendMobileNotifications",
+      "name_de": "Telefonbenachrichtigung senden",
+      "name_en": "Send phone notification",
+      "name_zh": "发送手机APP通知",
+      "name_zh_key": "发送手机通知",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SPECIAL_CASE",
+      "classCode": [
+       "action_local",
+       "action_remote"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": true,
+       "sub_condition": null
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_CMD",
+        "name_zh": "发送通知",
+        "tecPoint": "remote.send.message"
+       }
+      ],
+      "params": []
+     }
+    ]
+   }
+  ]
+ },
+ "triggers": {
+  "kind": "trigger",
+  "categories": [
+   {
+    "name_de": "Zum Auslösen tippen",
+    "name_en": "Tap to run",
+    "name_zh": "点击触发triggerlocal/triggerremote",
+    "items": [
+     {
+      "id": "1834156865399291904",
+      "nodeId": "skipAllTriggers",
+      "name_de": "Wird nur durch Antippen der Ausführen-Taste ausgelöst",
+      "name_en": "Tap the run button",
+      "name_zh": "点击触发trigger",
+      "name_zh_key": "仅点击运行按钮触发",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "NONE",
+      "classCode": [
+       "trigger_remote",
+       "trigger_local"
+      ],
+      "limitVersion": [],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": true,
+       "sub_condition": false
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "跳过触发条件",
+        "tecPoint": "trigger.click"
+       }
+      ],
+      "params": []
+     }
+    ]
+   },
+   {
+    "name_de": "Zeit",
+    "name_en": "Time",
+    "name_zh": "时间日程triggerremote/triggerlocal",
+    "items": [
+     {
+      "id": "1834158005755052032",
+      "nodeId": "timePoint",
+      "name_de": "Zeit",
+      "name_en": "Time point",
+      "name_zh": "时间点",
+      "name_zh_key": "时间",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SPECIAL_CASE",
+      "classCode": [
+       "trigger_remote",
+       "trigger_sub_remote",
+       "trigger_local",
+       "trigger_sub_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": true,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "时间日程",
+        "tecPoint": "trigger.time.point"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834157429550481409",
+      "nodeId": "delayTimePoint",
+      "name_de": "Verzögerung",
+      "name_en": "Delay",
+      "name_zh": "延时时间点",
+      "name_zh_key": "延时",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "trigger_sub_remote",
+       "trigger_sub_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": false,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "延时触发",
+        "tecPoint": "trigger.time.delay"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "延时时间点范围",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "延时时间点",
+        "paramName": null,
+        "valueType": null,
+        "dataType": "String",
+        "ranges_de": "{\"min\":1,\"max\":60,\"step\":1}",
+        "ranges_zh": "{\"min\":1,\"max\":60,\"step\":1}",
+        "unit": "Minuten später"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name_de": "Einsteigen ins Fahrzeug und Verlassen des Fahrzeugs",
+    "name_en": "Enter / leave vehicle",
+    "name_zh": "上下车triggerlocal/sublocal",
+    "items": [
+     {
+      "id": "1834157520914481155",
+      "nodeId": "onOffCar",
+      "name_de": "Einsteigen ins Fahrzeug und Verlassen des Fahrzeugs",
+      "name_en": "Enter / leave vehicle",
+      "name_zh": "上下车",
+      "name_zh_key": "上下车",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "DOUBLE_SCROLL",
+      "classCode": [
+       "trigger_local",
+       "trigger_sub_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "主驾上车",
+        "tecPoint": "ID_INTELLIGENT_DRIVER_ENTER"
+       },
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "主驾下车",
+        "tecPoint": "ID_INTELLIGENT_DRIVER_EXIT"
+       },
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "副驾上车",
+        "tecPoint": "ID_INTELLIGENT_PSN_ENTER"
+       },
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "副驾下车",
+        "tecPoint": "ID_INTELLIGENT_PSN_EXIT"
+       },
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "左后上车",
+        "tecPoint": "ID_INTELLIGENT_BACK_LEFT_ENTER"
+       },
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "左后下车",
+        "tecPoint": "ID_INTELLIGENT_BACK_LEFT_EXIT"
+       },
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "右后上车",
+        "tecPoint": "ID_INTELLIGENT_BACK_RIGHT_ENTER"
+       },
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "右后下车",
+        "tecPoint": "ID_INTELLIGENT_BACK_RIGHT_EXIT"
+       }
+      ],
+      "params": []
+     }
+    ]
+   },
+   {
+    "name_de": "Tür",
+    "name_en": "Doors",
+    "name_zh": "车门triggerlocal/sublocal",
+    "items": [
+     {
+      "id": "1834157590909550594",
+      "nodeId": "carDoorsSwitch",
+      "name_de": "Tür",
+      "name_en": "Door",
+      "name_zh": "车门开关",
+      "name_zh_key": "车门",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "DOUBLE_SCROLL",
+      "classCode": [
+       "trigger_local",
+       "trigger_sub_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "主驾车门",
+        "tecPoint": "ID_BCM_1ST_LEFT_DOOR_STATE"
+       },
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "副驾车门",
+        "tecPoint": "ID_BCM_1ST_RIGHT_DOOR_STATE"
+       },
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "左后车门",
+        "tecPoint": "ID_BCM_2ND_LEFT_DOOR_STATE"
+       },
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "右后车门",
+        "tecPoint": "ID_BCM_2ND_RIGHT_DOOR_STATE"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "车门开关状态",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "车门状态",
+        "paramName": null,
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"1\":\"Öffnen\",\"0\":\"Geschlossen\"}",
+        "ranges_zh": "{\"1\":\"打开时\",\"0\":\"关闭时\"}",
+        "unit": null
+       }
+      ]
+     },
+     {
+      "id": "1834157591006019586",
+      "nodeId": "childSafetyLock",
+      "name_de": "Kindersicherung",
+      "name_en": "Child safety lock",
+      "name_zh": "儿童安全锁",
+      "name_zh_key": "儿童安全锁",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "DOUBLE_SCROLL",
+      "classCode": [
+       "trigger_local",
+       "trigger_sub_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "左侧儿童锁",
+        "tecPoint": "ID_BCM_LCHILDLOCK"
+       },
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "右侧儿童锁",
+        "tecPoint": "ID_BCM_RCHILDLOCK"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "儿童安全锁左后状态",
+        "group_zh": "左后门",
+        "label_de": null,
+        "label_zh": "左侧儿童锁状态biztrigger",
+        "paramName": null,
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"2\":\"Entriegelt\",\"4\":\"Verriegelt\"}",
+        "ranges_zh": "{\"2\":\"解锁时\",\"4\":\"上锁时\"}",
+        "unit": null
+       },
+       {
+        "group_de": "儿童安全锁右后状态",
+        "group_zh": "右后门",
+        "label_de": null,
+        "label_zh": "右侧儿童锁状态biztrigger",
+        "paramName": null,
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"3\":\"Entriegelt\",\"5\":\"Verriegelt\"}",
+        "ranges_zh": "{\"3\":\"解锁时\",\"5\":\"上锁时\"}",
+        "unit": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name_de": "Scheinwerfer",
+    "name_en": "Lights",
+    "name_zh": "车灯triggerlocal/sublocal",
+    "items": [
+     {
+      "id": "1834157673331818497",
+      "nodeId": "fogLights",
+      "name_de": "Nebelschlussleuchten",
+      "name_en": "Rear fog light",
+      "name_zh": "后雾灯",
+      "name_zh_key": "后雾灯",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "trigger_local",
+       "trigger_sub_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "后雾灯",
+        "tecPoint": "ID_BCM_REAR_FOG_LAMP_ON"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "后雾灯状态",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "雾灯状态",
+        "paramName": null,
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"1\":\"Ein\",\"0\":\"Aus\"}",
+        "ranges_zh": "{\"1\":\"打开时\",\"0\":\"关闭时\"}",
+        "unit": null
+       }
+      ]
+     },
+     {
+      "id": "1834157673428287490",
+      "nodeId": "bcmRturnLamp",
+      "name_de": "Blinker",
+      "name_en": "Turn signal",
+      "name_zh": "转向灯",
+      "name_zh_key": "转向灯",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "DOUBLE_SCROLL",
+      "classCode": [
+       "trigger_local",
+       "trigger_sub_local",
+       "trigger_local_sub_local"
+      ],
+      "limitVersion": [
+       {}
+      ],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "trigger左转向灯",
+        "tecPoint": "ID_BCM_LTURN_LAMP_SW_ST"
+       },
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "trigger右转向灯",
+        "tecPoint": "ID_BCM_RTURN_LAMP_SW_ST"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "转向灯范围2",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "双闪应急灯开关范围",
+        "paramName": "",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"1\":\"Ein\",\"0\":\"Aus\"}",
+        "ranges_zh": "{\"1\":\"打开时\",\"0\":\"关闭时\"}",
+        "unit": ""
+       }
+      ]
+     },
+     {
+      "id": "1876931153193336833",
+      "nodeId": "doubleFlashLights",
+      "name_de": "Warnblinkanlage",
+      "name_en": "Hazard lights",
+      "name_zh": "双闪灯",
+      "name_zh_key": "双闪灯",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "trigger_local",
+       "trigger_sub_local",
+       "trigger_local_sub_local"
+      ],
+      "limitVersion": [
+       {
+        "F57AEU": "5.7.3-9.9.9",
+        "D02EU": "5.7.3-9.9.9",
+        "D03EU": "5.7.3-9.9.9",
+        "H93AEEU": "5.6.3-9.9.9",
+        "G02EU": "5.6.3-9.9.9",
+        "F30BEU": "5.5.1-9.9.9",
+        "F30IA": "5.6.0-9.9.9",
+        "H93IA": "5.6.0-9.9.9",
+        "E38EU": "5.6.0-9.9.9",
+        "E28AEU": "9.9.9-9.9.9",
+        "E38BEU": "5.5.1-9.9.9"
+       }
+      ],
+      "labels": [
+       "海外智慧场景分类",
+       "OS5.6"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "双闪应急灯开关新",
+        "tecPoint": "ID_CPD_ALARM_HAZARD_LIGHT"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "双闪灯状态",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "双闪应急灯开关范围",
+        "paramName": "",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"1\":\"Ein\",\"0\":\"Aus\"}",
+        "ranges_zh": "{\"1\":\"打开时\",\"0\":\"关闭时\"}",
+        "unit": ""
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name_de": "Sicherheitsgurt",
+    "name_en": "Seat belts",
+    "name_zh": "座椅安全带trigger",
+    "items": [
+     {
+      "id": "1834157743150202880",
+      "nodeId": "carHabitsIdSwitch",
+      "name_de": "Fahrerpräferenzschalter",
+      "name_en": "Driver habit profile switch",
+      "name_zh": "用车习惯切换triggerId",
+      "name_zh_key": "用车习惯切换",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "MULTIPLE",
+      "classCode": [
+       "trigger_local",
+       "trigger_sub_local"
+      ],
+      "limitVersion": [
+       {}
+      ],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "通知用户习惯切换 ",
+        "tecPoint": "trigger.user.car.habit"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834157743175368704",
+      "nodeId": "seatMemorySwitch",
+      "name_de": "Speicherschalter für Beifahrersitz",
+      "name_en": "Passenger seat memory switch",
+      "name_zh": "副驾座椅记忆切换trigger",
+      "name_zh_key": "副驾座椅记忆切换",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "MULTIPLE",
+      "classCode": [
+       "trigger_local",
+       "trigger_sub_local",
+       "trigger_local_sub_local"
+      ],
+      "limitVersion": [
+       {}
+      ],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "座椅记忆名称trigger",
+        "tecPoint": "trigger.seat.memory.switch"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834157743347335170",
+      "nodeId": "seatBelt",
+      "name_de": "Sicherheitsgurt",
+      "name_en": "Seat belt",
+      "name_zh": "安全带",
+      "name_zh_key": "安全带",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "DOUBLE_SCROLL",
+      "classCode": [
+       "trigger_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "主驾安全带系/解",
+        "tecPoint": "ID_BCM_DRVSEAT_BELTSBR_WARNING"
+       },
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "副驾安全带系/解",
+        "tecPoint": "ID_BCM_PSNGRSEAT_BELTSBR_WARNING"
+       },
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "二排左侧安全带系/解",
+        "tecPoint": "ID_BCM_2NDLEFTSEAT_BELTSBR_WARNING"
+       },
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "二排中间安全带系/解",
+        "tecPoint": "ID_BCM_2NDMIDSEAT_BELTSBR_WARNING"
+       },
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "二排右侧安全带系/解",
+        "tecPoint": "ID_BCM_2NDRIGHTSEAT_BELTSBR_WARNING"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "安全带系/解",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "安全带触发状态",
+        "paramName": null,
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"0\":\"Angelegt\",\"1\":\"Nicht angelegt\"}",
+        "ranges_zh": "{\"0\":\"系上时\",\"1\":\"解开时\"}",
+        "unit": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name_de": "Fahren",
+    "name_en": "Driving",
+    "name_zh": "驾驶triggerlocal/sublocal",
+    "items": [
+     {
+      "id": "1877160676052041729",
+      "nodeId": "speedRanges",
+      "name_de": "Geschwindigkeit erreicht",
+      "name_en": "Speed reaches",
+      "name_zh": "车速范围处于trigger",
+      "name_zh_key": "车速到达",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "RANGES_SELECT",
+      "classCode": [
+       "trigger_local",
+       "trigger_sub_local"
+      ],
+      "limitVersion": [
+       {
+        "F57AEU": "5.7.3-9.9.9",
+        "D02EU": "5.7.3-9.9.9",
+        "D03EU": "5.7.3-9.9.9",
+        "H93AEEU": "5.6.3-9.9.9",
+        "G02EU": "5.6.3-9.9.9",
+        "F30BEU": "5.5.1-9.9.9",
+        "F30IA": "5.6.0-9.9.9",
+        "H93IA": "5.6.0-9.9.9",
+        "E38EU": "5.6.0-9.9.9",
+        "E28AEU": "5.6.0-9.9.9",
+        "E38BEU": "5.5.1-9.9.9"
+       }
+      ],
+      "labels": [
+       "海外智慧场景分类",
+       "OS5.6"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "车速",
+        "tecPoint": "ID_VCU_RAW_CAR_SPEED"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "车速范围",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "车速biz",
+        "paramName": null,
+        "valueType": null,
+        "dataType": "IntegerArray",
+        "ranges_de": "{\"min\":0,\"max\":180,\"step\":5}",
+        "ranges_zh": "{\"min\":0,\"max\":180,\"step\":5}",
+        "unit": "km/h"
+       }
+      ]
+     },
+     {
+      "id": "1834157825840381953",
+      "nodeId": "switchGear",
+      "name_de": "Gangschaltung",
+      "name_en": "Gear",
+      "name_zh": "挡位切换",
+      "name_zh_key": "挡位切换",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "trigger_local",
+       "trigger_sub_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "车辆挡位",
+        "tecPoint": "ID_VCU_GEAR_LEVEL"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "挡位",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "挡位切换",
+        "paramName": null,
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"1\":\"Im Gang D\",\"2\":\"Im Leerlauf (N)\",\"3\":\"Im Rückwärtsgang (R)\",\"4\":\"In Parkstellung (R)\"}",
+        "ranges_zh": "{\"1\":\"D挡时\",\"2\":\"N挡时\",\"3\":\"R挡时\",\"4\":\"P挡时\"}",
+        "unit": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name_de": "Fahrzeugsteuerung",
+    "name_en": "Vehicle control",
+    "name_zh": "车辆控制triggerlocal/sublocal",
+    "items": [
+     {
+      "id": "1834158154084253697",
+      "nodeId": "wipersSpeedSetting",
+      "name_de": "Wischerschalter",
+      "name_en": "Wiper stalk",
+      "name_zh": "雨刮器拨杆设为",
+      "name_zh_key": "雨刮切换",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "trigger_local",
+       "trigger_sub_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "方向盘拨杆控制雨刮",
+        "tecPoint": "ID_BCM_WIPERSPDSW_ST"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "雨刮速度范围",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "方向盘拨杆雨刮速度biztrigger",
+        "paramName": null,
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"0\":\"AUS\",\"3\":\"AUTO\",\"1\":\"LO\",\"2\":\"HI\"}",
+        "ranges_zh": "{\"0\":\"OFF时\",\"3\":\"AUTO时\",\"1\":\"LO时\",\"2\":\"HI时\"}",
+        "unit": null
+       }
+      ]
+     },
+     {
+      "id": "1834158154134585345",
+      "nodeId": "rearviewMirrors",
+      "name_de": "Seitenspiegel",
+      "name_en": "Side mirrors",
+      "name_zh": "后视镜",
+      "name_zh_key": "后视镜",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "trigger_local",
+       "trigger_sub_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "左后视镜状态",
+        "tecPoint": "ID_BCM_LEFT_REAR_MIRROR_STATE"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "后视镜位置",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "后视镜折叠状态biztrigger",
+        "paramName": null,
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"1\":\"Eingeklappt\",\"2\":\"Aufgeklappt\"}",
+        "ranges_zh": "{\"1\":\"折叠时\",\"2\":\"展开时\"}",
+        "unit": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name_de": "Geräteanschluss",
+    "name_en": "Device connections",
+    "name_zh": "设备连接triggerlocal/sublocal",
+    "items": [
+     {
+      "id": "1834158234309230594",
+      "nodeId": "bluetoothSwitch",
+      "name_de": "Bluetooth",
+      "name_en": "Bluetooth",
+      "name_zh": "蓝牙开关",
+      "name_zh_key": "蓝牙",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "trigger_local",
+       "trigger_sub_local"
+      ],
+      "limitVersion": [
+       {}
+      ],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "蓝牙开启",
+        "tecPoint": "trigger.bluetooth.open"
+       },
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "蓝牙关闭",
+        "tecPoint": "trigger.bluetooth.close"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1834158234548305923",
+      "nodeId": "screenCasting",
+      "name_de": "Kabelgebundene Projektion",
+      "name_en": "Wired screen projection",
+      "name_zh": "有线投屏",
+      "name_zh_key": "有线投屏",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "DOUBLE_SCROLL",
+      "classCode": [
+       "trigger_local",
+       "trigger_sub_local",
+       "trigger_local_sub_local"
+      ],
+      "limitVersion": [],
+      "labels": [
+       "海外智慧场景分类",
+       "OS5.6"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "有线投屏开始",
+        "tecPoint": "trigger.wired.app.play"
+       },
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "有线投屏结束",
+        "tecPoint": "trigger.wired.app.stop"
+       }
+      ],
+      "params": []
+     }
+    ]
+   },
+   {
+    "name_de": "Laden & Reichweite",
+    "name_en": "Charging & range",
+    "name_zh": "充电续航triggerlocal/sublocal",
+    "items": [
+     {
+      "id": "1834539163195015169",
+      "nodeId": "chargingPlug",
+      "name_de": "Ladekabel einstecken/ausstecken",
+      "name_en": "Charging cable plugged/unplugged",
+      "name_zh": "充电枪插拔",
+      "name_zh_key": "充电枪插拔",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "trigger_local",
+       "trigger_sub_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "充电枪状态",
+        "tecPoint": "ID_VCU_CHARGE_GUN_STATUS"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "充电枪状态",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "充电枪动作1",
+        "paramName": null,
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"1\":\"Wenn eingesteckt\",\"2\":\"Wenn ausgesteckt\"}",
+        "ranges_zh": "{\"1\":\"插枪时\",\"2\":\"拔枪时\"}",
+        "unit": null
+       }
+      ]
+     },
+     {
+      "id": "1834539163245346817",
+      "nodeId": "chargingStatus",
+      "name_de": "Ladezustand",
+      "name_en": "Charging state",
+      "name_zh": "充电状态",
+      "name_zh_key": "充电状态",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "trigger_local",
+       "trigger_sub_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "充放电状态",
+        "tecPoint": "ID_VCU_CHARGE_STATUS"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "充电状态范围",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "充放电状态biztrigger",
+        "paramName": null,
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"100\":\"Wenn Ladevorgang beginnt\",\"4\":\"Wenn Ladevorgang endet\"}",
+        "ranges_zh": "{\"100\":\"开始充电时\",\"4\":\"结束充电时\"}",
+        "unit": null
+       }
+      ]
+     },
+     {
+      "id": "1877194924624707585",
+      "nodeId": "drivingDistanceTrigger",
+      "name_de": "Verbleibende elektrische Reichweite erreicht",
+      "name_en": "Remaining electric range reaches",
+      "name_zh": "剩余纯电续航里程到达trigger",
+      "name_zh_key": "剩余纯电续航里程到达",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "RANGES_SELECT",
+      "classCode": [
+       "trigger_local",
+       "trigger_sub_local"
+      ],
+      "limitVersion": [
+       {
+        "F57AEU": "5.7.3-9.9.9",
+        "D02EU": "5.7.3-9.9.9",
+        "D03EU": "5.7.3-9.9.9",
+        "H93AEEU": "5.6.3-9.9.9",
+        "G02EU": "5.6.3-9.9.9",
+        "F30BEU": "5.5.1-9.9.9",
+        "F30IA": "5.6.0-9.9.9",
+        "H93IA": "5.6.0-9.9.9",
+        "E38EU": "5.6.0-9.9.9",
+        "E28AEU": "5.6.0-9.9.9",
+        "E38BEU": "5.5.1-9.9.9"
+       }
+      ],
+      "labels": [
+       "海外智慧场景分类",
+       "OS5.6"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "剩余续航里程Trigger",
+        "tecPoint": "ID_VCU_DSTBAT_DISP"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "剩余续航范围",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "续航里程1000km",
+        "paramName": "",
+        "valueType": null,
+        "dataType": "IntegerArray",
+        "ranges_de": "{\"min\":0,\"max\":1000,\"step\":50}",
+        "ranges_zh": "{\"min\":0,\"max\":1000,\"step\":50}",
+        "unit": "km"
+       }
+      ]
+     },
+     {
+      "id": "1877226467439017985",
+      "nodeId": "chargingLifeReachesTrigger",
+      "name_de": "Ladereichweite erreicht",
+      "name_en": "Charged range reaches",
+      "name_zh": "充电续航到达trigger",
+      "name_zh_key": "充电续航里程到达",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "RANGES_SELECT",
+      "classCode": [
+       "trigger_local",
+       "trigger_sub_local",
+       "trigger_local_sub_local",
+       "trigger_remote",
+       "trigger_sub_remote",
+       "trigger_local_sub_remote",
+       "trigger_remote_sub_remote"
+      ],
+      "limitVersion": [
+       {
+        "F57AEU": "5.7.3-9.9.9",
+        "D02EU": "5.7.3-9.9.9",
+        "D03EU": "5.7.3-9.9.9",
+        "H93AEEU": "5.6.3-9.9.9",
+        "G02EU": "5.6.3-9.9.9",
+        "F30BEU": "5.5.1-9.9.9",
+        "F30IA": "5.6.0-9.9.9",
+        "H93IA": "5.6.0-9.9.9",
+        "E38EU": "5.6.0-9.9.9",
+        "E28AEU": "5.6.0-9.9.9",
+        "E38BEU": "5.5.1-9.9.9"
+       }
+      ],
+      "labels": [
+       "海外智慧场景分类",
+       "OS5.6"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": true,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "Trigger 充电续航到达",
+        "tecPoint": "ID_VCU_CHARGE_ENDURANCE"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "充电续航到达范围",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "续航里程1000km",
+        "paramName": "",
+        "valueType": null,
+        "dataType": "IntegerArray",
+        "ranges_de": "{\"min\":0,\"max\":1000,\"step\":50}",
+        "ranges_zh": "{\"min\":0,\"max\":1000,\"step\":50}",
+        "unit": "km"
+       }
+      ]
+     },
+     {
+      "id": "1834539163421507586",
+      "nodeId": "chargeRemainingTime",
+      "name_de": "Geschätzte verbleibende Ladezeit",
+      "name_en": "Estimated time to full",
+      "name_zh": "充电预计剩余时间trigger",
+      "name_zh_key": "充电预计剩余时间",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "TRIPLE_SCROLL",
+      "classCode": [
+       "trigger_sub_local",
+       "trigger_local",
+       "trigger_local_sub_local",
+       "trigger_remote",
+       "trigger_sub_remote",
+       "trigger_remote_sub_remote",
+       "trigger_local_sub_remote"
+      ],
+      "limitVersion": [
+       {}
+      ],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": true,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_OPTIONAL",
+        "name_zh": "Weniger als",
+        "tecPoint": "<"
+       },
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "充电剩余时间",
+        "tecPoint": "ID_VCU_CHARGE_COMPLETE_TIME"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "时间",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "充电预计剩余时间",
+        "paramName": "",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"min\":0,\"max\":419,\"step\":1}",
+        "ranges_zh": "{\"min\":0,\"max\":419,\"step\":1}",
+        "unit": ""
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name_de": "Sentry-Modus",
+    "name_en": "Sentry mode",
+    "name_zh": "哨兵trigger local",
+    "items": [
+     {
+      "id": "1877167343913140225",
+      "nodeId": "sentryMode",
+      "name_de": "Sentry-Modus",
+      "name_en": "Sentry mode",
+      "name_zh": "哨兵模式",
+      "name_zh_key": "哨兵模式",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SINGLE_SCROLL",
+      "classCode": [
+       "trigger_local",
+       "trigger_sub_local",
+       "trigger_local_sub_local"
+      ],
+      "limitVersion": [
+       {
+        "F57AEU": "5.7.3-9.9.9",
+        "D02EU": "5.7.3-9.9.9",
+        "D03EU": "5.7.3-9.9.9",
+        "H93AEEU": "5.6.3-9.9.9",
+        "G02EU": "5.6.3-9.9.9",
+        "F30BEU": "5.5.1-9.9.9",
+        "F30IA": "5.6.0-9.9.9",
+        "H93IA": "5.6.0-9.9.9",
+        "E38EU": "5.6.0-9.9.9",
+        "E28AEU": "5.6.0-9.9.9",
+        "E38BEU": "5.5.1-9.9.9"
+       }
+      ],
+      "labels": [
+       "海外智慧场景分类",
+       "OS5.6"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "Trigger 哨兵打开/关闭",
+        "tecPoint": "ID_TBOX_SOLDIER_CAMERASW"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "哨兵模式状态",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "哨兵模式开关",
+        "paramName": "",
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"1\":\"Ein\",\"0\":\"Aus\"}",
+        "ranges_zh": "{\"1\":\"打开时\",\"0\":\"关闭时\"}",
+        "unit": ""
+       }
+      ]
+     },
+     {
+      "id": "1877228294403653632",
+      "nodeId": "guardAlarm",
+      "name_de": "Wenn der Sentry-Modus ausgelöst wird",
+      "name_en": "Sentry mode triggered (alarm)",
+      "name_zh": "哨兵模式触发时",
+      "name_zh_key": "哨兵模式触发时",
+      "description_de": "Sie müssen zuerst den Sentry-Modus einschalten",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "NONE",
+      "classCode": [
+       "trigger_remote",
+       "trigger_sub_remote",
+       "trigger_remote_sub_remote",
+       "trigger_local_sub_remote"
+      ],
+      "limitVersion": [
+       {
+        "F57AEU": "5.7.3-9.9.9",
+        "D02EU": "5.7.3-9.9.9",
+        "D03EU": "5.7.3-9.9.9",
+        "H93AEEU": "5.6.3-9.9.9",
+        "G02EU": "5.6.3-9.9.9",
+        "F30BEU": "5.5.1-9.9.9",
+        "F30IA": "5.6.0-9.9.9",
+        "H93IA": "5.6.0-9.9.9",
+        "E38EU": "5.6.0-9.9.9",
+        "E28AEU": "5.6.0-9.9.9",
+        "E38BEU": "5.5.1-9.9.9"
+       }
+      ],
+      "labels": [
+       "海外智慧场景分类",
+       "OS5.6"
+      ],
+      "availability": {
+       "local_scene": false,
+       "remote_scene": true,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "Trigger哨兵模式触发时",
+        "tecPoint": "ID_GUARD_ALARM_LEVEL"
+       }
+      ],
+      "params": []
+     }
+    ]
+   },
+   {
+    "name_de": "Umgebung",
+    "name_en": "Environment",
+    "name_zh": "环境trigger_local",
+    "items": [
+     {
+      "id": "1877169101041434625",
+      "nodeId": "innerCarTemp",
+      "name_de": "Innenraumtemperatur erreicht",
+      "name_en": "Cabin temperature reaches",
+      "name_zh": "车内温度到达trigger",
+      "name_zh_key": "车内温度到达",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "RANGES_SELECT",
+      "classCode": [
+       "trigger_sub_remote",
+       "trigger_sub_local",
+       "trigger_local"
+      ],
+      "limitVersion": [
+       {
+        "F57AEU": "5.7.3-9.9.9",
+        "D02EU": "5.7.3-9.9.9",
+        "D03EU": "5.7.3-9.9.9",
+        "H93AEEU": "5.6.3-9.9.9",
+        "G02EU": "5.6.3-9.9.9",
+        "F30BEU": "5.5.1-9.9.9",
+        "F30IA": "5.6.0-9.9.9",
+        "H93IA": "5.6.0-9.9.9",
+        "E38EU": "5.6.0-9.9.9",
+        "E28AEU": "5.6.0-9.9.9",
+        "E38BEU": "5.5.1-9.9.9"
+       }
+      ],
+      "labels": [
+       "海外智慧场景分类",
+       "OS5.6"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "车内温度",
+        "tecPoint": "ID_HVAC_INNER_TEMPERATURE"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "车内温度范围",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "车内温度biz-perception",
+        "paramName": null,
+        "valueType": null,
+        "dataType": "IntegerArray",
+        "ranges_de": "{\"min\":-10,\"max\":60,\"step\":1}",
+        "ranges_zh": "{\"min\":-10,\"max\":60,\"step\":1}",
+        "unit": "℃"
+       }
+      ]
+     },
+     {
+      "id": "1834158857568387074",
+      "nodeId": "inCarAirQuality",
+      "name_de": "Luftqualität im Innenraum",
+      "name_en": "Cabin air quality",
+      "name_zh": "车内空气质量trigger",
+      "name_zh_key": "车内空气质量",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "DOUBLE_SCROLL",
+      "classCode": [
+       "trigger_local",
+       "trigger_sub_remote",
+       "trigger_sub_local"
+      ],
+      "limitVersion": [
+       {
+        "F57AEU": "9.9.9-9.9.9",
+        "D02EU": "99.9.9-99.9.9",
+        "D03EU": "99.9.9-99.9.9",
+        "F30BEU": "9.9.9-9.9.9",
+        "E38BEU": "5.5.1-9.9.9"
+       }
+      ],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_OPTIONAL",
+        "name_zh": "Gleich",
+        "tecPoint": "=="
+       },
+       {
+        "resourceType": "ATOM_OPTIONAL",
+        "name_zh": "Ungleich",
+        "tecPoint": "!="
+       },
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "车内空气质量",
+        "tecPoint": "ID_HVAC_QUALITY_INNER_LEVEL"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "车内空气质量范围",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "车内空气质量",
+        "paramName": null,
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"1\":\"Gut\",\"2\":\"Mittelmäßig\",\"3\":\"Mäßig\",\"4\":\"Schlecht\"}",
+        "ranges_zh": "{\"1\":\"优\",\"2\":\"良\",\"3\":\"中\",\"4\":\"污染\"}",
+        "unit": null
+       }
+      ]
+     },
+     {
+      "id": "1877170226774671361",
+      "nodeId": "outsideTemperatureAt",
+      "name_de": "Außentemperatur erreicht",
+      "name_en": "Outside temperature reaches",
+      "name_zh": "车外温度到达trigger",
+      "name_zh_key": "车外温度到达",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "RANGES_SELECT",
+      "classCode": [
+       "trigger_sub_remote",
+       "trigger_sub_local"
+      ],
+      "limitVersion": [
+       {
+        "F57AEU": "5.7.3-9.9.9",
+        "D02EU": "5.7.3-9.9.9",
+        "D03EU": "5.7.3-9.9.9",
+        "H93AEEU": "5.6.3-9.9.9",
+        "G02EU": "5.6.3-9.9.9",
+        "F30BEU": "5.5.1-9.9.9",
+        "F30IA": "5.6.0-9.9.9",
+        "H93IA": "5.6.0-9.9.9",
+        "E38EU": "5.6.0-9.9.9",
+        "E28AEU": "5.6.0-9.9.9",
+        "E38BEU": "5.5.1-9.9.9"
+       }
+      ],
+      "labels": [
+       "海外智慧场景分类",
+       "OS5.6"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "车外温度",
+        "tecPoint": "ID_ENV_OUTSIDE_TEMPERATURE"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "车外温度范围",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "车外温度biz",
+        "paramName": null,
+        "valueType": null,
+        "dataType": "Float",
+        "ranges_de": "{\"min\":-40,\"max\":45,\"step\":1}",
+        "ranges_zh": "{\"min\":-40,\"max\":45,\"step\":1}",
+        "unit": "℃"
+       }
+      ]
+     },
+     {
+      "id": "1834158857710993410",
+      "nodeId": "brightnessLevelTrigger",
+      "name_de": "Ambientebeleuchtung",
+      "name_en": "Ambient light level",
+      "name_zh": "环境光照trigger",
+      "name_zh_key": "环境光照",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "DOUBLE_SCROLL",
+      "classCode": [
+       "trigger_local",
+       "trigger_sub_local",
+       "trigger_local_sub_local"
+      ],
+      "limitVersion": [
+       {
+        "F30BEU": "9.9.9-9.9.9"
+       }
+      ],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "通知进入环境光照分类",
+        "tecPoint": "trigger.brightness.level.enter"
+       },
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "通知退出环境光照分类",
+        "tecPoint": "trigger.brightness.level.exit"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "环境参数",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "通知进入环境光照分类",
+        "paramName": null,
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"1\":\"Dunkelheit/Tiefgarage/Tunnel\",\"2\":\"Abend/Bewölkt\",\"3\":\"Tagsüber im Freien\"}",
+        "ranges_zh": "{\"1\":\"黑夜/地库/隧道时\",\"2\":\"傍晚/阴天时\",\"3\":\"户外白天时\"}",
+        "unit": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name_de": "Navigation & Standort",
+    "name_en": "Navigation & location",
+    "name_zh": "导航位置triggerlocal/sublocal",
+    "items": [
+     {
+      "id": "1978367867498266624",
+      "nodeId": "vehicleArrives",
+      "name_de": "Fahrzeugankunft",
+      "name_en": "Vehicle arrives",
+      "name_zh": "车辆到达",
+      "name_zh_key": "车辆到达",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SPECIAL_CASE",
+      "classCode": [
+       "trigger_local",
+       "trigger_sub_local"
+      ],
+      "limitVersion": [],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "导航到达poi点",
+        "tecPoint": "trigger.navi.arrival.destination"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1978367867523432448",
+      "nodeId": "vehicleLeaves",
+      "name_de": "Fahrzeugabfahrt",
+      "name_en": "Vehicle leaves",
+      "name_zh": "车辆离开",
+      "name_zh_key": "车辆离开",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "SPECIAL_CASE",
+      "classCode": [
+       "trigger_local",
+       "trigger_sub_local"
+      ],
+      "limitVersion": [],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "导航离开poi点",
+        "tecPoint": "trigger.navi.leave.destination"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1978367867603124226",
+      "nodeId": "navigationTimeOfArrival",
+      "name_de": "Geschätzte Ankunftszeit (Navigation)",
+      "name_en": "Estimated arrival time (navigation)",
+      "name_zh": "导航预计到达时间trigger",
+      "name_zh_key": "导航预计到达时间",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "TRIPLE_SCROLL",
+      "classCode": [
+       "trigger_sub_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_OPTIONAL",
+        "name_zh": "Weniger als",
+        "tecPoint": "<"
+       },
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "导航预计到达时间",
+        "tecPoint": "trigger.navi.estimate.arrival.time"
+       }
+      ],
+      "params": []
+     },
+     {
+      "id": "1978367867678621698",
+      "nodeId": "navigationDistanceOfArrival",
+      "name_de": "Geschätzte Entfernung zum Ziel (Navigation)",
+      "name_en": "Estimated distance to destination (navigation)",
+      "name_zh": "导航预计到达距离trigger",
+      "name_zh_key": "导航预计到达距离",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "DOUBLE_SCROLL",
+      "classCode": [
+       "trigger_sub_local"
+      ],
+      "limitVersion": null,
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": true,
+       "remote_scene": false,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_OPTIONAL",
+        "name_zh": "Weniger als",
+        "tecPoint": "<"
+       },
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "导航预计到达距离",
+        "tecPoint": "trigger.navi.estimate.arrival.distance"
+       }
+      ],
+      "params": [
+       {
+        "group_de": "时间",
+        "group_zh": null,
+        "label_de": null,
+        "label_zh": "导航预计到达距离",
+        "paramName": null,
+        "valueType": null,
+        "dataType": "Integer",
+        "ranges_de": "{\"min\":200,\"max\":1000,\"step\":50}",
+        "ranges_zh": "{\"min\":200,\"max\":1000,\"step\":50}",
+        "unit": "m"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name_de": "Fahrzeug verriegelt & Zündung ausgeschaltet",
+    "name_en": "Vehicle locked & ignition off",
+    "name_zh": "锁车下电triggerremote/subremote",
+    "items": [
+     {
+      "id": "1834533788361687040",
+      "nodeId": "igOffTrigger",
+      "name_de": "Bei verriegeltem Fahrzeug & ausgeschalteter Zündung",
+      "name_en": "Vehicle locked & ignition off",
+      "name_zh": "锁车下电时trigger",
+      "name_zh_key": "锁车下电时",
+      "description_de": "",
+      "resourceType": "PREFORM_CATEGORY",
+      "nodeType": "LEAF",
+      "displayType": "NONE",
+      "classCode": [
+       "trigger_remote",
+       "trigger_sub_remote",
+       "trigger_local_sub_remote"
+      ],
+      "limitVersion": [
+       {}
+      ],
+      "labels": [
+       "海外智慧场景分类"
+      ],
+      "availability": {
+       "local_scene": false,
+       "remote_scene": true,
+       "sub_condition": true
+      },
+      "atoms": [
+       {
+        "resourceType": "ATOM_SIGNAL",
+        "name_zh": "锁车下电Trigger",
+        "tecPoint": "trigger.ig.off"
+       }
+      ],
+      "params": []
+     }
+    ]
+   }
+  ]
+ }
+}

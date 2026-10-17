@@ -19,7 +19,8 @@ directory (see [Certificate directory](#certificate-directory)).
 | --- | --- | --- | --- |
 | `scan_interval` | MQTT query interval (seconds) | `60` | `10`–`3600` |
 | `parked_scan_interval` | Parked query interval (seconds) | `3600` | `60`–`7200` |
-| `mqtt_refresh_interval` | MQTT credential refresh interval (seconds) | `45` | `10`–`300` |
+| `mqtt_refresh_interval` | MQTT credential safety-net interval (seconds) | `45` | `10`–`300` |
+| `notification_poll_interval` | Message Centre poll interval (seconds) | `300` | `60`–`3600` |
 | `rest_scan_interval` | REST API poll interval (seconds) | `300` | `60`–`3600` |
 | `mqtt_listener_enabled` | Enable MQTT listener | off | on / off |
 | `mqtt_listener_topics` | MQTT topics to subscribe | empty | free text, one topic per line or comma-separated |
@@ -41,9 +42,22 @@ is noted in the option's own section below.
 
 ## Polling intervals
 
-Three independent schedules run at once: the periodic MQTT query, the cloud-side
-credential refresh, and the REST poll. The integration publishes what each is
-doing now — see `sensor.xpeng_<vehicle>_polling_status` and
+Four independent schedules run at once — the MQTT query, the credential
+safety net, the Message Centre poll and the REST poll. None of them wakes a
+sleeping car on its own: only `scan_interval` can produce a force-upload, and only
+while the car is charging or driving (so it is already awake). Waking a sleeping
+car is the separate escalation described under [Fixed timers](#fixed-timers).
+
+| Option | Paces | Default / accepted | Can wake the car? |
+| --- | --- | --- | --- |
+| `scan_interval` | the fast MQTT query — force-upload while charging/driving, passive otherwise; also the cadence a charging hint raises polling to | 60 s / 10–3600 | force-upload only while already active, and only with `allow_wake` |
+| `parked_scan_interval` | the parked MQTT query, and the REST poll while parked | 3600 s / 60–7200 | no |
+| `mqtt_refresh_interval` | retrying the credential mint while disconnected, and the `credentials_valid` staleness bound (3 ×) | 45 s / 10–300 | no |
+| `notification_poll_interval` | the Message Centre poll (six requests per poll) | 300 s / 60–3600 | no |
+| `rest_scan_interval` | the REST poll for image, XOS version, energy report and the supplementary widgets | 300 s / 60–3600 | no |
+
+The integration publishes what each is doing now — see
+`sensor.xpeng_<vehicle>_polling_status` and
 `sensor.xpeng_<vehicle>_next_poll` on [Entities](./entities).
 
 ### `scan_interval`
@@ -109,8 +123,26 @@ image, the XOS version, the energy report and the rest of the supplementary
 widgets. Default **300 s**, accepted **60–3600 s**.
 
 The REST poll follows the car's state: this interval while active/driving,
-`parked_scan_interval` while parked. Push notifications are on their own fixed
-300 s timer and are not affected by this option.
+`parked_scan_interval` while parked. Notifications are on their own timer —
+`notification_poll_interval` — and are not affected by this option.
+
+### `notification_poll_interval`
+
+How often XPENG's Message Centre is polled for notifications — the list behind
+the car's notification bell (charging finished, software update, service
+messages). Default **300 s**, accepted **60–3600 s**.
+
+Each poll is **six REST requests**, one per notification category, which is why
+it has a floor of a minute rather than being free to set to zero: below that the
+rate limit, not the car, would decide the delay. Nothing is pushed to the
+integration; a notification cannot arrive sooner than this interval.
+
+`sensor.xpeng_<vehicle>_last_notification` reports the latest message, and its
+`delay_s` attribute is the measured time between the message's `createTime` and
+the poll that picked it up — the honest way to answer "is this interval too slow
+for me?". It is independent of `rest_scan_interval`: that one feeds the image,
+XOS version and energy widgets, this one feeds notifications, and changing one
+does not move the other.
 
 ## MQTT listener
 
@@ -359,8 +391,11 @@ The first two fields on the form decide what the integration may do to the car a
 `command_mode` is a preset - **Read only**, **Safe**, **Safe Plus** or **Full access**
 - and choosing **Custom** opens a second screen with one dropdown per capability group.
 `allow_wake` is separate because waking a sleeping car costs a little of its 12V
-battery: with it off the integration sends queries only, and the watchdog degrades to a
-passive query instead of a force-upload.
+battery. With it off the integration sends passive queries only: the watchdog's
+30-minute escalation becomes a passive query, the cold-start snapshot does not
+happen, and `button.xpeng_<vehicle>_wake_vehicle` is refused — that button is also
+what an EVCC vehicle layout presses as its `wakeup:`. Charge and drive polls are
+unaffected, because the car is already awake.
 
 | Setting | A new entry starts at | An entry with no stored value |
 | --- | --- | --- |
@@ -375,16 +410,26 @@ what each one covers, and what the mode does *not* protect against.
 ## Fixed timers
 
 These are constants, not options — listed so the numbers in the sections above
-have a source.
+have a source, and so "what wakes my car?" has one answer in one place.
 
 | Behaviour | Value |
 | --- | --- |
-| Silence threshold before the status reads `Silent` | `300 s` |
 | Watchdog tick | `60 s` |
-| Minimum gap between watchdog reconnects | `600 s` |
+| Silence before the status reads `Silent` (watchdog suspects a stuck socket) | `300 s` |
+| Minimum gap between watchdog reconnects, car active | `600 s` |
+| Minimum gap between watchdog reconnects, car parked | `1800 s` |
 | Unbroken silence before an escalating force-upload | `1800 s` (30 min) |
 | Minimum gap between escalating force-uploads | `43200 s` (12 h) |
-| Push-notification poll | `300 s` |
+| Quiet CONNECT grace after a session takeover (a renewal login) | `300 s` |
+| Settle window after the integration's own reconnect | `120 s` |
+| Settle retry delays | `10 s`, `20 s` |
+| Mint-on-demand expiry margin | `15 s` |
+
+**No configurable timer wakes the car.** The periodic MQTT queries are passive
+unless the car is already charging or driving. A sleeping car is only ever woken
+by one of three actions, all gated by `allow_wake`: the cold-start snapshot on a
+Home Assistant start, the 30-minute silence escalation (capped at one per 12 h),
+and an explicit press of `button.xpeng_<vehicle>_wake_vehicle`.
 
 See also [Services](./services) for the commands that act on the car, and
 [App options](./app-options) for the two companion apps.

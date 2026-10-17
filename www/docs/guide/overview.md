@@ -76,6 +76,7 @@ The timing defaults, all options on the integration under
 | MQTT query interval (`scan_interval`) | 60 s | the force-upload cadence while charging or driving |
 | Parked query interval (`parked_scan_interval`) | 3600 s | the passive-query cadence while parked |
 | MQTT credential safety-net interval (`mqtt_refresh_interval`) | 45 s | retry cadence while disconnected, and the age bound behind `credentials_valid` |
+| Message Centre poll interval (`notification_poll_interval`) | 300 s | how often notifications are fetched (six requests per poll) |
 | REST API poll interval (`rest_scan_interval`) | 300 s | REST-sourced data such as the vehicle image and XOS version |
 | Certificate directory (`cert_dir`) | `/config/custom_components/xpeng/certs` | where the three mTLS files live |
 
