@@ -490,6 +490,12 @@ class XPengPollingStatusSensor(XPengPolledSensor):
         last_escalation = status.get("last_escalation_at")
         if last_escalation:
             attrs["last_escalation_at"] = _iso(last_escalation)
+        # The broker's ACCOUNT_KICK_OFF notice is a session event, not a car
+        # notification; it is tracked here rather than in Last notification.
+        last_takeover = status.get("last_takeover_at")
+        if last_takeover:
+            attrs["last_takeover_at"] = _iso(last_takeover)
+            attrs["account_takeovers"] = int(status.get("account_takeovers") or 0)
         return attrs
 
 

@@ -944,8 +944,40 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         if is_account_takeover(notification):
             mqtt_client.note_account_takeover(str(notification.get("message") or ""))
+            hass.loop.call_soon_threadsafe(
+                _record_account_takeover, dict(notification)
+            )
+            return
         hass.loop.call_soon_threadsafe(
             coordinator.record_notification, notification
+        )
+
+    def _record_account_takeover(notice: dict) -> None:
+        """Track a takeover separately from the car's notifications.
+
+        The broker uses the same `msg_type=3` envelope for ACCOUNT_KICK_OFF as for
+        real notifications, and the renewal app logs in on this account once per
+        renewal - so recording it in the notification list buried the messages the
+        user actually wants behind a dozen "Account logged in on another device"
+        entries a day (measured 2026-10-18 on `.162`: count 12, every one a
+        renewal, and the Last-notification sensor never showed anything else).
+        The takeover is still visible where it belongs: its own bus event, the
+        INFO line the client logs, and `last_takeover_at` / `account_takeovers` on
+        the polling-status sensor.
+        """
+        now = time.time()
+        count = int(coordinator.poll_status.get("account_takeovers") or 0) + 1
+        coordinator.set_poll_status(
+            last_takeover_at=now,
+            account_takeovers=count,
+        )
+        notice = dict(notice)
+        notice["source"] = "mqtt"
+        notice["timestamp"] = now
+        hass.bus.async_fire("xpeng_account_takeover", notice)
+        _LOGGER.info(
+            "Account takeover notice #%d recorded (the renewal app logging in; "
+            "expecting a credential import)", count,
         )
 
     mqtt_client.set_notification_callback(_on_push_notification)

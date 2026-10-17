@@ -17,7 +17,7 @@ without caring where the notification came from.
 Two sources feed the sensor and the event, and they are different things:
 
 1. `msg_type=3` frames on the MQTT broker, which also fire the bus event. These are
-   rare.
+   rare - and **account-takeover notices are excluded**, see below.
 2. The app's server-side **Message Centre**, which the coordinator polls every 5
    minutes. This is where the notifications a user actually sees in the app live —
    X-Combo, sentry and similar — and it carries almost everything in practice.
@@ -29,6 +29,31 @@ That is what `NOTIFICATION_POLL_INTERVAL` drives.
 The Message Centre groups messages into categories, and the API returns **one
 category per request**. All six are polled, and every message is tagged with the
 category it came from, so a single sensor covers everything.
+
+## Account takeover notices
+
+The broker sends an `ACCOUNT_KICK_OFF` notice (`service_type` `17`, code
+`4003007` — *"Account logged in on another device, local account logged out"*)
+every time the **renewal app logs in**. That login is how the credential pair is
+renewed, so on a healthy install it arrives about once every 100 minutes. It is
+not a fault and it is not a car notification.
+
+Up to 0.6.14 it was recorded as one, which is why
+`sensor.xpeng_<vehicle>_last_notification` kept showing that sentence instead of
+the notifications a user cares about. Since 0.6.15 it is tracked where a session
+event belongs:
+
+- **`xpeng_account_takeover`** — a bus event carrying the notice
+  (`service_type`, `code`, `message`, `msg_id`, `timestamp`);
+- `sensor.xpeng_<vehicle>_polling_status` attributes **`last_takeover_at`** and
+  **`account_takeovers`** (count since startup);
+- the INFO line the MQTT client logs (`Account signed in elsewhere - expecting a
+  credential import`), and the `$client/<clientId>` entry in the listener log if
+  the MQTT listener is enabled.
+
+After a takeover the client stays quiet for a grace window instead of treating
+refused CONNECTs as an auth failure — it is waiting for the renewal's import, and
+reconnects within a few seconds of it. See [Fault finding](./fault-finding).
 
 ## The six categories
 

@@ -150,6 +150,7 @@ rows, and the staged-credentials line is logged at debug level.
 | `binary_sensor.xpeng_<vehicle>_mqtt_connected` | `on` | `off`: the paho session to XPENG's broker is down |
 | `sensor.xpeng_<vehicle>_polling_status` | `Parked` for a quiet car, `Active` while charging or driving | Stuck `Reconnecting`, or `Silent` on a car you know is awake |
 | `unknown` / `unavailable` counts | Settled, with a stable handful of `unknown` fields the car does not report (20 of 124 in the measurement) | Flapping between a handful and nearly all of them |
+| `Account signed in elsewhere - expecting a credential import` lines | One per renewal (about every 100 min): that is the renewal app logging in, and the import follows within seconds. Not a fault | A takeover with no import after it, or a re-auth card appearing for it |
 | Login-expired lines in the log | Occasional warnings such as `Login token refresh failed:` or `Tokens still expired after refresh — triggering reauth`, each followed by a successful refresh | A steady stream of warnings with no success in between: the pair is dead and the Repairs card is the way back. The codes behind them are `12010101`, `12010104` and `12010202` |
 | Distinct MQTT client ids | **One** live id: count distinct `xmart:app:...` ids in the log and compare their *newest* timestamps | Two with recent timestamps — the competing-client case above. Restart Home Assistant |
 
