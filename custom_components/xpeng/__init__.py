@@ -47,6 +47,9 @@ from .const import (
     CONF_SCAN_INTERVAL,
     CONF_SERVER,
     CONF_TENANT_DATA,
+    CONF_TESLAMATE_ENABLED,
+    CONF_TESLAMATE_PORT,
+    CONF_TESLAMATE_TOKEN,
     CONF_TENANT_FILE,
     CONF_TOKEN_FILE,
     CONF_USABLE_BATTERY_KWH,
@@ -61,6 +64,7 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_SERVER,
     DEFAULT_TENANT_FILE,
+    DEFAULT_TESLAMATE_PORT,
     DEFAULT_USABLE_BATTERY_KWH,
     DOMAIN,
     MQTT_DISCOVERY_CANDIDATES,
@@ -1719,6 +1723,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # This guard is what makes changing `device_id` on an existing install safe.
     previous = (hass.data.get(DOMAIN) or {}).get(entry.entry_id)
     if previous:
+        # A replacing setup must not leave a port-holding provider behind: the
+        # new one would fail to bind AND the old one would keep serving stale
+        # data forever.
+        previous_provider = previous.get("teslamate_provider")
+        if previous_provider is not None:
+            try:
+                await previous_provider.async_stop()
+            except Exception:  # noqa: BLE001 - replacing must not raise
+                _LOGGER.warning(
+                    "Stopping the previous TeslaMate provider failed",
+                    exc_info=True,
+                )
         previous_client = previous.get("mqtt_client")
         if previous_client is not None and previous_client is not mqtt_client:
             _LOGGER.warning(
@@ -1764,6 +1780,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # The capture recorder, for the diagnostic sensor and for unload.
         "capture": capture_recorder,
     }
+
+    # 7b. The optional TeslaMate provider: a Tesla-compatible HTTP API on its own
+    # port. Off unless enabled in the options; a failure to bind (port already in
+    # use) is logged and must not stop the vehicle integration from working.
+    hass.data[DOMAIN][entry.entry_id]["teslamate_provider"] = None
+    if entry.options.get(CONF_TESLAMATE_ENABLED):
+        from .teslamate_provider import (
+            ProviderOptions,
+            async_start_teslamate_provider,
+        )
+
+        hass.data[DOMAIN][entry.entry_id]["teslamate_provider"] = (
+            await async_start_teslamate_provider(
+                coordinator,
+                ProviderOptions(
+                    token=str(entry.options.get(CONF_TESLAMATE_TOKEN, "")).strip(),
+                    port=int(
+                        entry.options.get(
+                            CONF_TESLAMATE_PORT, DEFAULT_TESLAMATE_PORT
+                        )
+                    ),
+                ),
+            )
+        )
 
     # 8. Forward platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -2432,6 +2472,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     capture_summary.get("dropped", 0),
                     len(capture_summary.get("parts", [])),
                 )
+            provider = data.get("teslamate_provider")
+            if provider is not None:
+                try:
+                    await provider.async_stop()
+                except Exception:  # noqa: BLE001 - unload must not fail on this
+                    _LOGGER.warning(
+                        "Stopping the TeslaMate provider failed", exc_info=True
+                    )
             for key in (
                 "cancel_timer",
                 "cancel_api_refresh",

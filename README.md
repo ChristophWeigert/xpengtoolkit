@@ -224,6 +224,12 @@ climate, select, number, switch, button, calendar and image - battery and range,
 charging state and charge limits, doors/windows/tyres, location, climate and
 seat heating, sentinel/X-Guard, OTA state, and a set of remote commands.
 
+The same telemetry can also be served to
+[TeslaMate](https://github.com/teslamate-org/teslamate) as its API provider, which
+logs the car as if it were a Tesla - drives, charging sessions and positions
+included. It is off by default; see
+[docs/TESLAMATE.md](docs/TESLAMATE.md).
+
 The sensors, binary sensors, tracker, calendar and image are always created. The
 **command** entities - lock, climate, select, number, switch and button - depend on
 [Command permissions](#command-permissions---what-the-integration-may-do-to-the-car):
@@ -951,7 +957,12 @@ on rather than discovered later. The event fields and a ready-made automation ar
   the pack, so this is a choice: G6 65.3 / 67.8 / 80.0 / **87.5 (default)** and
   G9 75.8 / 78.2 / 92.2 / 93.1 usable kWh. The
   [options page](https://xpengtoolkit.github.io/xpengtoolkit/reference/options#usable_battery_kwh)
-  carries the same table with each pack's installed figure and variant
+  carries the same table with each pack's installed figure and variant. The
+  TeslaMate provider's charge-energy estimate uses it too
+- **TeslaMate API provider** - off by default. Runs a Tesla-compatible API on the
+  chosen port (default `8200`) with a generated bearer token, so TeslaMate can log
+  this car. Read-only. Setup and the exact TeslaMate environment variables are in
+  [docs/TESLAMATE.md](docs/TESLAMATE.md)
 
 ## Disclaimer
 

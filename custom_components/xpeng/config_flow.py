@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import secrets
 import time
 from typing import Any, Final, Mapping
 
@@ -49,6 +50,9 @@ from .const import (
     CONF_CAPTURE_ENABLED,
     CONF_CAPTURE_PATH,
     CONF_CAPTURE_TOPICS,
+    CONF_TESLAMATE_ENABLED,
+    CONF_TESLAMATE_PORT,
+    CONF_TESLAMATE_TOKEN,
     CONF_CERT_DIR,
     CONF_COMMAND_MODE,
     CONF_CLIENT_ID,
@@ -74,6 +78,7 @@ from .const import (
     CONF_XPENG_EMAIL,
     CONF_XPENG_PASSWORD,
     DEFAULT_CAPTURE_PATH,
+    DEFAULT_TESLAMATE_PORT,
     DEFAULT_CERT_DIR,
     DEFAULT_COMMAND_MODE,
     DEFAULT_MQTT_REFRESH_INTERVAL,
@@ -1600,6 +1605,7 @@ class XPengOptionsFlow(OptionsFlow):
 
             cert_dir = str(user_input.get(CONF_CERT_DIR, "")).strip()
             missing = missing_cert_files(cert_dir) if cert_dir else []
+            teslamate_errors = self._validate_teslamate(user_input)
             if missing:
                 _LOGGER.error(
                     "Certificate directory %s is missing: %s",
@@ -1607,6 +1613,8 @@ class XPengOptionsFlow(OptionsFlow):
                     ", ".join(str(path) for path in missing),
                 )
                 errors[CONF_CERT_DIR] = "cert_files_missing"
+            elif teslamate_errors:
+                errors.update(teslamate_errors)
             else:
                 mode = str(
                     user_input.get(
@@ -1686,6 +1694,24 @@ class XPengOptionsFlow(OptionsFlow):
                             DEFAULT_REST_SCAN_INTERVAL,
                         ),
                     ): vol.All(int, vol.Range(min=60, max=3600)),
+                    # Optional TeslaMate provider. The token is generated on
+                    # first render so enabling the provider is one save, and the
+                    # same screen shows the value to paste into TeslaMate.
+                    vol.Optional(
+                        CONF_TESLAMATE_ENABLED,
+                        default=current.get(CONF_TESLAMATE_ENABLED, False),
+                    ): bool,
+                    vol.Optional(
+                        CONF_TESLAMATE_PORT,
+                        default=current.get(
+                            CONF_TESLAMATE_PORT, DEFAULT_TESLAMATE_PORT
+                        ),
+                    ): vol.All(int, vol.Range(min=1, max=65535)),
+                    vol.Optional(
+                        CONF_TESLAMATE_TOKEN,
+                        default=current.get(CONF_TESLAMATE_TOKEN)
+                        or secrets.token_urlsafe(24),
+                    ): str,
                     vol.Optional(
                         CONF_MQTT_LISTENER_ENABLED,
                         default=current.get(
@@ -1761,6 +1787,31 @@ class XPengOptionsFlow(OptionsFlow):
             ),
             errors=errors,
         )
+
+    def _validate_teslamate(self, user_input: Mapping[str, Any]) -> dict[str, str]:
+        """Validate the optional TeslaMate provider fields.
+
+        The provider is a real HTTP server on the network, so it cannot start
+        without a token: enabling it with an empty field would silently expose
+        the car's location and state to anything on the LAN. The port must also
+        be usable and must not be Home Assistant's own.
+        """
+        if not user_input.get(CONF_TESLAMATE_ENABLED):
+            return {}
+        errors: dict[str, str] = {}
+        token = str(user_input.get(CONF_TESLAMATE_TOKEN) or "").strip()
+        if len(token) < 8:
+            errors[CONF_TESLAMATE_TOKEN] = "token_required"
+        port = user_input.get(CONF_TESLAMATE_PORT)
+        try:
+            port_number = int(port)
+        except (TypeError, ValueError):
+            port_number = 0
+        if port_number < 1 or port_number > 65535:
+            errors[CONF_TESLAMATE_PORT] = "invalid_port"
+        elif port_number == 8123:
+            errors[CONF_TESLAMATE_PORT] = "port_conflict"
+        return errors
 
     async def async_step_groups(
         self, user_input: dict[str, Any] | None = None

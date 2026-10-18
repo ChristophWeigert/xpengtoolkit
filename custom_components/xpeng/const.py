@@ -152,6 +152,10 @@ CONF_USABLE_BATTERY_KWH: Final = "usable_battery_kwh"
 # These two are the only keys that are not a group name.
 CONF_COMMAND_MODE: Final = "command_mode"
 CONF_ALLOW_WAKE: Final = "allow_wake"
+# TeslaMate provider (teslamate_provider.py). Off by default: it opens a port.
+CONF_TESLAMATE_ENABLED: Final = "teslamate_provider_enabled"
+CONF_TESLAMATE_PORT: Final = "teslamate_provider_port"
+CONF_TESLAMATE_TOKEN: Final = "teslamate_provider_token"
 
 # Defaults
 DEFAULT_SCAN_INTERVAL: Final = 60
@@ -187,6 +191,10 @@ DEFAULT_USABLE_BATTERY_KWH: Final = 87.5
 #: one already doing?" - and answering both with one constant would break the
 #: second.
 DEFAULT_COMMAND_MODE: Final = "safe_plus"
+
+#: Port the optional TeslaMate provider listens on. 8200 rather than 8123 (Home
+#: Assistant) or 4000 (TeslaMate's own web UI) so neither can shadow the other.
+DEFAULT_TESLAMATE_PORT: Final = 8200
 
 # MQTT topics
 MQTT_SEND_TOPIC: Final = "Xmart/Send/User/{user_id}"
