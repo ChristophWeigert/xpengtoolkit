@@ -187,26 +187,51 @@ def _ha_reauth_issue_id(entry: ConfigEntry) -> str:
     11:50, renewal app imported at 11:54, card still listed minutes later). The id
     is HA's, so it is spelled out here rather than imported — observed verbatim in
     the live registry as ``config_entry_reauth_xpeng_01M4SK7V1B95KZFPGFGZGK0CM9``.
+
+    The *domain* half of the registry key is not ours: see ``_HA_ISSUE_DOMAIN``.
     """
     return f"config_entry_reauth_{DOMAIN}_{entry.entry_id}"
+
+
+#: Domain Home Assistant files its own ``config_entry_reauth_*`` cards under.
+#:
+#: ``ConfigEntry.async_start_reauth()`` calls
+#: ``ir.async_create_issue(hass, HOMEASSISTANT_DOMAIN,
+#: f"config_entry_reauth_{entry.domain}_{entry.entry_id}",
+#: ..., issue_domain=entry.domain, ...)``. The issue registry is keyed by the
+#: pair (domain, issue_id), and HA uses *its own* domain for that pair, not the
+#: integration's — the integration's domain shows up only as ``issue_domain``.
+#: Deleting under ``DOMAIN`` therefore matches nothing and silently does nothing,
+#: which is exactly what 0.6.11 shipped: it got the id right and never removed
+#: the card. Measured on the live install 2026-10-20, three days and many
+#: renewals after the card was raised on 2026-10-17: the card was still listed,
+#: filed under domain "homeassistant" with ``issue_domain="xpeng"``.
+_HA_ISSUE_DOMAIN = "homeassistant"
 
 
 def _clear_reauth_repair(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Remove the Repairs cards once credentials work again.
 
-    Both of them: ours, and HA's own reauth prompt. Deleting ours alone was why an
-    unattended renewal left a "credentials expired, reauthenticate" card behind
-    while the entities were already working.
+    Both of them: ours, and HA's own reauth prompt — each deleted in the domain it
+    was created under. Deleting ours alone was why an unattended renewal left a
+    "credentials expired, reauthenticate" card behind while the entities were
+    already working; deleting HA's under *our* domain was why the card survived
+    even after 0.6.11.
     """
     try:
         from homeassistant.helpers import issue_registry as ir
     except Exception:  # pragma: no cover
         return
-    for issue_id in (_REAUTH_ISSUE_ID, _ha_reauth_issue_id(entry)):
+    for domain, issue_id in (
+        (DOMAIN, _REAUTH_ISSUE_ID),
+        (_HA_ISSUE_DOMAIN, _ha_reauth_issue_id(entry)),
+    ):
         try:
-            ir.async_delete_issue(hass, DOMAIN, issue_id)
+            ir.async_delete_issue(hass, domain, issue_id)
         except Exception:
-            _LOGGER.debug("could not delete repair issue %s", issue_id, exc_info=True)
+            _LOGGER.debug(
+                "could not delete repair issue %s/%s", domain, issue_id, exc_info=True
+            )
 
 def _record_credential_success(refresh_state: dict | None) -> None:
     """Mark the credential loop healthy, for the credentials-valid sensor.

@@ -126,6 +126,7 @@ def _load_module():
         "homeassistant.exceptions",
         "homeassistant.helpers",
         "homeassistant.helpers.event",
+        "homeassistant.helpers.storage",
         "homeassistant.helpers.entity_platform",
         "homeassistant.helpers.update_coordinator",
         "homeassistant.components",
@@ -193,6 +194,14 @@ def _load_module():
         m = types.ModuleType(f"custom_components.xpeng.{name}")
         for key, value in attrs.items():
             setattr(m, key, value)
+
+        # Names touched only at runtime (never at import time) resolve to a
+        # no-op, so a stub does not have to enumerate an unrelated module's whole
+        # surface. Attribute names the stub sets explicitly still win.
+        def _fallback(_attr):
+            return lambda *a, **kw: None
+
+        m.__getattr__ = _fallback
         sys.modules[f"custom_components.xpeng.{name}"] = m
         return m
 
@@ -206,6 +215,16 @@ def _load_module():
     _stub("coordinator", XPengDataCoordinator=_Any)
     _stub("mqtt_client", XPengMQTTClient=_Any, missing_cert_files=lambda *a: [],
           build_tls_context=lambda *a, **kw: None, CERT_FILES=())
+    # __init__.py's remaining module-level imports. Stubbed for the same reason as
+    # the two above: they pull in paho/cryptography and are irrelevant to which
+    # repair calls __init__.py makes.
+    _stub("poll_status")
+    _stub("capture", open_recorder=lambda *a, **kw: None)
+    _stub("command_gate", policy_for_entry=lambda *a, **kw: None)
+    _stub("watchdog_policy", ESCALATE_AFTER_SECONDS=60,
+          ESCALATE_BACKOFF_SECONDS=300, should_escalate=lambda *a, **kw: False)
+    _stub("services", async_setup_services=lambda *a, **kw: None,
+          async_unload_services=lambda *a, **kw: None)
     _stub("xpeng_api", DEFAULT_APP_CONFIG={}, DEFAULT_SERVER="x",
           make_ssl_context=lambda *a, **kw: None,
           load_login_tokens=lambda *a, **kw: None,
@@ -366,9 +385,18 @@ class TestReauthRepair(unittest.TestCase):
 
         Measured 2026-10-17: the card was raised at 11:50, the unattended renewal
         app imported a fresh pair at 11:54, the entities worked again - and the
-        card was still in Settings -> Repairs, because only *our* issue id was
-        deleted. The id is HA's, spelled out in the code and asserted here against
-        the exact string the live registry showed for this entry.
+        card was still in Settings -> Repairs. The id is HA's, spelled out in the
+        code and asserted here against the exact string the live registry showed
+        for this entry.
+
+        The *domain* matters as much as the id. ``async_start_reauth`` files the
+        card under Home Assistant's own domain and names the integration only as
+        ``issue_domain``; the registry is keyed by the pair (domain, issue_id), so
+        deleting the right id under "xpeng" matches nothing and silently does
+        nothing. That is what 0.6.11 shipped, and the card it failed to delete was
+        still on the live install on 2026-10-20 - three days and many renewals
+        later - filed under "homeassistant" with issue_domain "xpeng". Asserting
+        the domain is the half that was missing.
         """
         entry = _Entry(entry_id="01M4SK7V1B95KZFPGFGZGK0CM9")
         self.assertEqual(
@@ -377,9 +405,12 @@ class TestReauthRepair(unittest.TestCase):
         )
         self.mod._clear_reauth_repair(_Hass(), entry)
         self.assertIn(
-            ("xpeng", "config_entry_reauth_xpeng_01M4SK7V1B95KZFPGFGZGK0CM9"),
+            ("homeassistant", "config_entry_reauth_xpeng_01M4SK7V1B95KZFPGFGZGK0CM9"),
             self.registry.deleted,
+            "HA's reauth card is filed under HA's domain, not the integration's",
         )
+        # And our own card still goes under our own domain.
+        self.assertIn(("xpeng", "reauth_required"), self.registry.deleted)
 
     def test_reauth_waits_for_the_unattended_renewal(self):
         """A few quick failures must not outrun a renewal that takes minutes.
