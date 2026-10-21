@@ -17,6 +17,7 @@ from homeassistant.helpers.storage import Store
 from . import poll_status
 from .capture import open_recorder
 from .command_gate import policy_for_entry
+from .replay_guard import is_replay, odometer_from_state
 from .watchdog_policy import (
     ESCALATE_AFTER_SECONDS,
     ESCALATE_BACKOFF_SECONDS,
@@ -901,11 +902,35 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # It reads "Unknown" for the seconds until the first refresh cycle lands.
 
     # Wire MQTT -> coordinator (with parked→driving transition detection)
-    def _on_vehicle_state(data: dict[str, Any]) -> None:
+    def _on_vehicle_state(data: dict[str, Any]) -> bool:
+        """Offer an MQTT state to the coordinator, answering "is this data?".
+
+        Runs on the MQTT network thread, and the answer has to be given *here*
+        rather than on the event loop: the client stamps its "a message carried
+        data" clock on the strength of the return value, and the silence
+        watchdog escalates to a force-upload on that clock. The coordinator
+        repeats the replay check when it applies the state (it is the one that
+        owns the odometer floor, and it is also the guard for the REST widget),
+        but only this call can keep a replayed snapshot out of the clock.
+
+        Measured 2026-10-21: a wedged fanout replayed the pre-drive snapshot for
+        2.5 h. Every replay looked like data, so the escalation never fired and
+        nothing self-healed; the sensors flapped between the replay's 52% and
+        the REST fallback's 47% until a human force-uploaded.
+        """
+        odometer = odometer_from_state(data)
+        if is_replay(odometer, coordinator.max_odometer):
+            _LOGGER.warning(
+                "Ignoring a replayed vehicle state from the push fanout: "
+                "odometer %s km is behind the %s km already held",
+                odometer, coordinator.max_odometer,
+            )
+            return False
         was_parked = coordinator.vehicle_parked
         hass.loop.call_soon_threadsafe(
             _handle_vehicle_state, data, was_parked
         )
+        return True
 
     def _handle_vehicle_state(data: dict[str, Any], was_parked: bool | None) -> None:
         """Update coordinator and handle parked→driving transition."""

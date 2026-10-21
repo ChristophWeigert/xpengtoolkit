@@ -20,6 +20,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .command_policy import CommandPolicy, default_policy
 from .const import DOMAIN
+from .replay_guard import is_replay, odometer_from_state, odometer_from_widget
 from .vin_descriptor import decode as decode_vin, mask_vin
 
 _LOGGER = logging.getLogger(__name__)
@@ -111,6 +112,12 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # tick would wake every entity for a number none of them use.
         self.poll_status: dict[str, Any] = {}
         self._last_full_data: dict[str, Any] | None = None
+        #: Highest odometer ever accepted from either source. ``total_mileage``
+        #: only increases, so a state below this is a replay of an older
+        #: snapshot - see replay_guard.py for the live measurement that made
+        #: this necessary (2026-10-21: a wedged fanout replayed the pre-drive
+        #: state for 2.5h and overwrote the REST fallback's fresher values).
+        self.max_odometer: float | None = None
         #: Epoch until which an external charger says a session may be running.
         self._charging_hint_until: float = 0.0
         self.credential_timestamp: datetime | None = None
@@ -263,6 +270,9 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return
         self._last_full_data = data
         self.data = data
+        # The restored odometer is a real floor: any push below it is a replay of
+        # a snapshot older than the one this install already knew about.
+        self.max_odometer = odometer_from_state(data)
         self.state_is_restored = True
         ts = stored.get("ts")
         if ts:
@@ -303,13 +313,30 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _STATE_SAVE_DELAY,
         )
 
-    def set_vehicle_data(self, data: dict[str, Any]) -> None:
+    def set_vehicle_data(self, data: dict[str, Any]) -> bool:
         """Receive full vehicle state from the MQTT thread.
 
         This is called via hass.loop.call_soon_threadsafe from the MQTT
         network thread, so it runs on the HA event loop.
+
+        Returns False when the state is a replay of an older snapshot, in which
+        case nothing is stored. The MQTT client uses that verdict to keep the
+        message out of the "data arrived" clock, so a wedged fanout that only
+        replays an old state still ages towards the watchdog's force-upload.
         """
         has_fresh_energy_data = data.pop("has_fresh_energy_data", False)
+        odometer = odometer_from_state(data)
+        if is_replay(odometer, self.max_odometer):
+            _LOGGER.warning(
+                "Ignoring a replayed vehicle state: odometer %s km is behind the "
+                "%s km already held (%s) — the push fanout is resending an older "
+                "snapshot; keeping the newer data",
+                odometer, self.max_odometer,
+                "from the REST fallback" if self._rest_data else "from an earlier push",
+            )
+            return False
+        if odometer is not None:
+            self.max_odometer = max(self.max_odometer or odometer, odometer)
         self._last_full_data = data
         self.last_data_timestamp = datetime.now(timezone.utc)
         if has_fresh_energy_data:
@@ -322,6 +349,7 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.async_set_updated_data(data)
         self._persist_state()
         _LOGGER.debug("Coordinator updated with fresh vehicle data")
+        return True
 
     def set_credential_timestamp(self) -> None:
         """Record when credentials were last set/refreshed."""
@@ -725,6 +753,18 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         if not mqtt_stale:
             return
+        # The fallback is only better than what we hold while it is *newer*.
+        # A widget replaying an older snapshot (same wedged upstream) must not
+        # overwrite the fresher MQTT state either - same odometer rule, applied
+        # in the other direction.
+        widget_odometer = odometer_from_widget(widget)
+        if is_replay(widget_odometer, self.max_odometer):
+            _LOGGER.warning(
+                "Not merging the REST widget: its odometer %s km is behind the "
+                "%s km already held — it is replaying an older snapshot",
+                widget_odometer, self.max_odometer,
+            )
+            return
         # widget has top-level keys like charge/hvac/door/window/odometer/ext/fuelTank
         widget_sections = {
             k: v for k, v in widget.items()
@@ -757,6 +797,11 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         msg_content["instant"] = instant
         merged = {**base, "msg_content": msg_content, "vin": self.vin}
         self._last_full_data = merged
+        # The widget is now the freshest source we hold, so its odometer becomes
+        # the replay floor for the pushes that follow (that is what stops the
+        # stale push from overwriting this merge 1 minute later).
+        if widget_odometer is not None:
+            self.max_odometer = max(self.max_odometer or widget_odometer, widget_odometer)
         silence = (
             (now - self.last_data_timestamp).total_seconds()
             if self.last_data_timestamp else -1

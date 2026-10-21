@@ -1228,9 +1228,11 @@ class XPengMQTTClient:
                     json.dumps(protect),
                     list(instant.keys()),
                 )
-                # Store as last full content for merging with partial responses
-                self._last_full_content = content
-                # Pass the full parsed data to the coordinator callback
+                # Pass the full parsed data to the coordinator callback. It may
+                # refuse the state as a replay of an older snapshot (see
+                # replay_guard.py); only an accepted message may become the
+                # baseline for later partials and re-stamp the "data arrived"
+                # clock the silence watchdog escalates on.
                 vehicle_data: dict[str, Any] = {
                     "vin": data.get("target_id", ""),
                     "msg_content": content,
@@ -1238,12 +1240,13 @@ class XPengMQTTClient:
                         instant.get("charge") or instant.get("odometer")
                     ),
                 }
-                if self._state_callback is not None:
+                if self._state_callback is None or self._state_callback(vehicle_data) is not False:
+                    # Store as last full content for merging with partial responses
+                    self._last_full_content = content
                     # This is the point where a message stops being a ping and
                     # becomes data: stamp it, so staleness can be measured
                     # without stubs resetting the clock.
                     self._last_meaningful_state_ts = time.time()
-                    self._state_callback(vehicle_data)
             elif self._last_full_content is not None:
                 # Partial response — merge non-empty instant sections into last
                 # full state so sensors update with whatever data the car sent.
@@ -1296,12 +1299,15 @@ class XPengMQTTClient:
                         instant.get("charge") or instant.get("odometer")
                     ),
                 }
-                if self._state_callback is not None:
+                # A partial can carry the stale snapshot's charge too, so the
+                # same acceptance test applies: a refused state must not stamp
+                # the clock the watchdog escalates on, or a fanout that only
+                # replays an old snapshot never ages into its force-upload.
+                if self._state_callback is None or self._state_callback(vehicle_data) is not False:
                     # This is the point where a message stops being a ping and
                     # becomes data: stamp it, so staleness can be measured
                     # without stubs resetting the clock.
                     self._last_meaningful_state_ts = time.time()
-                    self._state_callback(vehicle_data)
             else:
                 _LOGGER.debug(
                     "Minimal response (no prior data), %d bytes — ignoring",

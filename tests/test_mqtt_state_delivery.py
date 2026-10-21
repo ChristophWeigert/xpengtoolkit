@@ -207,5 +207,63 @@ class UnsentCommandsAreReported(unittest.TestCase):
         self.assertIn("Command not sent:", (COMPONENT / "const.py").read_text("utf-8"))
 
 
+class ARefusedStateIsNotData(unittest.TestCase):
+    """The coordinator can refuse a state as a replay of an older snapshot.
+
+    Measured 2026-10-21: a wedged fanout replayed the pre-drive snapshot for
+    2.5 h. If a refused state still stamped ``_last_meaningful_state_ts``, the
+    watchdog's 30-minute escalation would never fire and the fanout would stay
+    wedged - the same silent failure as the asleep-ack bug above, from the other
+    direction. A refused state must also not become the baseline that later
+    partials merge into, or the stale snapshot keeps resurrecting itself.
+    """
+
+    FULL = _state(
+        instant={
+            "ext": {"vehicleMode": 1},
+            "charge": {"battery_soc": 52},
+            "odometer": {"total_mileage": 62210},
+        }
+    )
+
+    def _client_with_verdict(self, verdict):
+        client, calls = _client()
+        client.set_state_callback(lambda data: (calls.append(data), verdict)[1])
+        return client, calls
+
+    def test_a_refused_state_does_not_stamp_the_clock(self):
+        client, calls = self._client_with_verdict(False)
+        before = client.last_meaningful_state_ts
+        client._on_message(None, None, _Msg(self.FULL))
+        self.assertEqual(len(calls), 1, "the coordinator must be asked")
+        self.assertEqual(
+            client.last_meaningful_state_ts, before,
+            "a refused replay is not data and must age towards the escalation",
+        )
+
+    def test_a_refused_state_does_not_become_the_partial_baseline(self):
+        client, _calls = self._client_with_verdict(False)
+        client._on_message(None, None, _Msg(self.FULL))
+        self.assertEqual(client._last_full_content, CACHED)
+
+    def test_an_accepted_state_stamps_and_becomes_the_baseline(self):
+        client, calls = self._client_with_verdict(True)
+        before = client.last_meaningful_state_ts
+        client._on_message(None, None, _Msg(self.FULL))
+        self.assertEqual(len(calls), 1)
+        self.assertGreater(client.last_meaningful_state_ts, before)
+        self.assertEqual(
+            client._last_full_content["instant"]["odometer"]["total_mileage"], 62210
+        )
+
+    def test_a_callback_that_returns_nothing_still_counts_as_data(self):
+        """Backwards compatibility: callbacks predating the verdict return None."""
+        client, calls = _client()
+        client._on_message(
+            None, None, _Msg(_state(instant={"charge": {"battery_soc": 63}}))
+        )
+        self.assertEqual(len(calls), 1)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
