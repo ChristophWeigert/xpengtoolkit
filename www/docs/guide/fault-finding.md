@@ -82,7 +82,7 @@ connection doing?":
 | `Parked` | Parked and quiet: one passive query per `parked_scan_interval`. The normal quiet state. |
 | `Silent` | Connected, but nothing has arrived for longer than the silence threshold (300 s). This is the state the watchdog reconnects for. |
 | `Reconnecting` | The socket is down and is being re-established. |
-| `Escalated` | The watchdog has already sent a force-upload after 30 minutes of silence; at most once every 12 hours. |
+| `Escalated` | The watchdog has already sent a force-upload after 30 minutes of silence; at most once every 12 hours. A stall where the last accepted state said the car was **moving** bypasses that 12-hour budget — one per 10 minutes, one per episode of motion — because a moving car cannot be woken. |
 
 **`Silent` is not the same as `Parked`.** Because the parked poll interval is
 measured in hours while the silence threshold is minutes, a parked car can sit in

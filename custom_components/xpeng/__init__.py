@@ -6,7 +6,7 @@ import logging
 import os
 import threading
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -23,6 +23,7 @@ from .watchdog_policy import (
     ESCALATE_AFTER_SECONDS,
     ESCALATE_BACKOFF_SECONDS,
     should_escalate,
+    should_escalate_moving,
 )
 
 from .const import (
@@ -933,9 +934,56 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
         return True
 
+    def _log_drive_evidence(
+        before: dict[str, Any],
+        after: dict[str, Any],
+        previous_data_age: float | None,
+    ) -> None:
+        """Log what a frame said about driving, and any verdict change.
+
+        Issue #3 (2026-10-21): a 45-minute mid-drive stall could not be explained
+        because neither the classification inputs nor the verdict itself were
+        logged. These lines are the answer to that: the values the classifier
+        reads, the verdict and its reason, and GPS as presence/change only -
+        never as coordinates.
+        """
+        gps_before = before.get("gps")
+        gps_after = after.get("gps")
+        _LOGGER.debug(
+            "Drive evidence: parked=%s (%s) shift_state=%r instant_speed=%r "
+            "interval_speed=%r gps=%s gps_changed=%s",
+            after.get("parked"),
+            after.get("reason"),
+            after.get("shift_state"),
+            after.get("instant_speed"),
+            after.get("interval_speed"),
+            "present" if gps_after else "absent",
+            gps_before != gps_after,
+        )
+        if before.get("parked") != after.get("parked"):
+            _LOGGER.info(
+                "Parking verdict %s -> %s (%s)%s",
+                before.get("parked"),
+                after.get("parked"),
+                after.get("reason"),
+                (
+                    f"; previous data was {previous_data_age:.0f}s old"
+                    if previous_data_age is not None
+                    else ""
+                ),
+            )
+
     def _handle_vehicle_state(data: dict[str, Any], was_parked: bool | None) -> None:
         """Update coordinator and handle parked→driving transition."""
+        before = coordinator.parking_view
+        previous_timestamp = coordinator.last_data_timestamp
+        previous_data_age = (
+            (datetime.now(timezone.utc) - previous_timestamp).total_seconds()
+            if previous_timestamp is not None
+            else None
+        )
         coordinator.set_vehicle_data(data)
+        _log_drive_evidence(before, coordinator.parking_view, previous_data_age)
         # If car just started moving, force immediate query
         if was_parked and coordinator.vehicle_parked is False:
             _LOGGER.info("Vehicle transitioned from parked to driving — forcing query")
@@ -1214,6 +1262,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if now - query_timer_state["last_sent"] < min_gap:
             return
         query_timer_state["last_sent"] = now
+        _LOGGER.debug(
+            "Periodic query: kind=%s interval=%.0fs parked=%s charging=%s "
+            "charging_hint=%s",
+            "force_upload" if active else "passive",
+            min_gap,
+            coordinator.vehicle_parked,
+            coordinator.is_charging,
+            hint,
+        )
         try:
             if active:
                 await hass.async_add_executor_job(
@@ -1567,6 +1624,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             pending_escalation = should_escalate(
                 stale, watchdog_state["last_escalation"], time.time()
             )
+            # A car that was moving when the data stopped cannot be woken by a
+            # force-upload, so motion evidence takes this decision out of the
+            # 12 h sleeping-car budget. Issue #3, 2026-10-21: 16 refusals on
+            # that budget while the car was being driven, and 46 minutes of
+            # frozen telemetry. See watchdog_policy.should_escalate_moving.
+            motion_escalation = should_escalate_moving(
+                stale,
+                watchdog_state["last_escalation"],
+                time.time(),
+                coordinator.last_motion_at,
+            )
+            escalation_allowed = pending_escalation or motion_escalation
             escalated_now = poll_status.is_escalated(
                 stale,
                 watchdog_state["last_escalation"],
@@ -1709,22 +1778,38 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # a stub answers it, so it can be reset every reconnect cycle while no
         # data arrives; staleness only clears when a message carries something.
         now_ts = time.time()
-        if not pending_escalation:
+        if not escalation_allowed:
             if escalated_now:
                 _LOGGER.debug(
                     "Watchdog: %.1fmin stale but last force-upload was %.0fmin ago "
-                    "— holding off (one per %.0fh)",
+                    "— holding off (one per %.0fh; last motion evidence %s)",
                     stale / 60,
                     (now_ts - watchdog_state["last_escalation"]) / 60,
                     ESCALATE_BACKOFF_SECONDS / 3600,
+                    (
+                        f"{(now_ts - coordinator.last_motion_at) / 60:.0f}min ago"
+                        if coordinator.last_motion_at
+                        else "none"
+                    ),
                 )
             return
-        _LOGGER.warning(
-            "Watchdog: %.0fmin without data (state topic quiet %.0fs) and "
-            "reconnect+passive query has not restored it — sending ONE "
-            "force-upload (this wakes the car; at most one per %.0fh)",
-            stale / 60, silence, ESCALATE_BACKOFF_SECONDS / 3600,
-        )
+        if motion_escalation:
+            _LOGGER.warning(
+                "Watchdog: %.0fmin without data and the last accepted state said "
+                "the car was moving (%.0fmin before the silence) — sending ONE "
+                "force-upload, which cannot wake a moving car (motion evidence "
+                "escapes the %.0fh sleeping-car budget)",
+                stale / 60,
+                (now_ts - coordinator.last_motion_at) / 60,
+                ESCALATE_BACKOFF_SECONDS / 3600,
+            )
+        else:
+            _LOGGER.warning(
+                "Watchdog: %.0fmin without data (state topic quiet %.0fs) and "
+                "reconnect+passive query has not restored it — sending ONE "
+                "force-upload (this wakes the car; at most one per %.0fh)",
+                stale / 60, silence, ESCALATE_BACKOFF_SECONDS / 3600,
+            )
         watchdog_state["last_escalation"] = now_ts
         watchdog_state["escalations"] += 1
         # Written before the send, and independent of it: the backoff exists to

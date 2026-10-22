@@ -263,5 +263,95 @@ class TestTheBackoffSurvivesAReload(unittest.TestCase):
         raise AssertionError("async_setup_entry not found")
 
 
+class TestMotionEscalation(unittest.TestCase):
+    """A moving car cannot be woken, so its recovery is not a wake decision.
+
+    Issue #3's capture (2026-10-21): the fanout stalled mid-drive, and from 16:46
+    to 17:01 the watchdog refused 16 escalations as "one per 12h" - the budget
+    had been spent on a parked stall earlier that day. Telemetry stayed frozen
+    for 46 minutes while the car was being driven. These tests pin the two extra
+    bounds that replace the sleeping-car budget on that path, and the fact that
+    the sleeping-car rule itself is untouched.
+    """
+
+    def test_the_motion_bound_is_the_documented_one(self):
+        self.assertEqual(policy.MOTION_ESCALATE_BACKOFF_SECONDS, 10 * MINUTE)
+
+    def test_it_is_shorter_than_the_sleeping_car_budget(self):
+        """That difference is the whole point: the car is already awake."""
+        self.assertLess(
+            policy.MOTION_ESCALATE_BACKOFF_SECONDS, policy.ESCALATE_BACKOFF_SECONDS
+        )
+
+    def test_the_sleeping_car_rule_still_applies_when_the_car_is_parked(self):
+        """No motion evidence, no shortcut - the 12h budget is unchanged."""
+        self.assertFalse(
+            policy.should_escalate_moving(
+                4 * HOUR, 0.0, 100_000.0, last_motion_at=0.0
+            )
+        )
+
+    def test_patience_still_applies(self):
+        """Motion is a reason to skip the 12h budget, not the 30 minute wait."""
+        self.assertFalse(
+            policy.should_escalate_moving(
+                10 * MINUTE, 0.0, 100_000.0, last_motion_at=95_000.0
+            )
+        )
+
+    def test_motion_escapes_a_budget_spent_an_hour_ago(self):
+        """The exact shape of the capture: a wake an hour before, car moving."""
+        now = 100_000.0
+        self.assertTrue(
+            policy.should_escalate_moving(
+                policy.ESCALATE_AFTER_SECONDS,
+                last_escalation=now - HOUR,
+                now=now,
+                last_motion_at=now - policy.ESCALATE_AFTER_SECONDS,
+            )
+        )
+
+    def test_one_episode_of_motion_buys_one_wake(self):
+        """The evidence must be newer than the last wake, or a wedged fanout
+        would escalate on the same stale evidence every tick."""
+        now = 100_000.0
+        self.assertFalse(
+            policy.should_escalate_moving(
+                2 * HOUR,
+                last_escalation=now - 20 * MINUTE,
+                now=now,
+                last_motion_at=now - 2 * HOUR,
+            )
+        )
+
+    def test_a_cadence_still_applies_between_motion_escalations(self):
+        now = 100_000.0
+        self.assertFalse(
+            policy.should_escalate_moving(
+                2 * HOUR,
+                last_escalation=now - 5 * MINUTE,
+                now=now,
+                last_motion_at=now - 2 * HOUR,
+            )
+        )
+        self.assertTrue(
+            policy.should_escalate_moving(
+                2 * HOUR,
+                last_escalation=now - 2 * MINUTE,
+                now=now + policy.MOTION_ESCALATE_BACKOFF_SECONDS,
+                last_motion_at=now - 2 * MINUTE + 1,
+            )
+        )
+
+    def test_the_watchdog_asks_both_questions(self):
+        """Pinned at the call site: the sleeping-car rule is never replaced."""
+        source = (_component.component_dir() / "__init__.py").read_text(encoding="utf-8")
+        self.assertIn("should_escalate(", source)
+        self.assertIn("should_escalate_moving(", source)
+        self.assertIn(
+            "escalation_allowed = pending_escalation or motion_escalation", source
+        )
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

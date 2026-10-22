@@ -97,7 +97,10 @@ The reconnect that `Silent` triggers is cloud-side only and never wakes the car.
 Waking it is a separate escalation that needs **30 minutes of unbroken silence**
 first, and is capped at one force-upload per **12 hours** — so a car parked and
 asleep all day is woken at most twice, and one that answers the passive query is
-never woken by this path at all.
+never woken by this path at all. A car that was **moving** when the data stopped
+is the one exception: the force-upload cannot wake it, so that escalation skips
+the 12-hour budget and is limited to one per 10 minutes and one per episode of
+motion instead.
 :::
 
 ### `mqtt_refresh_interval`
@@ -420,6 +423,7 @@ have a source, and so "what wakes my car?" has one answer in one place.
 | Minimum gap between watchdog reconnects, car parked | `1800 s` |
 | Unbroken silence before an escalating force-upload | `1800 s` (30 min) |
 | Minimum gap between escalating force-uploads | `43200 s` (12 h) |
+| Minimum gap between force-upload escalations justified by motion (the last state said the car was moving, so it cannot be woken) | `600 s` (10 min), and one per episode of motion |
 | Quiet CONNECT grace after a session takeover (a renewal login) | `300 s` |
 | Settle window after the integration's own reconnect | `120 s` |
 | Settle retry delays | `10 s`, `20 s` |

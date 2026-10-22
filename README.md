@@ -198,6 +198,15 @@ entry up again now stops any client a previous setup left behind, since two
 clients under one account is the failure described in
 [Troubleshooting](#troubleshooting).
 
+If the fan-out stays wedged and nothing meaningful arrives for 30 minutes, the
+watchdog escalates to one `cmd_type: 2` force-upload - the only thing that
+punches through a stalled fan-out - and then waits 12 hours before it may spend
+another, so a wedged cloud cannot turn into a car woken on a schedule. One
+exception: when the last state accepted said the car was **moving**, the
+force-upload cannot wake anything, so that escalation skips the 12-hour budget -
+one per 10 minutes, one per episode of motion - which is what keeps a mid-drive
+stall from freezing the sensors for the rest of the trip.
+
 ### Credentials rotate, and the identity is per-install
 
 The MQTT password is short-lived (about 60-90 s). It is **minted on demand**:

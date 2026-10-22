@@ -20,6 +20,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .command_policy import CommandPolicy, default_policy
 from .const import DOMAIN
+from .drive_evidence import view as drive_view
 from .replay_guard import is_replay, odometer_from_state, odometer_from_widget
 from .vin_descriptor import decode as decode_vin, mask_vin
 
@@ -133,6 +134,12 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # traffic (partial pings for door/window/ext must not mask staleness
         # of the energy fields — see _merge_widget_state_if_mqtt_stale).
         self.last_energy_data_timestamp: datetime | None = None
+        #: When the last accepted state showed the car *moving* (speed, or a
+        #: shift other than P). A frame that shows P resets it to 0.0. The
+        #: watchdog reads this to justify an escalation a force-upload cannot
+        #: turn into a wake - see watchdog_policy.should_escalate_moving and
+        #: drive_evidence.py.
+        self.last_motion_at: float = 0.0
         # True while the only state we hold was restored from disk (no live
         # push received yet this session).
         self.state_is_restored: bool = False
@@ -339,6 +346,10 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.max_odometer = max(self.max_odometer or odometer, odometer)
         self._last_full_data = data
         self.last_data_timestamp = datetime.now(timezone.utc)
+        # Before _update_parked_consumption, which reads vehicle_parked; and
+        # before the entities are notified, so a transition is logged with the
+        # evidence that caused it (issue #3 diagnostics).
+        self.note_drive_evidence(data)
         if has_fresh_energy_data:
             self.last_energy_data_timestamp = self.last_data_timestamp
         self.state_is_restored = False
@@ -1138,36 +1149,38 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def vehicle_parked(self) -> bool | None:
         """Return whether the vehicle is parked.
 
-        Checks both shift_state and speed — if speed > 0, definitely not parked.
+        The rules live in drive_evidence.view(), which also returns the reason
+        behind the verdict: speed > 0 means definitely not parked, otherwise a
+        shift_state of P means parked and anything else that cannot be read
+        means "no evidence" (None). Callers treat None as *not moving* - see
+        poll_status.is_active - so this is deliberately conservative.
         """
-        if not self._last_full_data:
-            return None
-        drive = (
-            self._last_full_data
-            .get("msg_content", {})
-            .get("instant", {})
-            .get("drive", {})
-        )
-        if not drive:
-            return None
-        # Speed > 0 means definitely not parked
-        speed = drive.get("speed")
-        if speed is not None:
-            try:
-                if float(speed) > 0:
-                    return False
-            except (TypeError, ValueError):
-                pass
-        # Fall back to shift_state
-        shift = drive.get("shift_state")
-        if shift is None:
-            return None
-        if isinstance(shift, str):
-            return shift.strip().upper() == "P"
-        try:
-            return int(shift) in (3, 4)
-        except (TypeError, ValueError):
-            return None
+        return drive_view(self._last_full_data)["parked"]
+
+    @property
+    def parking_view(self) -> dict[str, Any]:
+        """The parked verdict with the fields and reason behind it.
+
+        For diagnostics only: a user on issue #3 asked which field decided the
+        verdict, and the capture they had could not say.
+        """
+        return drive_view(self._last_full_data)
+
+    def note_drive_evidence(self, data: dict[str, Any]) -> None:
+        """Record whether the frame just accepted showed the car moving.
+
+        A car that was moving when the data stopped cannot be woken by a
+        force-upload, so this is what lets the watchdog spend one outside the
+        12 h sleeping-car budget (watchdog_policy.should_escalate_moving). A
+        later frame showing P clears it, so a car that has since parked cannot
+        inherit the earlier drive's allowance. A frame with no drive block
+        leaves it alone: no evidence is not evidence of parking.
+        """
+        view = drive_view(data)
+        if view["moving"]:
+            self.last_motion_at = time.time()
+        elif view["parked"]:
+            self.last_motion_at = 0.0
 
     @property
     def external_charging_hint(self) -> bool:

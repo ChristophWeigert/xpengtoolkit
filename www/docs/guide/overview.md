@@ -104,7 +104,11 @@ again also stops any client a previous setup left behind.
 If nothing meaningful arrives for 30 minutes of unbroken silence, the watchdog
 escalates to a single force-upload — which does wake the car — and then waits at
 least 12 hours before it may do so again. Both bounds exist so that a wedged
-fan-out cannot turn into a car woken on a schedule. See
+fan-out cannot turn into a car woken on a schedule. One exception: when the last
+state the integration accepted said the car was **moving**, the force-upload
+cannot wake it, so that escalation is not held to the 12-hour budget — it is
+limited to one per 10 minutes and one per episode of motion, which keeps a
+mid-drive stall from freezing the sensors for the rest of the trip. See
 [Fault finding](./fault-finding#silent-and-parked).
 
 ## Credentials rotate, and the identity is per-install

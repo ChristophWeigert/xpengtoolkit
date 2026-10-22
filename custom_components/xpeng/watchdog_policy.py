@@ -67,6 +67,13 @@ ESCALATE_AFTER_SECONDS: float = 30 * 60
 #: fallback keeps the car's core values current in between.
 ESCALATE_BACKOFF_SECONDS: float = 12 * 3600
 
+#: Minimum gap between two force-uploads that are justified by *motion*. The
+#: number above exists to bound how often a parked car is woken; a moving car is
+#: already awake, so its escalation only needs a cadence, not a budget. Ten
+#: minutes: faster than a drive can hide, slow enough that a wedged fanout
+#: cannot turn every watchdog tick into a force-upload.
+MOTION_ESCALATE_BACKOFF_SECONDS: float = 10 * 60
+
 
 def should_escalate(
     silence_seconds: float,
@@ -84,5 +91,47 @@ def should_escalate(
     if silence_seconds < escalate_after:
         return False
     if last_escalation and (now - last_escalation) < escalate_backoff:
+        return False
+    return True
+
+
+def should_escalate_moving(
+    silence_seconds: float,
+    last_escalation: float,
+    now: float,
+    last_motion_at: float,
+    escalate_after: float = ESCALATE_AFTER_SECONDS,
+    motion_backoff: float = MOTION_ESCALATE_BACKOFF_SECONDS,
+) -> bool:
+    """Whether motion evidence justifies a force-upload outside the 12 h budget.
+
+    Measured on issue #3's capture (2026-10-21): the fanout stalled mid-drive at
+    16:15, and from 16:46 until the cloud recovered by itself at 17:01 the
+    watchdog refused 16 escalations as "one per 12h" - the budget had been spent
+    on a parked stall earlier that day. Telemetry stayed frozen for 46 minutes
+    while the car was being driven, where a force-upload cannot wake anything.
+
+    Three bounds replace the sleeping-car budget, all of them cheap to satisfy
+    only when they should be:
+
+    * the caller's staleness bound still applies - motion is a reason to skip the
+      12 h budget, not the 30 minute patience;
+    * the motion must be *newer than the last escalation*, so one episode of
+      motion buys one wake rather than one per watchdog tick, and a fanout that
+      stays wedged cannot keep escalating on the same old evidence;
+    * `motion_backoff` since that wake, as a floor for the case where the wake
+      did produce data and the car is still moving.
+
+    `last_motion_at` is 0.0 when the last accepted state said the car was parked
+    or said nothing about driving; both mean "do not spend the sleeping car's
+    allowance on this".
+    """
+    if silence_seconds < escalate_after:
+        return False
+    if not last_motion_at:
+        return False
+    if last_escalation and (now - last_escalation) < motion_backoff:
+        return False
+    if last_escalation and last_motion_at <= last_escalation:
         return False
     return True
