@@ -274,6 +274,11 @@ class XPengMQTTClient:
         # cycle. This is the clock staleness/escalation is measured on.
         self._last_meaningful_state_ts: float = time.time()
         self._state_callback: Callable[[dict[str, Any]], None] | None = None
+        # Repairs one state frame before it is stored: sentinel_guard.py replaces
+        # a wake frame's placeholder tyre pressures with the last real readings.
+        # Injected so this module keeps no project imports of its own; None means
+        # "trust every frame as it arrives".
+        self._instant_sanitizer: Callable[[Any, Any], Any] | None = None
         self._auth_failure_callback: Callable[[], None] | None = None
         self._listener_callback: Callable[[str, str], None] | None = None
         # Raw-frame sink for the capture recorder. Called with bytes, before any
@@ -406,6 +411,17 @@ class XPengMQTTClient:
     ) -> None:
         """Set callback invoked from MQTT thread on full vehicle state."""
         self._state_callback = callback
+
+    def set_instant_sanitizer(
+        self, sanitizer: Callable[[Any, Any], Any]
+    ) -> None:
+        """Set the function that repairs a state frame before it is used.
+
+        Called from the MQTT thread as ``sanitizer(instant, previous_content)``;
+        it returns the same object when nothing needs repairing. See
+        ``sentinel_guard.py``.
+        """
+        self._instant_sanitizer = sanitizer
 
     def set_auth_failure_callback(self, callback: Callable[[], None]) -> None:
         """Set callback invoked when MQTT broker rejects our credentials."""
@@ -1202,7 +1218,20 @@ class XPengMQTTClient:
                     code, content.get("msg", "") if isinstance(content, dict) else "")
                 return
 
-            instant = content.get("instant", {})
+            # A wake frame carries all four tyre pressures as 0 before the TPMS
+            # sensors answer (see sentinel_guard.py). Carry the last real
+            # readings forward rather than publishing four flat tyres that
+            # reinflate two seconds later; a real (low) pressure is left alone.
+            # Injected rather than imported: this module is loaded both as a
+            # package and as a top-level module by tools/ and tests/, and has no
+            # project imports of its own.
+            raw_instant = content.get("instant", {})
+            instant = raw_instant
+            if self._instant_sanitizer is not None:
+                instant = self._instant_sanitizer(raw_instant, self._last_full_content)
+                if instant is not raw_instant:
+                    content = {**content, "instant": instant}
+
             # A true full state has ext + sufficient other sections.
             # We require ext (vehicle mode/sentinel/etc.) plus at least one
             # of: charge, drive, power, odometer, door — this handles both

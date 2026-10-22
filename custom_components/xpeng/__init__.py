@@ -18,6 +18,7 @@ from . import poll_status
 from .capture import open_recorder
 from .command_gate import policy_for_entry
 from .replay_guard import is_replay, odometer_from_state
+from .sentinel_guard import with_previous_tpms
 from .watchdog_policy import (
     ESCALATE_AFTER_SECONDS,
     ESCALATE_BACKOFF_SECONDS,
@@ -943,6 +944,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass.async_add_executor_job(mqtt_client.send_query, vin)
 
     mqtt_client.set_state_callback(_on_vehicle_state)
+    # A wake frame carries the tyre pressures as 0 before the TPMS sensors
+    # answer; carry the last real readings forward instead of publishing a tyre
+    # that reinflates two seconds later (see sentinel_guard.py).
+    mqtt_client.set_instant_sanitizer(with_previous_tpms)
 
     # Wire auth failure -> credential refresh
     def _on_auth_failure() -> None:

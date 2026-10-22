@@ -97,6 +97,21 @@ certificate, while the streaming socket does (`TESLA_WSS_TLS_ACCEPT_INVALID_CERT
 If you terminate TLS properly with a trusted certificate, `https://`/`wss://`
 work as well.
 
+## XpengMate - the XPENG-native fork
+
+[XpengMate](https://github.com/xpengtoolkit/xpengmate) is a rebranded fork of
+TeslaMate with the Tesla data path replaced by an XPENG one. It keeps the database
+schema, the MQTT/Home Assistant integration and the dashboards, and adds a history
+browser, EVConduit backfill, XPENG GDPR export import and an in-app settings page.
+Its recommended live source is *this provider*: set `XPENG_SOURCE=provider` and
+point `XPENG_PROVIDER_UPSTREAM_URL`/`XPENG_PROVIDER_UPSTREAM_TOKEN` at port 8200,
+so Home Assistant stays the only owner of the XPENG account session. It also reads
+`polling_status` to report a parked car as `asleep`, which is what lets
+TeslaMate's own sleep detection work.
+
+Everything above applies to it unchanged - only the place the provider
+environment variables are set differs.
+
 ## How the car's state is decided
 
 TeslaMate asks for `vehicle_data` only while it believes the car is reachable,

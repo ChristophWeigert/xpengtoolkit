@@ -228,7 +228,10 @@ The same telemetry can also be served to
 [TeslaMate](https://github.com/teslamate-org/teslamate) as its API provider, which
 logs the car as if it were a Tesla - drives, charging sessions and positions
 included. It is off by default; see
-[docs/TESLAMATE.md](docs/TESLAMATE.md).
+[docs/TESLAMATE.md](docs/TESLAMATE.md). For a more custom setup,
+[XpengMate](https://github.com/xpengtoolkit/xpengmate) is an XPENG-native fork of
+TeslaMate with a history browser and 24 pre-provisioned Grafana dashboards; it
+relays this provider rather than talking to the car itself.
 
 The sensors, binary sensors, tracker, calendar and image are always created. The
 **command** entities - lock, climate, select, number, switch and button - depend on
