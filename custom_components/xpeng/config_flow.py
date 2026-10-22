@@ -54,6 +54,7 @@ from .const import (
     CONF_TESLAMATE_PORT,
     CONF_TESLAMATE_TOKEN,
     CONF_CERT_DIR,
+    CONF_CHARGE_PORT_CONTROLS,
     CONF_COMMAND_MODE,
     CONF_CLIENT_ID,
     CONF_CONFIGURED_DEVICE_ID,
@@ -1659,6 +1660,10 @@ class XPengOptionsFlow(OptionsFlow):
                     ),
                     vol.Optional(
                         CONF_ALLOW_WAKE, default=current_policy.allow_wake
+                    ): bool,
+                    vol.Optional(
+                        CONF_CHARGE_PORT_CONTROLS,
+                        default=bool(current.get(CONF_CHARGE_PORT_CONTROLS, True)),
                     ): bool,
                     vol.Optional(
                         CONF_SCAN_INTERVAL,

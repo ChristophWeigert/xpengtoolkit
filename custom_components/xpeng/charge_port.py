@@ -241,3 +241,29 @@ def charging_state_label(charge: Any) -> str | None:
             else CHARGING_STATES[0]
         )
     return CHARGING_STATES.get(code, f"Unknown ({code})")
+
+
+#: Options key for "this car has motorized charge-port controls". Mirrored as
+#: ``const.CONF_CHARGE_PORT_CONTROLS`` (const.py imports this module), so the
+#: pure helper and the config option cannot drift apart.
+CHARGE_PORT_CONTROLS_OPTION = "charge_port_controls"
+
+
+def controls_enabled(options: Any) -> bool:
+    """Whether this install expects the charge-port commands to do anything.
+
+    A manual flap answers the open/close commands with an error, or with
+    nothing, and there is no field that says which kind of flap a car has - so
+    this is the owner's answer, recorded as an option. It defaults to True, so
+    every install that never touched the option keeps the controls it had.
+
+    Reported against a P7+ (2026-10-22, DrazorV fork): charge-port control did
+    not work on that car, and its owner has a manual flap. The buttons are not
+    created when this is off; the port state sensor is unaffected.
+    """
+    if not isinstance(options, dict):
+        return True
+    value = options.get(CHARGE_PORT_CONTROLS_OPTION, True)
+    if isinstance(value, str):
+        return value.strip().lower() not in ("0", "false", "no", "off", "")
+    return bool(value)

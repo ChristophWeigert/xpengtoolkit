@@ -928,6 +928,15 @@ battery and is only used to pull a fresh full state; with it off the integration
 strictly passive and sends queries only, at the price of staler sensors. The internal
 watchdog honours it too, degrading to a passive query instead of a force-upload.
 
+**Window and charge-port commands follow what has actually been verified.**
+`Open windows` and `Vent windows` both send the one window command observed to work,
+which *vents* the windows; `Close windows` refuses with a clear error instead of
+publishing its old payload, because that payload was the charge-port *open* command
+and never moved a window (measured on a P7+). `Close windows` requires the XPENG app
+or the vehicle until a verified close command is captured. For a car with a manual
+charge flap, turn off **Motorized charge-port controls**: the open/close charge-port
+buttons and services are then not offered, while the port state sensor remains.
+
 ### What this does *not* protect against
 
 Be clear about the boundary, because the reassuring version would be a lie:
@@ -964,6 +973,10 @@ on rather than discovered later. The event fields and a ready-made automation ar
 - **Command permissions** - the presets (Safe Plus by default for a new entry, Full
   access for an entry that predates the option) or the per-group matrix described above
 - **Allow wake** - whether the integration may wake a sleeping car
+- **Motorized charge-port controls** - on by default. Turn it off for a car with a
+  manual charge flap: the open/close charge-port buttons and services are then not
+  offered, because the car cannot act on them; the charge-port state sensor is
+  unchanged. Reported against a P7+ (2026-10-22)
 - **Usable battery capacity** - the pack size behind the parked-consumption estimate,
   in kWh, asked on the setup screen as well. A VIN identifies the model *family*, not
   the pack, so this is a choice: G6 65.3 / 67.8 / 80.0 / **87.5 (default)** and

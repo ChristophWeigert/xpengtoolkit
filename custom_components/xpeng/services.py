@@ -13,6 +13,7 @@ from homeassistant.core import Event, HomeAssistant, ServiceCall, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 
+from .charge_port import controls_enabled
 from .command_gate import async_guard_service
 from .command_policy import default_policy, service_group
 from .const import COMMAND_NOT_SENT_MESSAGE, DOMAIN
@@ -216,6 +217,20 @@ def _get_entry_data(hass: HomeAssistant) -> dict[str, Any] | None:
     return entries[entry_id]
 
 
+def _charge_port_controls_enabled(hass: HomeAssistant) -> bool:
+    """Whether this entry expects the charge-port commands to do anything.
+
+    A manual flap answers them with an error or with nothing, and no field says
+    which kind of flap a car has, so the owner records it as the
+    ``charge_port_controls`` option (see charge_port.controls_enabled). The
+    services check it for the same reason the buttons are not created: a call
+    that silently cannot work is worse than one that says so.
+    """
+    entry_data = _get_entry_data(hass) or {}
+    entry = entry_data.get("entry")
+    return controls_enabled(getattr(entry, "options", None) or {})
+
+
 def _build_snapshot(coordinator: Any, reason: str) -> dict[str, Any]:
     """Collect a snapshot of every coordinator-tracked field worth diffing."""
     return {
@@ -306,13 +321,18 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         )
 
     async def handle_close_windows(call: ServiceCall) -> None:
-        await hass.async_add_executor_job(
-            _send, hass, 4, {"cmd_type": 3, "cmd_value": 1}
+        # The payload this service used to publish is the charge-port *open*
+        # command (service_type 4, cmd_type 3, cmd_value 1) and never moved a
+        # window - measured on a P7+ (2026-10-22). Refuse rather than send it.
+        raise HomeAssistantError(
+            translation_domain=DOMAIN, translation_key="window_command_unverified"
         )
 
     async def handle_vent_windows(call: ServiceCall) -> None:
+        # The only window command verified to do anything: it vents. The old
+        # payload here was the charge-port close command.
         await hass.async_add_executor_job(
-            _send, hass, 4, {"cmd_type": 3, "cmd_value": 0}
+            _send, hass, 12, {"cmd_type": 1, "cmd_value": 2}
         )
 
     async def handle_sentinel_on(call: ServiceCall) -> None:
@@ -422,11 +442,21 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         )
 
     async def handle_open_charge_port(call: ServiceCall) -> None:
+        if not _charge_port_controls_enabled(hass):
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="charge_port_control_disabled",
+            )
         await hass.async_add_executor_job(
             _send, hass, 4, {"cmd_type": 3, "cmd_value": 1}
         )
 
     async def handle_close_charge_port(call: ServiceCall) -> None:
+        if not _charge_port_controls_enabled(hass):
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="charge_port_control_disabled",
+            )
         await hass.async_add_executor_job(
             _send, hass, 4, {"cmd_type": 3, "cmd_value": 0}
         )

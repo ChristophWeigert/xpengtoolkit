@@ -33,6 +33,7 @@ directory (see [Certificate directory](#certificate-directory)).
 | `cert_dir` | Certificate directory | `/config/custom_components/xpeng/certs` | absolute path holding three PEM files |
 | `command_mode` | Command permissions | `safe_plus` on a new entry; Full access when unset | `read_only` / `safe` / `safe_plus` / `full` / `custom` |
 | `allow_wake` | Allow the integration to wake the car | on | on / off |
+| `charge_port_controls` | Motorized charge-port controls (off = manual flap) | on | on / off |
 | `iccid` | TBox SIM ICCID | empty | free text, diagnostic only |
 | `usable_battery_kwh` | Usable battery capacity (kWh) | `87.5` | `10`–`150` |
 
@@ -404,6 +405,20 @@ unaffected, because the car is already awake.
 | --- | --- | --- |
 | `command_mode` | `safe_plus` | **Full access** |
 | `allow_wake` | on | on |
+| `charge_port_controls` | on | on |
+
+### `charge_port_controls`
+
+Whether this car has motorized charge-port controls. It is on by default, so nothing
+changes unless it is turned off — and turning it off is the right answer for a car
+with a **manual flap**, which cannot act on the open/close commands. With it off the
+two charge-port buttons are not created and the `xpeng.open_charge_port` /
+`xpeng.close_charge_port` services raise a clear error, while
+`sensor.xpeng_<vehicle>_slow_charge_port` keeps reporting state.
+
+There is no telemetry field that says which kind of flap a car has, so this is an
+owner's answer rather than something the integration can infer. Reported against a
+P7+ with a manual flap (2026-10-22); other cars answer the commands.
 
 The second column is the upgrade guarantee: an install that predates the option keeps
 Full access, so an update never takes charging or unlocking away from an automation

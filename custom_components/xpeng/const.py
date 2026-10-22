@@ -30,6 +30,8 @@ from homeassistant.const import (
 import json as _json
 from datetime import datetime as _dt, timezone as _tz
 
+from .charge_port import CHARGE_PORT_CONTROLS_OPTION
+
 DOMAIN: Final = "xpeng"
 
 #: What a caller is told when a command could not be published. Shared so the
@@ -145,6 +147,10 @@ CONF_CAPTURE_TOPICS: Final = "capture_topics"
 CONF_PARKED_SCAN_INTERVAL: Final = "parked_scan_interval"
 CONF_ICCID: Final = "iccid"
 CONF_USABLE_BATTERY_KWH: Final = "usable_battery_kwh"
+#: Whether this car has motorized charge-port controls. The key lives in
+#: charge_port.py (a pure module) so ``controls_enabled`` can be tested without
+#: Home Assistant; re-exported here because options keys are spelled in const.
+CONF_CHARGE_PORT_CONTROLS: Final = CHARGE_PORT_CONTROLS_OPTION
 
 # Command permissions. The per-group option keys ARE the group names
 # ("access", "charging", ...) - see command_policy.ALL_GROUPS - so the shape

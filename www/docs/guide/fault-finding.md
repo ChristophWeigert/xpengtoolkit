@@ -183,6 +183,23 @@ log, so `grep Refused /config/home-assistant.log` answers "did something try?".
 Neither is a credentials problem: if the log shows `Login token refresh failed` as
 well, that is the separate case below.
 
+## Window closing and charge-port controls {#window-closing-and-charge-port}
+
+Two controls are deliberately limited, because their old commands were never verified
+to do what their names said:
+
+* **Close windows refuses** with *"Window closing is not available: the command this
+  integration had targeted the charge port rather than the windows."* The payload it
+  used to publish was the charge-port *open* command; a P7+ owner measured that it
+  never moved a window (2026-10-22). There is no verified window-close command yet,
+  so close the windows from the XPENG app or the vehicle. `Open windows` and
+  `Vent windows` both send the one command that was observed to work, which **vents**.
+* **Charge-port buttons and services are absent/refused** when **Motorized charge-port
+  controls** is off in Configure. That is the setting for a car with a manual flap:
+  the commands cannot do anything, so a button that appears to have worked is worse
+  than no button. Turn the option back on for a motorized flap; the state sensor
+  reports either way.
+
 ## Getting back to a working login
 
 If the credentials really are dead, the integration raises a **Repairs** card named

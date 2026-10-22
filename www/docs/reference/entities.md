@@ -69,8 +69,8 @@ fault. `button` entities are commands only and have no state.
 | `number.xpeng_<vehicle>_charge_limit` | number (control) | % | 50–100 in steps of 5; writes the car's charge target |
 | `button.xpeng_<vehicle>_start_charging` | button | – | Start charging |
 | `button.xpeng_<vehicle>_stop_charging` | button | – | Stop charging |
-| `button.xpeng_<vehicle>_open_charge_port` | button | – | Opens the charge port |
-| `button.xpeng_<vehicle>_close_charge_port` | button | – | Closes the charge port |
+| `button.xpeng_<vehicle>_open_charge_port` | button | – | Opens the charge port. Not created when **Motorized charge-port controls** is off (manual flap) |
+| `button.xpeng_<vehicle>_close_charge_port` | button | – | Closes the charge port. Not created when **Motorized charge-port controls** is off (manual flap) |
 
 ## Charging history and energy
 
@@ -140,9 +140,9 @@ Standard Range LFP pack is about 66 kWh). Driving and charging are excluded.
 | `number.xpeng_<vehicle>_trunk_power_timer` | number (control) | min | Outlet auto-off, 0–1440 in steps of 30; setting 0 switches the outlet off |
 | `button.xpeng_<vehicle>_open_trunk` | button | – | Open tailgate |
 | `button.xpeng_<vehicle>_close_trunk` | button | – | Close tailgate |
-| `button.xpeng_<vehicle>_close_windows` | button | – | Close all windows |
-| `button.xpeng_<vehicle>_vent_windows` | button | – | Vent all windows |
-| `button.xpeng_<vehicle>_open_windows` | button | – | Open all windows |
+| `button.xpeng_<vehicle>_close_windows` | button | – | **Present but refuses** with a clear error: its old payload was the charge-port open command, and no verified window-close command exists. Close from the XPENG app or the vehicle |
+| `button.xpeng_<vehicle>_vent_windows` | button | – | Vents all windows — the only window command verified to work (P7+, 2026-10-22) |
+| `button.xpeng_<vehicle>_open_windows` | button | – | Sends the same verified command, which **vents**; full opening was not observed |
 
 ## Lights, horn and wake-up
 
