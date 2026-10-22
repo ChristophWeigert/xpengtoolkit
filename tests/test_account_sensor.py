@@ -78,6 +78,12 @@ def _load_sensor_module():
     _mod(f"{pkg}.const", DOMAIN="xpeng", SENSOR_DESCRIPTIONS=(),
          XPengSensorEntityDescription=_Any)
     _mod(f"{pkg}.coordinator", XPengDataCoordinator=_Any)
+    error_spec = importlib.util.spec_from_file_location(
+        f"{pkg}.xpeng_errors", _component.module_path("xpeng_errors.py")
+    )
+    error_module = importlib.util.module_from_spec(error_spec)
+    sys.modules[error_spec.name] = error_module
+    error_spec.loader.exec_module(error_module)
     _mod(f"{pkg}.poll_status", describe=_Any, format_age=_Any, is_active=_Any,
          query_interval_seconds=_Any, next_query_at=_Any)
 

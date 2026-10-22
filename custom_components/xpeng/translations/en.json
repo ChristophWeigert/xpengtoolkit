@@ -699,5 +699,13 @@
         }
       }
     }
+  },
+  "exceptions": {
+    "command_not_sent": {
+      "message": "The command was not sent because the XPENG MQTT connection is unavailable. Check MQTT connected and try again."
+    },
+    "invalid_seat_option": {
+      "message": "The seat setting \"{option}\" is not supported by this control."
+    }
   }
 }

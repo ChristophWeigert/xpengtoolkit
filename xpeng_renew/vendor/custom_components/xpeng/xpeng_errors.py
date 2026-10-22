@@ -65,3 +65,18 @@ class LoginExpiredError(Exception):
         super().__init__(f"login expired (code {code}){detail}")
         self.code = code
         self.message = message
+
+
+def command_response_message(code: object) -> str:
+    """English display text for MQTT feedback; retain the vendor text as an attribute.
+
+    MQTT success is 200. Code 8 is the documented unsupported seat command;
+    unknown codes remain visible without presenting untranslated API text as UI.
+    """
+    if code == 200:
+        return "Command accepted"
+    if code == 8:
+        return "Command not supported by this vehicle (code 8)"
+    if code is None:
+        return "Command response received"
+    return f"Command rejected by vehicle (code {code})"

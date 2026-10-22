@@ -8,6 +8,7 @@ from typing import Any
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .command_policy import GROUP_COMFORT, default_policy
@@ -245,7 +246,13 @@ class XPengSeatSelect(XPengEntity, SelectEntity):
 
     async def async_select_option(self, option: str) -> None:
         self._guard()
-        mode, cmd_value = self._commands.get(option, (0, 1))
+        if option not in self._commands:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="invalid_seat_option",
+                translation_placeholders={"option": option},
+            )
+        mode, cmd_value = self._commands[option]
 
         # `mode` selects the level (measured 2026-10-14); it is not the momentary press
         # this originally modelled. The off-first step is kept anyway, on purpose:
@@ -262,11 +269,16 @@ class XPengSeatSelect(XPengEntity, SelectEntity):
         # to make with a fresh measurement, not a cleanup.
         plan = [0, mode] if mode != 0 else [0]
         for step in plan:
-            await self.hass.async_add_executor_job(
+            sent = await self.hass.async_add_executor_job(
                 self._mqtt_client.send_command,
                 self._vin, 30,
                 {"cmd_type": self._cmd_type, "mode": step, "cmd_value": cmd_value},
             )
+            if not sent:
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN,
+                    translation_key="command_not_sent",
+                )
             if len(plan) > 1 and step == 0:
                 # Back-to-back commands did not both land in one test, so give the car a
                 # moment between the off and the press.

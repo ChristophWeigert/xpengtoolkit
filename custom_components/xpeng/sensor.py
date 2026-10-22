@@ -24,6 +24,7 @@ from . import poll_status
 from .const import DOMAIN, SENSOR_DESCRIPTIONS, XPengSensorEntityDescription
 from .coordinator import XPengDataCoordinator
 from .entity import XPengEntity
+from .xpeng_errors import command_response_message
 from .vin_descriptor import mask_vin
 
 from datetime import timedelta
@@ -143,9 +144,18 @@ class XPengSensor(XPengEntity, SensorEntity):
         raw = self._get_nested_value(self.entity_description.value_path)
         if raw is None:
             return None
-        if self.entity_description.value_fn is not None:
-            return self.entity_description.value_fn(raw)
-        return raw
+        value = (
+            self.entity_description.value_fn(raw)
+            if self.entity_description.value_fn is not None else raw
+        )
+        # HA enum sensors reject any value outside their declared options. The
+        # cloud uses sentinels such as -1 before it has a charge-port reading.
+        if (
+            self.entity_description.device_class == SensorDeviceClass.ENUM
+            and value not in (self.entity_description.options or ())
+        ):
+            return None
+        return value
 
 
 class XPengAccountSensor(XPengEntity, SensorEntity):
@@ -860,11 +870,7 @@ class XPengCommandFeedbackSensor(XPengEntity, SensorEntity):
         fb = self.coordinator.last_command_feedback
         if not fb:
             return None
-        msg = fb.get("message")
-        if msg:
-            return str(msg)
-        code = fb.get("code")
-        return str(code) if code is not None else "received"
+        return command_response_message(fb.get("code"))
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

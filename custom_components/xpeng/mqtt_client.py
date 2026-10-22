@@ -1245,13 +1245,26 @@ class XPengMQTTClient:
                 for k in ("charge", "drive", "power", "odometer", "door")
             )
             is_full = has_ext and has_vehicle_data
+            # A first response can contain useful state without the ext block.
+            # Requiring a full baseline first discarded those values forever on
+            # installs that only received partial pushes. Empty sleeping-car
+            # acknowledgements still cannot seed a baseline.
+            has_initial_state = any(
+                isinstance(instant.get(section), dict) and instant[section]
+                for section in (
+                    "charge", "drive", "power", "odometer", "door", "hvac",
+                    "seat", "tpms", "window", "tail", "ext",
+                )
+            )
+            initial_partial = self._last_full_content is None and has_initial_state
 
-            if is_full:
+            if is_full or initial_partial:
                 soc = instant.get("charge", {}).get("battery_soc") if instant.get("charge") else None
                 ext = instant.get("ext", {})
                 protect = instant.get("protectMode", {})
                 _LOGGER.info(
-                    "Full state: SOC=%s%% (%dB) ext=%s protect=%s keys=%s",
+                    "%s state: SOC=%s%% (%dB) ext=%s protect=%s keys=%s",
+                    "Initial partial" if initial_partial and not is_full else "Full",
                     soc, payload_len,
                     json.dumps(ext),
                     json.dumps(protect),
@@ -1283,10 +1296,23 @@ class XPengMQTTClient:
                 merged_instant = dict(merged.get("instant", {}))
                 for key, val in instant.items():
                     if val:
-                        merged_instant[key] = val
+                        previous = merged_instant.get(key)
+                        merged_instant[key] = (
+                            {**previous, **val}
+                            if isinstance(previous, dict) and isinstance(val, dict)
+                            else val
+                        )
                 merged["instant"] = merged_instant
-                if "interval" in content:
-                    merged["interval"] = content["interval"]
+                if isinstance(content.get("interval"), dict):
+                    merged_interval = dict(merged.get("interval", {}))
+                    for key, val in content["interval"].items():
+                        previous = merged_interval.get(key)
+                        merged_interval[key] = (
+                            {**previous, **val}
+                            if isinstance(previous, dict) and isinstance(val, dict)
+                            else val
+                        )
+                    merged["interval"] = merged_interval
                 if "digital_vehicle" in content:
                     merged["digital_vehicle"] = content["digital_vehicle"]
 
@@ -1333,6 +1359,9 @@ class XPengMQTTClient:
                 # the clock the watchdog escalates on, or a fanout that only
                 # replays an old snapshot never ages into its force-upload.
                 if self._state_callback is None or self._state_callback(vehicle_data) is not False:
+                    # Keep the accepted merge as the next partial's baseline.
+                    # Otherwise one partial silently undoes the previous one.
+                    self._last_full_content = merged
                     # This is the point where a message stops being a ping and
                     # becomes data: stamp it, so staleness can be measured
                     # without stubs resetting the clock.
