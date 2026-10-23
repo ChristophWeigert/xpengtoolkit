@@ -50,6 +50,7 @@ _component.assert_is_default_target()
 
 # -- a Home Assistant just big enough to import coordinator.py -------------
 
+
 class _CoordinatorBase:
     """Stand-in for DataUpdateCoordinator (subscriptable, never constructed)."""
 
@@ -122,6 +123,7 @@ def _coordinator_with(cached):
     coord = object.__new__(coordinator.XPengDataCoordinator)
     coord.vin = "L1NNSGHA3SB123456"
     coord._last_full_data = cached
+    coord._baseline_sink = None
     return coord
 
 
@@ -203,9 +205,8 @@ class TestAChargeAckUpdatesTheState(unittest.TestCase):
         coord = _coordinator_with(_cached_state())
         coord._merge_command_state(_charge_ack(max_range_charge=95))
 
-        value = (
-            coord._last_full_data["msg_content"]["instant"]["charge"]
-            .get("max_range_charge")
+        value = coord._last_full_data["msg_content"]["instant"]["charge"].get(
+            "max_range_charge"
         )
         self.assertEqual(value, 95)
 
@@ -227,6 +228,57 @@ class TestAChargeAckUpdatesTheState(unittest.TestCase):
         self.assertEqual(
             cached["msg_content"]["instant"]["charge"]["max_range_charge"], 90
         )
+
+
+class TestWindowFeedback(unittest.TestCase):
+    def test_window_positions_merge_without_advancing_snapshot_time(self):
+        original = _cached_state()
+        original["timestamp"] = 123
+        coord = _coordinator_with(original)
+        body = {
+            f"{side}_window_position": value
+            for side, value in (
+                ("front_left", 90),
+                ("front_right", 90),
+                ("rear_left", 82),
+                ("rear_right", 82),
+            )
+        }
+        ack = {"service_type": 12, "code": 200, "content": {"code": 200, **body}}
+        self.assertTrue(coord._merge_command_state(ack))
+        self.assertEqual(
+            coord._last_full_data["msg_content"]["instant"]["window"], body
+        )
+        self.assertEqual(coord._last_full_data["timestamp"], 123)
+        self.assertNotIn("window", original["msg_content"]["instant"])
+        self.assertEqual(
+            coord._last_full_data["msg_content"]["instant"]["charge"],
+            original["msg_content"]["instant"]["charge"],
+        )
+        ack["code"] = 8
+        self.assertFalse(coord._merge_command_state(ack))
+
+
+class TestClimateResponseUpdatesMeasuredState(unittest.TestCase):
+    def test_climate_reply_updates_only_reported_fields_without_a_new_snapshot_time(self):
+        original = _cached_state()
+        original["timestamp"] = 123
+        original["msg_content"]["instant"]["hvac"] = {
+            "hvac_on": 0, "hvac_temp_float": 22.5, "hvac_inner_temp_float": 26,
+        }
+        coord = _coordinator_with(original)
+        ack = {"service_type": 3, "code": 200, "content": {
+            "code": 200, "msg": "Succeeded", "hvac_on": 1, "hvac_temp_float": 24.5,
+        }}
+        self.assertTrue(coord._merge_command_state(ack))
+        hvac = coord._last_full_data["msg_content"]["instant"]["hvac"]
+        self.assertEqual(hvac, {"hvac_on": 1, "hvac_temp_float": 24.5, "hvac_inner_temp_float": 26})
+        self.assertEqual(coord._last_full_data["timestamp"], 123)
+        self.assertEqual(original["msg_content"]["instant"]["hvac"]["hvac_on"], 0)
+        ack["code"] = 8
+        ack["content"]["hvac_temp_float"] = 30
+        self.assertFalse(coord._merge_command_state(ack))
+        self.assertEqual(hvac["hvac_temp_float"], 24.5)
 
 
 class TestWhatIsNotMerged(unittest.TestCase):
@@ -372,9 +424,8 @@ class TestASeatPushUpdatesTheState(unittest.TestCase):
         coord = _coordinator_with(_cached_state())
         coord._merge_command_state(_seat_ack(**LIVE_SEAT_ACK))
 
-        value = (
-            coord._last_full_data["msg_content"]["instant"]["seat"]
-            .get("left_rear_seat_heat")
+        value = coord._last_full_data["msg_content"]["instant"]["seat"].get(
+            "left_rear_seat_heat"
         )
         self.assertEqual(value, 1)
 
@@ -399,12 +450,39 @@ class TestASeatPushUpdatesTheState(unittest.TestCase):
         """The direction that matters for switching a seat off from HA."""
         coord = _coordinator_with(_cached_state())
         coord._merge_command_state(_seat_ack(**LIVE_SEAT_ACK))
-        coord._merge_command_state(_seat_ack(**{**LIVE_SEAT_ACK, "left_rear_seat_heat": 0}))
+        coord._merge_command_state(
+            _seat_ack(**{**LIVE_SEAT_ACK, "left_rear_seat_heat": 0})
+        )
 
         seat = coord._last_full_data["msg_content"]["instant"]["seat"]
         self.assertEqual(seat["left_rear_seat_heat"], 0)
         # The seat that did not change keeps its value.
         self.assertEqual(seat["passenger_seat_heat"], 1)
+
+
+class CommandBaseline(unittest.TestCase):
+    def test_ack_updates_the_broker_baseline_before_the_next_partial(self):
+        from test_mqtt_state_delivery import _client, _Msg
+        client, delivered = _client()
+        coord = _coordinator_with(_cached_state())
+        coord._baseline_sink = client.adopt_state
+        coord.last_data_timestamp = 123.0
+        for subsystem, content in ((3, {"hvac_temp": 22.0}),
+                                   (12, {"front_left_window_position": 100})):
+            self.assertTrue(coord._merge_command_state({
+                "service_type": subsystem, "code": 200, "content": content,
+            }))
+        self.assertEqual(client._last_full_content, coord._last_full_data["msg_content"])
+        self.assertEqual(coord.last_data_timestamp, 123.0)
+        self.assertEqual(delivered, [])
+        client._on_message(None, None, _Msg({
+            "service_type": 19, "msg_type": 1,
+            "msg_content": {"code": 200, "instant": {"door": {"passenger_door_lock_st": 0}}},
+        }))
+        self.assertEqual(len(delivered), 1)
+        instant = delivered[0]["msg_content"]["instant"]
+        self.assertEqual(instant["hvac"]["hvac_temp"], 22.0)
+        self.assertEqual(instant["window"]["front_left_window_position"], 100)
 
 
 class TestTheListenerDoesNotFlood(unittest.TestCase):
@@ -450,6 +528,23 @@ class TestTheListenerDoesNotFlood(unittest.TestCase):
 
     def test_the_interval_is_a_positive_bound(self):
         self.assertGreater(coordinator.LISTENER_UPDATE_INTERVAL, 0)
+
+
+class TestPetModeResponseUpdatesMeasuredState(unittest.TestCase):
+    def test_pet_status_uses_its_own_section_without_advancing_snapshot_time(self):
+        original = _cached_state()
+        original["timestamp"] = 123
+        original["msg_content"]["instant"]["protectMode"] = {"protect_mode_status": 0}
+        coord = _coordinator_with(original)
+        ack = {"service_type": 33, "code": 200, "content": {"protect_mode_status": 1}}
+        self.assertTrue(coord._merge_command_state(ack))
+        self.assertEqual(coord._last_full_data["msg_content"]["instant"]["protectMode"], {"protect_mode_status": 1})
+        self.assertEqual(coord._last_full_data["timestamp"], 123)
+        self.assertEqual(original["msg_content"]["instant"]["protectMode"]["protect_mode_status"], 0)
+        ack["content"]["protect_mode_status"] = 2
+        ack["code"] = 8
+        self.assertFalse(coord._merge_command_state(ack))
+        self.assertEqual(coord._last_full_data["msg_content"]["instant"]["protectMode"]["protect_mode_status"], 1)
 
 
 if __name__ == "__main__":

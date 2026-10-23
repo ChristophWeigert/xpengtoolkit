@@ -74,8 +74,11 @@ SEAT_SERVICE_TYPE = 30
 #: response is a status report, not an echo of the request, so its keys land in the same
 #: place the sensors read.
 COMMAND_STATE_SECTIONS = {
+    3: "hvac",  # Climate replies carry the measured HVAC snapshot, not an echo.
     CHARGE_SERVICE_TYPE: "charge",
     SEAT_SERVICE_TYPE: "seat",
+    12: "window",
+    33: "protectMode",  # Pet mode: 0=off, 1=checking, 2=on.
 }
 
 #: How often the MQTT listener may fire its event and refresh entities, in seconds.
@@ -206,6 +209,8 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.weather: dict[str, Any] | None = None
         # REST supplementary state
         self.remote_capabilities: Any = None
+        self.vehicle_hardware: dict[str, bool] = {}
+        self.vehicle_local_config: dict[str, bool] = {}
         self.vehicle_extension: dict[str, Any] | None = None
         # OTA data
         self.ota_upgrade_info: dict[str, Any] | None = None
@@ -758,6 +763,11 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.weather = data["weather"]
         if "remote_capabilities" in data:
             self.remote_capabilities = data["remote_capabilities"]
+        for key in ("vehicle_hardware", "vehicle_local_config"):
+            values = data.get(key)
+            if isinstance(values, dict) and values:
+                # Partial REST results must not erase previously known flags.
+                setattr(self, key, {**getattr(self, key, {}), **values})
         if "vehicle_extension" in data:
             self.vehicle_extension = data["vehicle_extension"]
         if "widget_state" in data:
@@ -1184,7 +1194,7 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         ``msg_content`` keys are the ones an ``instant`` section already holds, which is
         what makes the acknowledgement usable as the confirmation.
 
-        Two subsystems do this today, both measured on a live car:
+        The charge, seat and window subsystems report measured fields:
 
         * ``service_type 4`` (charge) answers ``set_charge_limit`` with
           ``{"charge_status": 15, "slow_charge_port_status": 2, "fast_charge_port_status": 2,
@@ -1209,7 +1219,8 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         content = feedback.get("content")
         if not isinstance(content, dict):
             return False
-        fields = {k: v for k, v in content.items() if k not in ("code", "msg")}
+        fields = {k: v for k, v in content.items()
+                  if k not in ("code", "msg", "cmd_type", "cmd_value")}
         if not fields:
             return False
         # Nothing cached yet: building a state out of a command's answer alone
@@ -1224,6 +1235,8 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         instant[section] = {**instant.get(section, {}), **fields}
         msg_content["instant"] = instant
         self._last_full_data = {**base, "msg_content": msg_content, "vin": self.vin}
+        if self._baseline_sink is not None:
+            self._baseline_sink(msg_content)
         _LOGGER.debug(
             "Merged service_type %s response into cached state: instant.%s <- %s",
             feedback.get("service_type"), section, sorted(fields),

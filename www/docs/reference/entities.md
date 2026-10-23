@@ -18,33 +18,43 @@ The same entities, filtered to the integration, in Settings → Devices & Servic
 
 ![The entity list, filtered to XPENG](../images/ha-entities.png)
 
-A single vehicle produces **about 124 entities** — 123 if no TBox ICCID is
-configured — plus one switch per HVAC scheduled appointment discovered at
-runtime. None are disabled by default.
+Entity counts depend on the vehicle's capabilities, command policy and legacy
+layout option. Existing entries keep legacy entities until the owner disables
+**Keep legacy buttons and duplicate sensors**. New entries use compact mode.
+Unknown optional hardware is not automatically declared unsupported.
+
+## Compact controllers and climate modes
+
+| Entity pattern | Type | State and behavior |
+| --- | --- | --- |
+| `cover.xpeng_<vehicle>_trunk` | cover | Measured trunk state; separate permissions for opening and closing |
+| `cover.xpeng_<vehicle>_windows` | cover | Open means ventilation; close uses service 12; no arbitrary position/full-opening command |
+| `cover.xpeng_<vehicle>_charge_port` | cover | Measured port state; motorized actions only when allowed/supported |
+| `switch.xpeng_<vehicle>_charging` | switch | Measured charging state, explicit start/stop with acknowledgement checks |
+| `switch.xpeng_<vehicle>_maximum_heating` / `_maximum_cooling` | switch | Capability-gated measured climate modes |
+| `switch.xpeng_<vehicle>_<climate_mode>` | switch | Capability-gated measured Refresh, Sterilisation and A/C cleaning |
+| `switch.xpeng_<vehicle>_<climate_mode>` | switch | Capability-gated measured rear defrost/Pet mode; vehicle restrictions still apply |
+| `sensor.xpeng_<vehicle>_hvac_fan_speed` | sensor | Raw fan telemetry retained in compact mode; fan-speed control remains withheld |
+| `binary_sensor.xpeng_<vehicle>_climate` | binary sensor | Original evcc-compatible climate on/off interface retained with its existing unique ID |
+
+Entity IDs above are defaults; renamed existing IDs are preserved. Front defrost
+is exposed through the climate entity's preset. Legacy paired buttons and
+duplicate sensors appear only when the legacy layout is enabled; the evcc
+interfaces, raw fan reading and independent cabin measurements remain available.
 
 ## By platform
 
-| Platform | Count | Notes |
+| Platform | Availability | Notes |
 | --- | --- | --- |
-| `sensor` | 70 | 69 always present, plus `TBox ICCID` only when an ICCID is set in the options |
-| `binary_sensor` | 21 | 19 vehicle body/state flags plus 2 integration-health sensors |
-| `button` | 16 | One-shot MQTT commands; stateless |
-| `switch` | 5 + N | 5 fixed, plus one per HVAC scheduled appointment found in `hvac_schedules` |
-| `number` | 4 | Writable sliders / boxes |
-| `select` | 5 | Seat and steering-wheel heat levels |
-| `climate` | 1 | Cabin HVAC |
-| `lock` | 1 | Central door lock |
-| `device_tracker` | 1 | Vehicle GPS position |
-| `calendar` | 1 | HVAC scheduled appointments |
-| `image` | 1 | Vehicle picture from the cloud vehicle list |
-| **Total** | **~126** | Plus the dynamic HVAC schedule switches |
-
-::: tip
-`climate`, `lock`, `switch`, `number` and `select` entities on this integration
-are **optimistic**: they write the requested state for ~30 s and then fall back
-to whatever the car last pushed. Stale state after a command is expected, not a
-fault. `button` entities are commands only and have no state.
-:::
+| `sensor` | Capability/layout dependent | Raw fan telemetry, cabin measurements and evcc interfaces retained |
+| `binary_sensor` | Capability/layout dependent | Includes integration health and evcc climate status |
+| `cover` | Up to 3 | Trunk, windows and charge port; separate open/close permissions |
+| `button` | Layout/policy dependent | Wake/refresh/horn/flash and optional legacy paired controls |
+| `switch` | Capability/layout dependent, plus schedules | Charging, climate modes, X-Guard and accessory power |
+| `number` | Capability/layout dependent | Charge limit and retained supported settings; fan control withheld |
+| `select` | Hardware dependent | Seat and steering-wheel levels |
+| `climate` | 1 per vehicle | Cabin target, power and front defrost |
+| `calendar`, `image`, `device_tracker` | Per vehicle | Schedules, vehicle image and location |
 
 ## Battery and charging
 
@@ -140,7 +150,7 @@ Standard Range LFP pack is about 66 kWh). Driving and charging are excluded.
 | `number.xpeng_<vehicle>_trunk_power_timer` | number (control) | min | Outlet auto-off, 0–1440 in steps of 30; setting 0 switches the outlet off |
 | `button.xpeng_<vehicle>_open_trunk` | button | – | Open tailgate |
 | `button.xpeng_<vehicle>_close_trunk` | button | – | Close tailgate |
-| `button.xpeng_<vehicle>_close_windows` | button | – | **Present but refuses** with a clear error: its old payload was the charge-port open command, and no verified window-close command exists. Close from the XPENG app or the vehicle |
+| `button.xpeng_<vehicle>_close_windows` | button | – | Uses the official app close command; physically confirmed on a P7+ (22 October 2026) |
 | `button.xpeng_<vehicle>_vent_windows` | button | – | Vents all windows — the only window command verified to work (P7+, 2026-10-22) |
 | `button.xpeng_<vehicle>_open_windows` | button | – | Sends the same verified command, which **vents**; full opening was not observed |
 
@@ -158,7 +168,7 @@ Standard Range LFP pack is about 66 kWh). Driving and charging are excluded.
 
 | Entity | Type | Unit | Notes |
 | --- | --- | --- | --- |
-| `climate.xpeng_<vehicle>_climate` | climate (control) | °C | Modes `off` / `heat_cool`; target 16–32 °C in 0.5 °C steps; also supports turn-on/turn-off. `hvac_action` is inferred (`heating` below target −0.3, `cooling` above target +0.3, else `idle`) |
+| `climate.xpeng_<vehicle>_climate` | climate (control) | °C | Modes `off` / `heat_cool`; target normally 16–32 °C in 0.5 °C steps, with 15.5/32.5 endpoints only when supported; also supports turn-on/turn-off. `hvac_action` is inferred (`heating` below target −0.3, `cooling` above target +0.3, else `idle`) |
 | `sensor.xpeng_<vehicle>_cabin_temperature` | sensor | °C | `hvac_inner_temp_float` |
 | `sensor.xpeng_<vehicle>_set_temperature` | sensor | °C | `hvac_temp_float` — the car's own target |
 | `sensor.xpeng_<vehicle>_hvac_fan_speed` | sensor | – | Raw `hvac_wind_speed`; no unit declared |
@@ -169,8 +179,8 @@ Standard Range LFP pack is about 66 kWh). Driving and charging are excluded.
 | `binary_sensor.xpeng_<vehicle>_climate_auto` | binary_sensor | – | ON when `hvac_auto == 1` |
 | `binary_sensor.xpeng_<vehicle>_defrost` | binary_sensor | – | ON when `hvac_defrost == 1` |
 | `binary_sensor.xpeng_<vehicle>_mirror_heating` | binary_sensor | – | ON when `hvac_mirror_heat_mode == 1` |
-| `switch.xpeng_<vehicle>_front_defrost` | switch (control) | – | Front defrost toggle |
-| `number.xpeng_<vehicle>_fan_speed` | number (control) | – | Air volume 1–8. Level 0 is rejected by the car — turn the climate off instead |
+| `switch.xpeng_<vehicle>_front_defrost` | switch (control) | – | Legacy-only measured front defrost; compact mode uses the climate preset. Commands wait for correlated acknowledgements. |
+| `number.xpeng_<vehicle>_fan_speed` | number (control) | – | Legacy control withheld: its old mapping sets temperature. Raw fan telemetry remains available. |
 | `sensor.xpeng_<vehicle>_driver_seat_heating` | sensor | – | Raw level 0–3 |
 | `sensor.xpeng_<vehicle>_passenger_seat_heating` | sensor | – | Raw level 0–3 |
 | `sensor.xpeng_<vehicle>_left_rear_seat_heating` | sensor | – | Raw level 0–3 |
@@ -287,14 +297,14 @@ switch, the trunk-power outlet, unlocking, the trunk and the windows.
 | Entity | Type | Range / options | Command |
 | --- | --- | --- | --- |
 | `lock.xpeng_<vehicle>_door_lock` | lock | locked / unlocked | Lock or unlock, then wake for a refresh |
-| `climate.xpeng_<vehicle>_climate` | climate | `off`, `heat_cool`; 16–32 °C | Turn climate on/off or set the target temperature; the entity hardcodes a 15-minute run, which the `xpeng.climate_on` service exposes as a configurable duration |
+| `climate.xpeng_<vehicle>_climate` | climate | `off`, `heat_cool`; capability-selected temperature limits | Turn climate on/off or set the target temperature; the entity hardcodes a 15-minute run, which the `xpeng.climate_on` service exposes as a configurable duration |
 | `switch.xpeng_<vehicle>_x_guard` | switch | on / off | Sentinel mode on/off |
 | `switch.xpeng_<vehicle>_trunk_power` | switch | on / off | Outlet on (60 min auto-off) / off |
-| `switch.xpeng_<vehicle>_front_defrost` | switch | on / off | Front defrost |
+| `switch.xpeng_<vehicle>_front_defrost` | switch | on / off | Legacy-only measured front defrost; compact mode uses the climate preset. Commands wait for correlated acknowledgements. |
 | `switch.xpeng_<vehicle>_parking_lights` | switch | on / off | Parking lights (no state feedback) |
 | `switch.xpeng_<vehicle>_ota_auto_upgrade` | switch | on / off | REST auto-upgrade setting |
 | `number.xpeng_<vehicle>_charge_limit` | number | 50–100 %, step 5 | Charge target |
-| `number.xpeng_<vehicle>_fan_speed` | number | 1–8 | HVAC air volume |
+| `number.xpeng_<vehicle>_fan_speed` | number | 1–8 | Legacy control withheld: its old mapping sets temperature. Raw fan telemetry remains available. |
 | `number.xpeng_<vehicle>_sentinel_sensitivity` | number | 1–3 | Sentinel sensitivity (also enables video) |
 | `number.xpeng_<vehicle>_trunk_power_timer` | number | 0–1440 min, step 30 | Outlet auto-off; 0 switches the outlet off |
 | `select.xpeng_<vehicle>_driver_seat_heating` | select | Off / Heat 1 / Heat 2 / Heat 3 | Driver seat heat (`cmd_type` 1) |

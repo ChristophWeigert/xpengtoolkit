@@ -10,8 +10,12 @@
   "integration_type": "device",
   "iot_class": "cloud_push",
   "requirements": [
-    "paho-mqtt>=1.6.1",
+    "paho-mqtt>=2.1.0",
     "cryptography>=42.0.0"
   ],
-  "version": "0.6.25"
+  "after_dependencies": [
+    "frontend",
+    "lovelace"
+  ],
+  "version": "0.6.26"
 }

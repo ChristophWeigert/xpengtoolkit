@@ -884,9 +884,10 @@ class XPengMQTTClient:
     ) -> dict[str, Any] | None:
         """Send a command/query and block until the matching response arrives.
 
-        Correlates the reply by msg_id (exact) with a fallback to the next
-        inbound message bearing the same service_type. Returns the parsed
-        response dict, or None on timeout / not connected.
+        Match the subsystem and message ID, or an unambiguous echoed command
+        identity (cmd_type AND cmd_value) when firmware rewrites the ID. A
+        subsystem alone never confirms a command. Uncorrelatable replies still
+        feed telemetry, but the caller receives a timeout instead of success.
 
         MUST be called from an executor thread — it blocks on a
         threading.Event and would stall the event loop otherwise.
@@ -901,6 +902,7 @@ class XPengMQTTClient:
             "event": event,
             "result": None,
             "service_type": service_type,
+            "request": dict(msg_content),
         }
         # Register BEFORE publishing so a fast reply can't race ahead of us.
         with self._pending_lock:
@@ -921,24 +923,41 @@ class XPengMQTTClient:
                 self._pending.pop(msg_id, None)
 
     def _resolve_pending(self, data: dict[str, Any], stype: Any) -> None:
-        """Wake any send_command_wait() waiter awaiting this inbound message."""
+        """Accept only an acknowledgement tied to this request, never its subsystem alone."""
+        if data.get("msg_type") != 1:
+            return
+        body = data.get("msg_content")
+        echo = body if isinstance(body, dict) else {}
+        msg_id = data.get("msg_id")
+        if msg_id is not None and not isinstance(msg_id, (str, int)):
+            return
         with self._pending_lock:
-            if not self._pending:
-                return
-            msg_id = data.get("msg_id")
-            key: str | None = None
-            if msg_id and msg_id in self._pending:
-                key = msg_id
+            key = str(msg_id) if msg_id is not None else None
+            entry = self._pending.get(key)
+            if entry is not None:
+                if entry["service_type"] != stype:
+                    return
+                request = entry.get("request", {})
+                if any(k in echo and k in request and echo[k] != request[k]
+                       for k in ("cmd_type", "cmd_value")):
+                    return
             else:
-                # Fallback: first waiter expecting this service_type. The car
-                # does not always echo our msg_id on state responses.
-                for k, ent in self._pending.items():
-                    if ent["service_type"] == stype:
-                        key = k
-                        break
-            if key is None:
+                # Some firmware rewrites IDs. Only an echoed request identity can
+                # distinguish a charge/defrost/window command from its legacy twin.
+                if not all(k in echo for k in ("cmd_type", "cmd_value")):
+                    return
+                matches = [
+                    candidate for candidate in self._pending.values()
+                    if candidate["service_type"] == stype
+                    and all(k in candidate.get("request", {})
+                            and candidate["request"][k] == echo[k]
+                            for k in ("cmd_type", "cmd_value"))
+                ]
+                if len(matches) != 1:
+                    return
+                entry = matches[0]
+            if entry["event"].is_set():
                 return
-            entry = self._pending[key]
             entry["result"] = data
             entry["event"].set()
 

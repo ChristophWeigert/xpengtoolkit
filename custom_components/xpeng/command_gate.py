@@ -24,7 +24,7 @@ targets at all), so Home Assistant's per-entity permission checks never run for
 them. That is exactly the hole the caller check fills. It is deliberately
 written here instead of using ``homeassistant.helpers.service.verify_domain_control``
 because that helper's signature changed in HA 2026.1 (``(hass, domain)`` became
-``(domain)``) and this integration still supports 2024.6.0.
+``(domain)``) and this integration still supports 2024.7.0.
 """
 
 from __future__ import annotations
@@ -124,7 +124,7 @@ def _fire_denied(
 
 
 async def async_verify_caller_control(hass: HomeAssistant, call: ServiceCall) -> None:
-    """Require ``control`` on at least one XPENG entity for a logged-in user.
+    """Require caller control on the selected vehicle, or an XPENG entity.
 
     Mirrors what Home Assistant's own entity service plumbing does for
     entity-targeted calls, which the XPENG services cannot benefit from because
@@ -143,6 +143,18 @@ async def async_verify_caller_control(hass: HomeAssistant, call: ServiceCall) ->
         return
 
     registry = er.async_get(hass)
+    target = call.data.get("vehicle_entity_id")
+    if target:
+        entity = registry.async_get(target)
+        if (
+            entity is not None
+            and entity.platform == DOMAIN
+            and user.permissions.check_entity(target, POLICY_CONTROL)
+        ):
+            return
+        raise Unauthorized(
+            context=call.context, permission=POLICY_CONTROL, user_id=user_id
+        )
     for entity in registry.entities.values():
         if entity.platform != DOMAIN:
             continue

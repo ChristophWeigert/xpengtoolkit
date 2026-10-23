@@ -5,13 +5,13 @@ ceiling on what it is allowed to *do* - independent of who is asking. Every comm
 belongs to one **capability group**, and every group is set to **Full**, **Read only**
 or **Disabled**.
 
-The ceiling lives here rather than in Home Assistant because Home Assistant cannot
-supply it. Every XPENG command is a **target-less service**: `xpeng.unlock` takes no
-`entity_id`, so the per-entity `read`/`control` permissions Home Assistant checks for
-`lock.unlock` never run for it. Home Assistant's own user and group permissions still
-govern the entities you expose; this policy governs everything else - automations,
-scripts, voice assistants, dashboards, long-lived tokens, and callers with no user at
-all.
+Several global `xpeng.*` services, such as `xpeng.unlock`, resolve the first
+configured vehicle and do not take an entity target. Native entity services
+(`cover.close_cover`, climate and switch actions) use `target.entity_id` and Home
+Assistant's entity permissions, in addition to the integration policy. The four
+HVAC schedule services take `vehicle_entity_id`; it is required for multiple
+vehicles and checked against the caller's permissions and the selected entry's
+policy. The policy also applies to automations and callers without a user.
 
 ## The three states
 
@@ -41,12 +41,12 @@ predates the option keeps behaving exactly as it did; **Safe Plus** is only what
 
 | Capability group | Services | Entities |
 | --- | --- | --- |
-| **Queries and data** | `capture_snapshot`, `check_ota`, `clear_stuck_commands`, `force_calendar_sync`, `force_update`, `list_hvac_schedules`, `send_navigation` | `button.*_wake_vehicle`, `button.*_force_update`, `button.*_query_x_guard` |
-| **Comfort and climate** | `climate_off`, `climate_on`, `create_hvac_schedule`, `defrost_off`, `defrost_on`, `delete_hvac_schedule`, `update_hvac_schedule` | `climate.*_climate`, `switch.*_front_defrost`, `number.*_fan_speed`, the four seat `select`s and `select.*_steering_wheel_heating`, plus one switch per HVAC schedule |
+| **Queries and data** | `capture_snapshot`, `charging_hint`, `check_ota`, `clear_stuck_commands`, `force_calendar_sync`, `force_update`, `list_hvac_schedules`, `send_navigation` | `button.*_wake_vehicle`, `button.*_force_update`, `button.*_query_x_guard` |
+| **Comfort and climate** | `climate_off`, `climate_on`, `create_hvac_schedule`, `defrost_off`, `defrost_on`, `delete_hvac_schedule`, `update_hvac_schedule` | Climate (including front defrost); capability-gated climate-mode switches including Pet mode and Sterilisation; seat heating/ventilation and steering-wheel selects; HVAC schedule switches. Raw fan telemetry remains; fan control is withheld. Legacy front-defrost switch is optional. |
 | **Lights and alerts** | `flash_lights`, `honk_horn` | `button.*_flash_lights`, `button.*_honk_horn`, `switch.*_parking_lights` |
-| **Charging** | `close_charge_port`, `open_charge_port`, `set_charge_limit`, `start_charge`, `stop_charge` | `button.*_start_charging`, `button.*_stop_charging`, the two charge-port buttons (absent when **Motorized charge-port controls** is off), `number.*_charge_limit` |
-| **Securing actions** | `close_trunk`, `close_windows`, `lock`, `sentinel_on` | `lock.*_door_lock` (locking), `button.*_close_windows` (present but refuses - no verified close command), `button.*_close_trunk`, `switch.*_x_guard` (arming), `number.*_sentinel_sensitivity` |
-| **Access actions** | `open_trunk`, `open_windows`, `sentinel_off`, `unlock`, `vent_windows` | `lock.*_door_lock` (unlocking), `button.*_open_trunk`, `button.*_open_windows` and `button.*_vent_windows` (both send the verified command, which vents), `switch.*_x_guard` (disarming) |
+| **Charging** | `close_charge_port`, `open_charge_port`, `set_charge_limit`, `start_charge`, `stop_charge` | Charging switch, charge-limit number and charge-port cover. Motorized actions require model support and the owner option. Paired charge/port buttons are legacy-only. |
+| **Securing actions** | `close_trunk`, `close_windows`, `lock`, `sentinel_on` | Door lock (locking), trunk/window covers (closing), X-Guard (arming), sentinel-sensitivity number; corresponding legacy buttons when enabled. Window close uses service 12 and waits for acknowledgement. |
+| **Access actions** | `open_trunk`, `open_windows`, `sentinel_off`, `unlock`, `vent_windows` | Door lock (unlocking), trunk/window covers (opening or ventilation), X-Guard (disarming); corresponding legacy buttons when enabled. Window opening means ventilation, not full opening. |
 | **Accessory power** | `trunk_power_off`, `trunk_power_on` | `switch.*_trunk_power`, `number.*_trunk_power_timer` |
 | **Firmware and OTA** | `auto_upgrade_off`, `auto_upgrade_on`, `cancel_ota`, `ota_feedback`, `trigger_ota` | `switch.*_ota_auto_upgrade` |
 | **Advanced and raw commands** | `execute_scene`, `send_raw_mqtt`, `toggle_scene` | none — services only |
@@ -146,3 +146,22 @@ set of car keys.
 
 The preset shown is always derived from the stored group values, so the label and the
 behaviour cannot drift apart.
+
+## Climate modes and acknowledgement limits
+
+Pet mode, Sterilisation and the other climate modes intentionally use the
+**Comfort and climate** group, so supported modes are reachable under Safe and
+Safe Plus. Choose Read only/Disabled for that group if remote climate operation
+should be withheld. Vehicle safety restrictions, including Rear Seat Reminder
+for Pet mode, remain enforced by the car.
+
+Confirmed controls require a matching message ID or an unambiguous echoed
+`cmd_type` and `cmd_value` in the same subsystem. A generic response for another
+command cannot confirm them. Firmware that rewrites the ID and omits that
+identity can still update telemetry, but the command times out rather than
+claiming success. Acceptance does not by itself prove physical movement.
+
+Window ventilation/closing was checked on a P7+; G6/G9 and other models still
+need their own physical validation. Legacy window buttons/services now use the
+same acknowledgement checks as the window cover. Charge-limit, charging,
+charge-port and legacy defrost controls also use that confirmed path.

@@ -258,6 +258,41 @@ a group that is Disabled is not created at all, and one that is Read only keeps 
 state but refuses its commands. A new install starts at **Safe Plus**, so OTA, the V2L
 outlet and unlocking are absent until you widen it.
 
+### Consolidated controls
+
+New entries use native covers for trunk/windows/charge port and a charging switch.
+Front defrost joins the climate controller. Existing entries keep
+their legacy entities until **Keep legacy buttons and duplicate sensors** is
+turned off. evcc's original climate binary sensor and other typed interfaces
+remain available in compact mode. See [controls and migration](docs/CONTROLS.md),
+[evcc compatibility](docs/EVCC.md) and [protocol research](docs/COMMAND_RESEARCH.md).
+
+### Reusable dashboard card
+
+From **0.6.26**, the optional **XPENG Vehicle** card ships with the integration.
+Configure at least one vehicle, then opt in under **Configure → Install and manage
+the XPENG Vehicle dashboard card** (off by default). Refresh the browser and use
+**Edit dashboard → Add card → XPENG Vehicle** in any dashboard.
+
+Opting in allows the integration to register/update one shared resource and
+migrate matching legacy local resources. Turning it off for every vehicle, or
+removing the last opted-in vehicle, removes the managed resource. Dashboard
+layouts are never edited. See the [card guide](lovelace/xpeng-vehicle-card/README.md)
+for YAML resources and manual installation. Requires Home Assistant 2024.7.
+Read the [0.6.26 upgrade and downgrade notes](docs/RELEASE_NOTES_0.6.26.md) before upgrading.
+
+### Climate protocol and feedback
+
+Independent app modes use one measured switch each, including maximum heating/
+cooling, cleaning, rear defrost and Pet mode. Optional support follows each car’s
+capabilities; unsupported controls are disabled. Schedule services can target a
+specific vehicle, report errors and refresh the calendar after edits.
+
+Climate power and target temperature use the official app's capability-selected
+commands. Vehicle replies update measured climate state; refusals and timeouts
+are reported as errors. The former fan-speed mapping is withheld because it
+uses the integer-temperature command. See [climate command corrections](docs/CLIMATE_COMMANDS.md).
+
 ### Notifications
 
 XPENG's notifications do **not** arrive over MQTT and are not pushed to this
@@ -328,7 +363,7 @@ Two behaviours worth knowing before you rely on this:
 
 ## Requirements
 
-- Home Assistant 2024.6 or newer
+- Home Assistant 2024.7 or newer
 - A **dedicated** XPENG account - see below
 - The integration's **mTLS certificates**, which you extract yourself - see
   [`custom_components/xpeng/certs/README.md`](custom_components/xpeng/certs/README.md).
@@ -1060,14 +1095,11 @@ battery and is only used to pull a fresh full state; with it off the integration
 strictly passive and sends queries only, at the price of staler sensors. The internal
 watchdog honours it too, degrading to a passive query instead of a force-upload.
 
-**Window and charge-port commands follow what has actually been verified.**
-`Open windows` and `Vent windows` both send the one window command observed to work,
-which *vents* the windows; `Close windows` refuses with a clear error instead of
-publishing its old payload, because that payload was the charge-port *open* command
-and never moved a window (measured on a P7+). `Close windows` requires the XPENG app
-or the vehicle until a verified close command is captured. For a car with a manual
-charge flap, turn off **Motorized charge-port controls**: the open/close charge-port
-buttons and services are then not offered, while the port state sensor remains.
+**Window and charge-port controls are separate.** Window opening vents. The
+0.6.26 release uses the official app's service-12 close command. A P7+ owner
+confirmed physical ventilation and closing on 22 October 2026. Full opening and arbitrary positions are not advertised.
+Manual charge flaps retain state without motorized commands when known from
+model configuration or when the owner turns off **Motorized charge-port controls**.
 
 ### What this does *not* protect against
 

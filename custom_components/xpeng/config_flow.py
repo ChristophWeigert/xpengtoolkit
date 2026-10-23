@@ -40,6 +40,8 @@ from .command_policy import (
     PRESET_SAFE,
     SELECTABLE_PRESETS,
 )
+from .entity_layout import CONF_LEGACY_ENTITIES, legacy_entities_enabled
+from .frontend import CONF_ENABLE_VEHICLE_CARD
 from .xpeng_api import resolve_cert_dir
 from .const import (
     AUTH_METHOD_EMAIL,
@@ -574,7 +576,7 @@ def _permission_options() -> list[dict[str, str]]:
 class XPengConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for XPENG."""
 
-    VERSION = 1
+    VERSION = 2
 
     def __init__(self) -> None:
         """Initialize the config flow."""
@@ -1620,24 +1622,28 @@ class XPengOptionsFlow(OptionsFlow):
                 mode = str(
                     user_input.get(
                         CONF_COMMAND_MODE,
-                        CommandPolicy.from_options(
-                            self.config_entry.options
-                        ).mode,
+                        CommandPolicy.from_options(self.config_entry.options).mode,
                     )
                 )
                 if mode == PRESET_CUSTOM:
                     # Keep what was just submitted and ask for the matrix; the
                     # entry is created by async_step_groups, not here.
-                    self._pending_options = user_input
+                    self._pending_options = {**self.config_entry.options, **user_input}
                     return await self.async_step_groups()
                 policy = CommandPolicy.from_preset(
                     mode,
-                    allow_wake=bool(user_input.get(CONF_ALLOW_WAKE, True)),
+                    allow_wake=bool(
+                        user_input.get(
+                            CONF_ALLOW_WAKE,
+                            self.config_entry.options.get(CONF_ALLOW_WAKE, True),
+                        )
+                    ),
                 )
                 # The group keys are written from the preset, never typed by
                 # the user, so the stored policy and the preset can never drift.
                 return self.async_create_entry(
-                    title="", data={**user_input, **policy.to_options()}
+                    title="",
+                    data={**self.config_entry.options, **user_input, **policy.to_options()},
                 )
 
         # On a failed submit, re-render what the user typed so the cert dir can
@@ -1645,6 +1651,7 @@ class XPengOptionsFlow(OptionsFlow):
         current = {**self.config_entry.options, **(user_input or {})}
 
         current_policy = CommandPolicy.from_options(current)
+        current.setdefault(CONF_LEGACY_ENTITIES, legacy_entities_enabled(self.config_entry))
 
         return self.async_show_form(
             step_id="init",
@@ -1658,8 +1665,13 @@ class XPengOptionsFlow(OptionsFlow):
                             mode=SelectSelectorMode.DROPDOWN,
                         )
                     ),
+                    vol.Optional(CONF_ALLOW_WAKE, default=current_policy.allow_wake): bool,
                     vol.Optional(
-                        CONF_ALLOW_WAKE, default=current_policy.allow_wake
+                        CONF_ENABLE_VEHICLE_CARD,
+                        default=bool(current.get(CONF_ENABLE_VEHICLE_CARD, False)),
+                    ): bool,
+                    vol.Optional(
+                        CONF_LEGACY_ENTITIES, default=current[CONF_LEGACY_ENTITIES]
                     ): bool,
                     vol.Optional(
                         CONF_CHARGE_PORT_CONTROLS,
@@ -1667,9 +1679,7 @@ class XPengOptionsFlow(OptionsFlow):
                     ): bool,
                     vol.Optional(
                         CONF_SCAN_INTERVAL,
-                        default=current.get(
-                            CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
-                        ),
+                        default=current.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
                     ): vol.All(int, vol.Range(min=10, max=3600)),
                     vol.Optional(
                         CONF_PARKED_SCAN_INTERVAL,
@@ -1708,9 +1718,7 @@ class XPengOptionsFlow(OptionsFlow):
                     ): bool,
                     vol.Optional(
                         CONF_TESLAMATE_PORT,
-                        default=current.get(
-                            CONF_TESLAMATE_PORT, DEFAULT_TESLAMATE_PORT
-                        ),
+                        default=current.get(CONF_TESLAMATE_PORT, DEFAULT_TESLAMATE_PORT),
                     ): vol.All(int, vol.Range(min=1, max=65535)),
                     vol.Optional(
                         CONF_TESLAMATE_TOKEN,
@@ -1719,23 +1727,15 @@ class XPengOptionsFlow(OptionsFlow):
                     ): str,
                     vol.Optional(
                         CONF_MQTT_LISTENER_ENABLED,
-                        default=current.get(
-                            CONF_MQTT_LISTENER_ENABLED, False
-                        ),
+                        default=current.get(CONF_MQTT_LISTENER_ENABLED, False),
                     ): bool,
                     vol.Optional(
                         CONF_MQTT_LISTENER_TOPICS,
-                        default=current.get(
-                            CONF_MQTT_LISTENER_TOPICS, ""
-                        ),
-                    ): TextSelector(
-                        TextSelectorConfig(multiline=True)
-                    ),
+                        default=current.get(CONF_MQTT_LISTENER_TOPICS, ""),
+                    ): TextSelector(TextSelectorConfig(multiline=True)),
                     vol.Optional(
                         CONF_MQTT_TOPIC_DISCOVERY,
-                        default=current.get(
-                            CONF_MQTT_TOPIC_DISCOVERY, False
-                        ),
+                        default=current.get(CONF_MQTT_TOPIC_DISCOVERY, False),
                     ): bool,
                     # Capture is deliberately independent of the listener above.
                     # The listener is a diagnostic that decodes each frame and fires
@@ -1747,25 +1747,19 @@ class XPengOptionsFlow(OptionsFlow):
                     ): bool,
                     vol.Optional(
                         CONF_CAPTURE_PATH,
-                        default=current.get(
-                            CONF_CAPTURE_PATH, DEFAULT_CAPTURE_PATH
-                        ),
+                        default=current.get(CONF_CAPTURE_PATH, DEFAULT_CAPTURE_PATH),
                     ): str,
                     vol.Optional(
                         CONF_CAPTURE_TOPICS,
                         default=current.get(CONF_CAPTURE_TOPICS, ""),
-                    ): TextSelector(
-                        TextSelectorConfig(multiline=True)
-                    ),
+                    ): TextSelector(TextSelectorConfig(multiline=True)),
                     vol.Optional(
                         CONF_TOKEN_FILE,
                         default=current.get(CONF_TOKEN_FILE, ""),
                     ): str,
                     vol.Optional(
                         CONF_TENANT_FILE,
-                        default=current.get(
-                            CONF_TENANT_FILE, DEFAULT_TENANT_FILE
-                        ),
+                        default=current.get(CONF_TENANT_FILE, DEFAULT_TENANT_FILE),
                     ): str,
                     # Resolved here rather than taken from const: the recommended
                     # update-safe layout keeps the certificates outside the integration
@@ -1773,9 +1767,7 @@ class XPengOptionsFlow(OptionsFlow):
                     # the wrong one is what broke a fresh install (see resolve_cert_dir).
                     vol.Optional(
                         CONF_CERT_DIR,
-                        default=current.get(
-                            CONF_CERT_DIR, resolve_cert_dir("")
-                        ),
+                        default=current.get(CONF_CERT_DIR, resolve_cert_dir("")),
                     ): str,
                     vol.Optional(
                         CONF_ICCID,

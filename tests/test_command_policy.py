@@ -441,6 +441,8 @@ class TestEveryCommandIsGated(unittest.TestCase):
         """
         commands = {
             "async_press",
+            "async_open_cover",
+            "async_close_cover",
             "async_turn_on",
             "async_turn_off",
             "async_set_native_value",
@@ -448,11 +450,14 @@ class TestEveryCommandIsGated(unittest.TestCase):
             "async_lock",
             "async_unlock",
             "async_set_temperature",
+            "async_set_fan_mode",
+            "async_set_preset_mode",
         }
         delegates = {"async_set_hvac_mode": {"async_turn_on", "async_turn_off"}}
         checked = 0
         for filename in (
             "button.py",
+            "cover.py",
             "switch.py",
             "number.py",
             "select.py",
@@ -502,9 +507,9 @@ class TestEveryCommandIsGated(unittest.TestCase):
                     self.assertEqual(
                         call.func.value.id, "self", where
                     )
-        # 24 command methods, plus climate's mode setter, which delegates to
+        # 30 command methods, plus climate's mode setter, which delegates to
         # the two guarded methods above rather than guarding itself.
-        self.assertEqual(checked, 25, "a command method appeared or vanished")
+        self.assertEqual(checked, 33, "a command method appeared or vanished")
 
         # And the list above must cover every file that can command the car:
         # a new platform calling the MQTT client directly would otherwise be
@@ -513,10 +518,13 @@ class TestEveryCommandIsGated(unittest.TestCase):
             path.name
             for path in PKG.glob("*.py")
             if "self._mqtt_client.send_command" in path.read_text()
+            or (("await async_send_confirmed(" in path.read_text()
+                 or "await send_climate(" in path.read_text())
+                and "self._guard(" in path.read_text())
         )
         self.assertEqual(
             senders,
-            ["button.py", "climate.py", "lock.py", "number.py", "select.py", "switch.py"],
+            ["button.py", "climate.py", "cover.py", "lock.py", "number.py", "select.py", "switch.py"],
             "a platform commands the car but is not walked by this test",
         )
 
@@ -686,6 +694,19 @@ class TestGate(unittest.TestCase):
                 hass, _Call(user_id="u1"), "unlock", policy.GROUP_ACCESS, p
             )
         )
+
+    def test_targeted_schedule_needs_control_on_the_selected_vehicle(self):
+        hass = _Hass(user=_User(is_admin=False, allowed=["climate.car_a"]),
+                     entity_ids=["climate.car_a", "climate.car_b"])
+        hass.entity_registry.async_get = hass.entity_registry.entities.get
+        call = _Call(user_id="u1")
+        call.data = {"vehicle_entity_id": "climate.car_b"}
+        p = policy.CommandPolicy.from_preset(policy.PRESET_FULL)
+        with self.assertRaises(Unauthorized):
+            _run(gate.async_guard_service(hass, call, "create_hvac_schedule", policy.GROUP_COMFORT, p))
+        call.data = {"vehicle_entity_id": "climate.car_a"}
+        _run(gate.async_guard_service(hass, call, "create_hvac_schedule", policy.GROUP_COMFORT, p))
+
 
     def test_admin_passes_without_any_entity_grant(self):
         hass = _Hass(user=_User(is_admin=True), entity_ids=["lock.car"])

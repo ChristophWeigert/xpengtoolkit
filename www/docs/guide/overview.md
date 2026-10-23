@@ -156,7 +156,7 @@ because they do not travel over MQTT — see [Notifications](./notifications).
 
 ## Requirements
 
-- Home Assistant 2024.6 or newer
+- Home Assistant 2024.7 or newer
 - A **dedicated** XPENG account that the car has been shared to — never the
   account on your phone; see
   [Use a dedicated account](./getting-started#use-a-dedicated-account)

@@ -17,9 +17,11 @@ from .command_policy import (
     GROUP_SECURING,
     default_policy,
 )
+from .command_execution import async_send_confirmed
 from .const import DOMAIN
 from .coordinator import XPengDataCoordinator
 from .entity import XPengEntity
+from .entity_layout import include_legacy_entity
 from .mqtt_client import XPengMQTTClient
 
 _LOGGER = logging.getLogger(__name__)
@@ -42,6 +44,11 @@ async def async_setup_entry(
         XPengTrunkPowerTimer(coordinator, mqtt_client),
         XPengChargeLimit(coordinator, mqtt_client),
         XPengFanSpeed(coordinator, mqtt_client),
+    ]
+    entities = [
+        entity for entity in entities
+        if not isinstance(entity, XPengFanSpeed)
+        or include_legacy_entity(entry, policy, "number", "fan_speed_control")
     ]
     # A number's value is state worth showing, so READ_ONLY keeps it and only
     # DISABLED removes it; ``_guard`` refuses the set.
@@ -179,43 +186,18 @@ class XPengChargeLimit(XPengEntity, NumberEntity):
         return charge.get("max_range_charge") if charge else None
 
     async def async_set_native_value(self, value: float) -> None:
-        """Send the new limit, and say so when it did not go out.
-
-        ``send_command`` returns False when the MQTT session is down, which it
-        is for a few seconds around every watchdog reconnect. That return value
-        used to be discarded, so the card reported success while nothing had
-        reached the car at all - the whole failure was one ``Cannot send
-        command`` warning in the log. Measured on a live install 2026-10-13: a
-        slider drag landed in exactly such a window and silently did nothing.
-
-        The new value becomes visible on its own: the car acknowledges a
-        charge-subsystem command with a ``msg_content`` carrying
-        ``max_range_charge``, and ``coordinator.record_command_feedback``
-        folds that answer into the cached state (see
-        ``_merge_command_state``). Nothing here wakes the car for it.
-        """
+        """Wait for this charge-limit request; measured feedback supplies the value."""
         self._guard()
-        limit = int(value)
-        sent = await self.hass.async_add_executor_job(
-            self._mqtt_client.send_command,
-            self._vin, 4,
-            {"cmd_type": 2, "cmd_value": limit},
+        await async_send_confirmed(
+            self.hass, self._mqtt_client, self._vin, 4,
+            {"cmd_type": 2, "cmd_value": int(value)},
         )
-        if not sent:
-            raise HomeAssistantError(
-                "The charge limit was not sent: the XPENG MQTT session is not "
-                "connected. It drops for a few seconds around each reconnect - "
-                "try again shortly."
-            )
 
 
 class XPengFanSpeed(XPengEntity, NumberEntity):
-    """Number to set HVAC fan speed / air volume level.
+    """Legacy fan entity retained for registry compatibility; commands unverified."""
 
-    Discovered 2026-06-14 via probing: service_type 3, cmd_type 2, cmd_value=level
-    (val 0 is rejected as 'air volume could not be adjusted' — use climate_off to stop).
-    """
-
+    _attr_entity_registry_enabled_default = False
     _policy_group = GROUP_COMFORT
     _attr_name = "Fan speed"
     _attr_icon = "mdi:fan"
@@ -245,9 +227,7 @@ class XPengFanSpeed(XPengEntity, NumberEntity):
 
     async def async_set_native_value(self, value: float) -> None:
         self._guard()
-        level = int(value)
-        await self.hass.async_add_executor_job(
-            self._mqtt_client.send_command,
-            self._vin, 3,
-            {"cmd_type": 2, "cmd_value": level},
+        # Service 3 / command 2 is temperature in the official app, not fan speed.
+        raise HomeAssistantError(
+            translation_domain=DOMAIN, translation_key="fan_speed_unverified"
         )
