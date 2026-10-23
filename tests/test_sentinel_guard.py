@@ -142,8 +142,10 @@ class TheIntegrationActuallyConsultsIt(unittest.TestCase):
         mqtt = (COMPONENT / "mqtt_client.py").read_text(encoding="utf-8")
         self.assertIn("def set_instant_sanitizer(", mqtt)
         self.assertIn("self._instant_sanitizer is not None", mqtt)
+        # ``baseline`` is the previous content, read once under the baseline
+        # lock so the REST-fallback adoption cannot move it mid-frame.
         self.assertIn(
-            "instant = self._instant_sanitizer(raw_instant, self._last_full_content)",
+            "instant = self._instant_sanitizer(raw_instant, baseline)",
             mqtt,
         )
         # The repaired instant is what the full/partial branches then store, so

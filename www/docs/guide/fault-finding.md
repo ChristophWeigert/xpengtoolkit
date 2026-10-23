@@ -121,6 +121,37 @@ all: XPENG's cloud push fan-out stalls while the socket still looks healthy, and
 a frame carried coordinates and `coord_valid=` whether the car considered them a
 current fix.
 
+## The battery percentage flips between two values {#battery-flips}
+
+A sawtooth on the battery (or range) history — alternating by a percent or two on a
+fixed rhythm — is a data artefact, not the pack. State of charge is reported to whole
+percent, and while the push stream is quiet two readings of it exist: the last one a
+push carried, and the live one from the REST widget fallback.
+
+Before **0.6.25**, a charge-less MQTT frame — a door ping, or one of the car's own
+short acks — merged onto the MQTT client's own copy of the last push and re-broadcast
+it, undoing the fallback's fresher merge. The sensors ping-ponged every
+`parked_scan_interval` for as long as the wedge lasted. Now:
+
+- the fallback merge is what the MQTT client's partial-merge baseline holds, so a
+  later ping cannot undo it;
+- a state whose SoC is more than one percent above what is held, while the car is
+  parked and not charging, is refused as an older snapshot — a parked, idle car's
+  charge can only fall — and refused as *data*, so a fan-out that only resends it
+  still ages into the watchdog's force-upload.
+
+In the log that refusal reads:
+
+```
+Ignoring a vehicle state from the push fanout: SOC 97% is above the 94% already
+held while the car is parked and not charging - it is a snapshot from before the
+drain; keeping the newer data
+```
+
+What is left on the graph is the real trend at whole-percent resolution. A rise of
+more than one percent while parked and not charging does not happen — if one appears,
+that line names it.
+
 ## Nothing is updating
 
 Read these in order:

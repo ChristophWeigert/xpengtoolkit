@@ -288,6 +288,13 @@ class XPengMQTTClient:
         self._notification_callback: Callable[[dict[str, Any]], None] | None = None
         self._command_feedback_callback: Callable[[dict[str, Any]], None] | None = None
         self._last_full_content: dict[str, Any] | None = None
+        # Guards _last_full_content between the MQTT network thread (which
+        # merges partial frames onto it) and the event loop (which adopts the
+        # coordinator's REST-fallback merge via adopt_state). Without the
+        # adopt, a charge-less partial re-broadcasts the pre-merge snapshot
+        # over the fallback's fresher value - see energy_guard.py for the
+        # measurement.
+        self._baseline_lock = threading.Lock()
 
         # Listener state
         self._listener_enabled = False
@@ -411,6 +418,26 @@ class XPengMQTTClient:
     ) -> None:
         """Set callback invoked from MQTT thread on full vehicle state."""
         self._state_callback = callback
+
+    def adopt_state(self, content: dict[str, Any]) -> None:
+        """Adopt a coordinator state as the baseline the next partial merges onto.
+
+        The integration's REST fallback merges fresher values into the
+        coordinator's copy of the vehicle state while the push fan-out is
+        wedged (see coordinator._merge_widget_state_if_mqtt_stale). That merge
+        is invisible to this client, so the next charge-less partial - a door
+        ping, or the car's own short ack - used to re-broadcast the pre-merge
+        snapshot and undo it. Measured 2026-10-23: the widget's live 49% was
+        overwritten by the frozen 50% every ~15 min for an hour, and the
+        sensor flipped with it. Called from the event loop; the same dict must
+        not be mutated afterwards.
+
+        Deliberately an adoption rather than a merge: the adopted state already
+        includes the fallback's overlay, and merging it onto a newer baseline
+        would resurrect the fields the merge replaced.
+        """
+        with self._baseline_lock:
+            self._last_full_content = content
 
     def set_instant_sanitizer(
         self, sanitizer: Callable[[Any, Any], Any]
@@ -1227,8 +1254,13 @@ class XPengMQTTClient:
             # project imports of its own.
             raw_instant = content.get("instant", {})
             instant = raw_instant
+            # Read the baseline once, under the lock: the event loop may adopt
+            # the coordinator's REST-fallback merge at any moment (adopt_state),
+            # and this frame must be classified against one consistent snapshot.
+            with self._baseline_lock:
+                baseline = self._last_full_content
             if self._instant_sanitizer is not None:
-                instant = self._instant_sanitizer(raw_instant, self._last_full_content)
+                instant = self._instant_sanitizer(raw_instant, baseline)
                 if instant is not raw_instant:
                     content = {**content, "instant": instant}
 
@@ -1256,7 +1288,7 @@ class XPengMQTTClient:
                     "seat", "tpms", "window", "tail", "ext",
                 )
             )
-            initial_partial = self._last_full_content is None and has_initial_state
+            initial_partial = baseline is None and has_initial_state
 
             if is_full or initial_partial:
                 soc = instant.get("charge", {}).get("battery_soc") if instant.get("charge") else None
@@ -1284,15 +1316,16 @@ class XPengMQTTClient:
                 }
                 if self._state_callback is None or self._state_callback(vehicle_data) is not False:
                     # Store as last full content for merging with partial responses
-                    self._last_full_content = content
+                    with self._baseline_lock:
+                        self._last_full_content = content
                     # This is the point where a message stops being a ping and
                     # becomes data: stamp it, so staleness can be measured
                     # without stubs resetting the clock.
                     self._last_meaningful_state_ts = time.time()
-            elif self._last_full_content is not None:
+            elif baseline is not None:
                 # Partial response — merge non-empty instant sections into last
                 # full state so sensors update with whatever data the car sent.
-                merged = dict(self._last_full_content)
+                merged = dict(baseline)
                 merged_instant = dict(merged.get("instant", {}))
                 for key, val in instant.items():
                     if val:
@@ -1332,11 +1365,22 @@ class XPengMQTTClient:
                 # a real change: anything different - a section the car filled in,
                 # an interval field that moved, a value that went to zero - still
                 # merges below.
-                if merged == self._last_full_content:
+                if merged == baseline:
                     _LOGGER.debug(
                         "Stub response (%dB) — nothing new to merge", payload_len
                     )
                     return
+                # A frame merged onto a baseline that the event loop has since
+                # replaced (the REST fallback adopting its fresher state) is
+                # built on the older one, so it would put the frozen values
+                # back. Drop it; the next frame merges onto the newer baseline.
+                with self._baseline_lock:
+                    if self._last_full_content is not baseline:
+                        _LOGGER.debug(
+                            "Dropping a partial merged onto a superseded baseline "
+                            "(the REST fallback adopted a newer state)"
+                        )
+                        return
                 _LOGGER.debug(
                     "Partial state (%dB, keys=%s) — merged with last full state",
                     payload_len,
@@ -1361,7 +1405,12 @@ class XPengMQTTClient:
                 if self._state_callback is None or self._state_callback(vehicle_data) is not False:
                     # Keep the accepted merge as the next partial's baseline.
                     # Otherwise one partial silently undoes the previous one.
-                    self._last_full_content = merged
+                    # Compare-and-set: if the event loop adopted the REST
+                    # fallback's merged state while this frame was being
+                    # processed, that state is newer and must win.
+                    with self._baseline_lock:
+                        if self._last_full_content is baseline:
+                            self._last_full_content = merged
                     # This is the point where a message stops being a ping and
                     # becomes data: stamp it, so staleness can be measured
                     # without stubs resetting the clock.

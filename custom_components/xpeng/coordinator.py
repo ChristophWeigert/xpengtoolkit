@@ -12,7 +12,7 @@ import logging
 import time
 from collections import deque
 from datetime import date, datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Callable
 
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.storage import Store
@@ -21,6 +21,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from .command_policy import CommandPolicy, default_policy
 from .const import DOMAIN
 from .drive_evidence import FixTracker, view as drive_view, with_previous_fix
+from .energy_guard import parked_soc_replay, soc_of, state_is_charging
 from .replay_guard import is_replay, odometer_from_state, odometer_from_widget
 from .vin_descriptor import decode as decode_vin, mask_vin
 
@@ -113,6 +114,13 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # tick would wake every entity for a number none of them use.
         self.poll_status: dict[str, Any] = {}
         self._last_full_data: dict[str, Any] | None = None
+        #: Set by the integration to the MQTT client's ``adopt_state``. The REST
+        #: fallback merge is the fresher value while the push stream is wedged,
+        #: but it is invisible to the MQTT client's own partial-merge baseline -
+        #: so without this the next charge-less partial re-broadcasts the
+        #: pre-merge snapshot and undoes the merge (measured 2026-10-23: the
+        #: sensor flipped 49/50 for an hour; see energy_guard.py).
+        self._baseline_sink: Callable[[dict[str, Any]], None] | None = None
         #: Highest odometer ever accepted from either source. ``total_mileage``
         #: only increases, so a state below this is a replay of an older
         #: snapshot - see replay_guard.py for the live measurement that made
@@ -334,6 +342,48 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _STATE_SAVE_DELAY,
         )
 
+    def set_baseline_sink(
+        self, sink: Callable[[dict[str, Any]], None] | None
+    ) -> None:
+        """Point the coordinator at the MQTT client's partial-merge baseline.
+
+        The fallback merge below replaces the energy fields with fresher ones;
+        unless the client's own baseline learns that, the next charge-less
+        partial re-broadcasts the pre-merge snapshot over it.
+        """
+        self._baseline_sink = sink
+
+    def parked_energy_replay(self, data: Any) -> bool:
+        """Whether ``data`` is a snapshot from before a parked car's drain.
+
+        A parked, idle car's state of charge cannot rise, so a pushed state
+        whose SOC is more than a rounding step above the value already held is
+        an older snapshot the wedged fan-out is resending - see
+        energy_guard.parked_soc_replay. Charging is the one legitimate reason
+        for a rise, so the candidate's own charge signals count too. This is
+        the energy-side companion to the odometer replay check: while a car is
+        parked its odometer does not move, which leaves that guard with no
+        signal and this one with the only one available.
+        """
+        if self.state_is_restored:
+            # The cache is not a measurement of "now": a car can charge while
+            # Home Assistant is down, so the first live state after a restart
+            # must not be refused as a replay of the restored one.
+            return False
+        return parked_soc_replay(
+            data,
+            self._last_full_data,
+            parked=self.vehicle_parked,
+            # A charger that has told us a session is running counts too: this
+            # car can take minutes to admit it is charging, and those minutes
+            # are exactly when its SOC starts to climb.
+            charging=(
+                self.is_charging
+                or self.external_charging_hint
+                or state_is_charging(data)
+            ),
+        )
+
     def set_vehicle_data(self, data: dict[str, Any]) -> bool:
         """Receive full vehicle state from the MQTT thread.
 
@@ -354,6 +404,14 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "snapshot; keeping the newer data",
                 odometer, self.max_odometer,
                 "from the REST fallback" if self._rest_data else "from an earlier push",
+            )
+            return False
+        if self.parked_energy_replay(data):
+            _LOGGER.warning(
+                "Ignoring a vehicle state from the push fanout: SOC %s%% is above "
+                "the %s%% already held while the car is parked and not charging "
+                "— it is a snapshot from before the drain; keeping the newer data",
+                soc_of(data), soc_of(self._last_full_data),
             )
             return False
         if odometer is not None:
@@ -827,6 +885,14 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         msg_content["instant"] = instant
         merged = {**base, "msg_content": msg_content, "vin": self.vin}
         self._last_full_data = merged
+        # Teach the MQTT client's partial-merge baseline what the merge just
+        # decided. Otherwise the next charge-less partial (a door ping, or the
+        # car's own short ack) merges onto the pre-merge snapshot and pushes
+        # that back through set_vehicle_data - the measured 49 -> 50 -> 49
+        # flip. The adopted dict must not be mutated afterwards; it is the same
+        # msg_content stored in _last_full_data above.
+        if self._baseline_sink is not None:
+            self._baseline_sink(msg_content)
         # The widget is now the freshest source we hold, so its odometer becomes
         # the replay floor for the pushes that follow (that is what stops the
         # stale push from overwriting this merge 1 minute later).
@@ -1231,23 +1297,7 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         frequently while charging and go quiet otherwise so we don't keep a
         parked car awake.
         """
-        if not self._last_full_data:
-            return False
-        content = self._last_full_data.get("msg_content", {})
-        if not isinstance(content, dict):
-            return False
-        instant = content.get("instant", {})
-        if isinstance(instant, dict):
-            if instant.get("charge", {}).get("charging_state") == 2:
-                return True
-        interval = content.get("interval", {})
-        if isinstance(interval, dict):
-            try:
-                if float(interval.get("charge", {}).get("power", 0) or 0) > 0:
-                    return True
-            except (TypeError, ValueError):
-                pass
-        return False
+        return state_is_charging(self._last_full_data)
 
     @property
     def last_full_data(self) -> dict[str, Any] | None:

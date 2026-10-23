@@ -172,6 +172,15 @@ A handful of **diagnostic sensors** also poll themselves every 30 s, because
 their values change with no data arriving at all: credential age, polling
 status, the next-poll estimate.
 
+The REST poll also carries a **fallback for the energy fields**. When the push
+stream has been silent for more than five minutes, the widget snapshot's state
+of charge, range and charge-port statuses are merged in, so the battery and
+range sensors keep moving while the fan-out is stuck. That merge is the fresher
+source, and since 0.6.25 the MQTT client's own partial-merge baseline is updated
+with it - otherwise a later charge-less ping re-broadcast the frozen snapshot
+and put the value back, which is what made the battery sensor flip between two
+values every `parked_scan_interval`.
+
 ### The car does not get woken up
 
 How often the integration *asks* the car for a fresh frame depends on what the
@@ -903,6 +912,27 @@ all: XPENG's cloud push fan-out stalls while the socket still looks healthy, and
 `custom_components.xpeng` and look for `Drive evidence:` lines - `gps=` says whether
 a frame carried coordinates and `coord_valid=` whether the car considered them a
 current fix.
+
+### The battery percentage and the range flip between two values
+
+A sawtooth on the battery (or range) history - alternating by a percent or two
+on a fixed rhythm - is a data artefact, not the pack. State of charge is
+reported to whole percent, and while the push stream is quiet two readings of it
+exist: the last one a push carried, and the live one from the REST widget
+fallback. Before 0.6.25 a charge-less MQTT frame re-broadcast the frozen push
+value over the fallback's merge, so the sensors ping-ponged. Now:
+
+- the fallback merge is what the MQTT client's partial-merge baseline holds, so
+  a later ping cannot undo it;
+- a state whose SoC is more than one percent above what is held, while the car
+  is parked and not charging, is refused as an older snapshot - a parked, idle
+  car's charge can only fall - and it is refused as *data*, so a fan-out that
+  only resends it still ages into the watchdog's force-upload.
+
+Watch for `Ignoring a vehicle state from the push fanout: SOC ... while parked`
+in the log; what is left on the graph after that is the real trend at
+whole-percent resolution. A rise of more than one percent while parked and not
+charging does not happen - if one appears, that line names it.
 
 ### Nothing is updating, and the log does not say why
 
