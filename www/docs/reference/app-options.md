@@ -90,13 +90,46 @@ with room for one retry. `invalid_poll_interval` covers the case where a session
 dies early: the app notices within a few minutes instead of waiting out the
 interval.
 
+### Environment (standalone Docker) {#environment-standalone-docker}
+
+Outside the Supervisor there is no Configuration tab; set environment variables
+instead. They take precedence over `/data/options.json` when both exist, so the
+image the app store would build can be run with plain `docker run -e` as it is.
+
+| Option | Environment variable | Default |
+| --- | --- | --- |
+| `email` | `EMAIL` | empty |
+| `password` | `PASSWORD` | empty |
+| `device_id` | `DEVICE_ID` | the id in `/data/device_id.txt`, else the first generated one |
+| `vin` | `VIN` | empty |
+| `renew_interval` | `RENEW_INTERVAL` | `6000` |
+| `invalid_poll_interval` | `INVALID_POLL_INTERVAL` | `300` |
+| `solver_url` | `SOLVER_URL` | `http://571f4c18-xpeng-slider-solver:8080` |
+| `solver_token` | `SOLVER_TOKEN` | empty |
+| `renew_token` | `RENEW_TOKEN` | empty |
+| `pair_dir` | `PAIR_DIR` | `/config/xpeng-secrets` |
+| `command_mode` | `COMMAND_MODE` | `safe_plus` |
+| (Core API address) | `CORE_API` | `http://supervisor/core/api` |
+| (Core API bearer) | `SUPERVISOR_TOKEN` | empty |
+
+`PORT` (default `8090`) moves the API, and `OPTIONS_PATH` points the app at a
+different options file (default `/data/options.json`).
+
+Standalone, `CORE_API` and `SUPERVISOR_TOKEN` replace the `homeassistant_api`
+grant described under [Endpoints](#endpoints): point `CORE_API` at the Core API
+(`http://<ha-host>:8123/api`) and put a Home Assistant long-lived access token in
+`SUPERVISOR_TOKEN`. `pair_dir` has to be a path the Core process can read, and
+`/data` has to be writable for `device_id.txt`. The step-by-step, including the
+mounts, is [Standalone Docker](../guide/unattended-renewal#standalone-docker).
+
 ### Endpoints
 
-The app publishes port `8090` and asks for the `homeassistant_api` grant, which
-is what lets it call `xpeng.import_credentials` through the Supervisor's Core
-proxy. Without that grant the import step fails with HTTP `401 Unauthorized` —
-after a renewal that otherwise succeeded, so it reads as a credential problem
-rather than a permissions one.
+The app publishes port `8090` and, under the Supervisor, asks for the
+`homeassistant_api` grant, which is what lets it call `xpeng.import_credentials`
+through the Supervisor's Core proxy (standalone, `CORE_API` +
+`SUPERVISOR_TOKEN`). Without that grant the import step fails with HTTP
+`401 Unauthorized` — after a renewal that otherwise succeeded, so it reads as a
+credential problem rather than a permissions one.
 
 | Method | Path | Notes |
 | --- | --- | --- |

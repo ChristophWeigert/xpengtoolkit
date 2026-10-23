@@ -101,6 +101,96 @@ than a wrong address, and it cost a live install three days. The renewal app now
 that `/app/` form to the container hostname and says so in its log and on `/healthz`; a
 URL carrying a signed ingress token has nothing to derive, so it is reported instead.
 
+## Standalone Docker (no Supervisor) {#standalone-docker}
+
+Home Assistant **apps** (formerly add-ons) exist only on Home Assistant OS and
+Supervised; the Add-on Store does not exist on Container or Core. Both companions
+are still available there, because an app is an ordinary container with an options
+file: the same two images run as plain Docker containers.
+
+The solver's own README covers its side, including a non-Docker Node route. The
+renewal side is below. Build both images once — no prebuilt images are published,
+because the Supervisor normally builds the apps on an HAOS box:
+
+```bash
+git clone https://github.com/xpengtoolkit/slider-solver
+git clone https://github.com/xpengtoolkit/xpengtoolkit
+docker build -t xpeng-slider-solver ./slider-solver/slider_solver
+docker build -t xpeng-renew ./xpengtoolkit/xpeng_renew
+```
+
+A compose file that mirrors the app route:
+
+```yaml
+services:
+  xpeng-slider-solver:
+    image: xpeng-slider-solver
+    restart: unless-stopped
+    ports: ["8080:8080"]
+    environment:
+      SOLVER_TOKEN: "change-me"                  # long random string
+      DEBUG_DIR: "/debug"
+
+  xpeng-renew:
+    image: xpeng-renew
+    restart: unless-stopped
+    depends_on: [xpeng-slider-solver]
+    ports: ["8090:8090"]                         # POST /renew, GET /healthz
+    environment:
+      EMAIL: "dedicated-account@example.com"     # never the phone-app account
+      PASSWORD: "that account's password"
+      SOLVER_URL: "http://xpeng-slider-solver:8080"
+      SOLVER_TOKEN: "change-me"                  # same value as above
+      RENEW_TOKEN: "a-second-secret"             # bearer for POST /renew
+      PAIR_DIR: "/config/xpeng-secrets"
+      CORE_API: "http://homeassistant:8123/api"
+      SUPERVISOR_TOKEN: "<Home Assistant long-lived token>"
+      COMMAND_MODE: "safe_plus"
+    volumes:
+      - ./ha-config/xpeng-secrets:/config/xpeng-secrets
+      - ./ha-config/xpeng-certs:/config/xpeng-certs:ro
+      - xpeng-renew-data:/data
+
+volumes:
+  xpeng-renew-data:
+```
+
+The two pieces the Supervisor normally supplies become ordinary settings:
+
+* **`CORE_API`** (default `http://supervisor/core/api`) is where the app sends its
+  Home Assistant calls. Standalone, point it at the Core API —
+  `http://<ha-host>:8123/api`, or `http://homeassistant:8123/api` when both
+  containers share a Docker network.
+* **`SUPERVISOR_TOKEN`** is only the bearer for those calls — the name is the
+  app's. Put a **long-lived access token from an admin profile** there. Admin
+  matters on a fresh install: with no config entry the app *creates* one by
+  driving the config flow over the REST API.
+
+Three mounts have to be right, and the first one catches people:
+
+* **`pair_dir` must be the same absolute path inside the Home Assistant
+  container.** The pair is not uploaded; the app calls
+  `xpeng.import_credentials` with `tokens_path` / `tenant_path`, and Core reads
+  those files itself. Mount the host directory into *both* containers at the same
+  path — the example uses `/config/xpeng-secrets`, which is what `pair_dir`
+  defaults to. `chmod 700` the host directory: live credentials.
+* **Certificates** at `/config/xpeng-certs` (or
+  `/config/custom_components/xpeng/certs`), read-only. The bundled onboarding code
+  searches both.
+* **`/data`** must be writable: the device identity is remembered in
+  `/data/device_id.txt`, and an identity XPENG has seen before outlasts a freshly
+  generated one. A named volume is enough.
+
+Everything else is unchanged: the same `/healthz`, the same `POST /renew` guarded
+by `renew_token`, and the same 6000 s scheduler — set `RENEW_INTERVAL: "0"` and
+drive `/renew` from cron or a `rest_command` if you prefer your own clock. A first
+run with no entry still [creates one](#first-run-creates-the-config-entry).
+
+Two things do not carry over from the app: there is no sidebar panel (that is an
+ingress feature), and the option names become upper-case environment variables.
+The full mapping is in
+[App options](../reference/app-options#environment-standalone-docker).
+
 ## First run creates the config entry
 
 A renewal *imports* the pair it minted, and importing needs somewhere to import it

@@ -44,6 +44,12 @@ Steps 4–5 are what make the install unattended. Without them the integration s
 works, but only until XPENG retires the session about two hours later, and then a
 fresh pair has to be pasted in by hand.
 
+::: tip Not on Home Assistant OS or Supervised?
+The Add-on Store does not exist on Container or Core installs, so steps 4–5 run as
+two plain Docker containers instead — the same images, with the app options passed
+as environment variables. See [Standalone Docker](./unattended-renewal#standalone-docker).
+:::
+
 **Step 1 puts the files on the host; it does not add the integration.** The restart is
 what registers it. Going to **Settings → Devices & Services → Add Integration** at that
 point opens a setup form asking for a token pair that does not exist until step 5 —
