@@ -24,6 +24,14 @@ Two jobs, both pure so a test can pin them without a car:
 ``moving`` is what the watchdog uses to decide that a force-upload cannot wake
 the car (see ``watchdog_policy.should_escalate_moving``), so it errs towards
 "No" on anything it cannot read.
+
+The same question has a second source when the push fan-out is wedged: the
+REST widget fallback keeps arriving while the state topic is silent. An
+odometer that is ahead of the held state, or a drive state that is not P, is
+movement the pushes have not delivered - see :func:`rest_motion_evidence`.
+Issue #3's 2026-10-23 capture is that gap: 426 minutes with nothing meaningful
+from the pusher while the REST odometer advanced 67 km and the watchdog stayed
+inside the 12 h sleeping-car budget.
 """
 
 from __future__ import annotations
@@ -33,6 +41,15 @@ from typing import Any
 #: Shift encodings seen on this platform: strings from the MQTT push and small
 #: ints from the REST widget. 3 and 4 both mean P on the measurements we have.
 PARK_SHIFT_CODES: tuple[int, ...] = (3, 4)
+
+#: ``ext.vehicleMode`` that means the car is being driven (``const.VEHICLE_MODES``:
+#: 0 Parked, 1 Standby, 2 Driving). Standby is deliberately *not* movement: the
+#: car is parked, so the sleeping-car budget still applies.
+VEHICLE_MODE_DRIVING: int = 2
+
+#: Odometer readings are whole kilometres, so a difference this small is between
+#: two snapshots of the same value rather than an advance.
+ODOMETER_ADVANCE_TOLERANCE_KM: float = 0.5
 
 
 def _dig(container: Any, keys: tuple[str, ...]) -> Any:
@@ -135,6 +152,50 @@ def view(state: Any) -> dict[str, Any]:
         "gps": gps,
         "coord_valid": coord_valid(state),
     }
+
+
+def rest_motion_evidence(widget: Any, held: Any) -> tuple[bool, str | None]:
+    """Whether a REST widget snapshot shows movement the pushes have not sent.
+
+    Two signals count, either one sufficient:
+
+    * the widget's ``odometer.total_mileage`` is ahead of the odometer the held
+      state carries - the car has driven since the last accepted push;
+    * the widget's own drive state is not P: ``drive.shift_state`` when the
+      snapshot carries one (small ints from the widget, strings from a push),
+      otherwise ``ext.vehicleMode`` == 2, Driving.
+
+    Returns ``(evidence, reason)``; the reason is for the log line. Anything
+    unreadable is "no evidence", never "parked". A positive answer is only used
+    to justify one bounded force-upload outside the sleeping-car budget, so
+    inventing movement would wake a sleeping car for nothing - and a Standby
+    vehicle mode is not movement, the car is parked while it waits.
+    """
+    widget_odometer = _as_float(_dig(widget, ("odometer", "total_mileage")))
+    held_odometer = _as_float(
+        _dig(held, ("msg_content", "instant", "odometer", "total_mileage"))
+    )
+    if (
+        widget_odometer is not None
+        and held_odometer is not None
+        and widget_odometer > held_odometer + ODOMETER_ADVANCE_TOLERANCE_KM
+    ):
+        return True, (
+            f"odometer {widget_odometer:g} km is "
+            f"{widget_odometer - held_odometer:g} km ahead of the held "
+            f"{held_odometer:g} km"
+        )
+
+    shift_park = _shift_park(_dig(widget, ("drive", "shift_state")))
+    if shift_park is False:
+        return True, (
+            f"drive.shift_state {_dig(widget, ('drive', 'shift_state'))!r} is not P"
+        )
+
+    mode = _as_float(_dig(widget, ("ext", "vehicleMode")))
+    if mode is not None and int(mode) == VEHICLE_MODE_DRIVING:
+        return True, "ext.vehicleMode is Driving"
+    return False, None
 
 
 #: ``interval.drive.coordValid`` encodings. The car sets 1 when the coordinates

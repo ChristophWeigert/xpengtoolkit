@@ -20,7 +20,12 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .command_policy import CommandPolicy, default_policy
 from .const import DOMAIN
-from .drive_evidence import FixTracker, view as drive_view, with_previous_fix
+from .drive_evidence import (
+    FixTracker,
+    rest_motion_evidence,
+    view as drive_view,
+    with_previous_fix,
+)
 from .energy_guard import parked_soc_replay, soc_of, state_is_charging
 from .replay_guard import is_replay, odometer_from_state, odometer_from_widget
 from .vin_descriptor import decode as decode_vin, mask_vin
@@ -146,10 +151,12 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # of the energy fields — see _merge_widget_state_if_mqtt_stale).
         self.last_energy_data_timestamp: datetime | None = None
         #: When the last accepted state showed the car *moving* (speed, or a
-        #: shift other than P). A frame that shows P resets it to 0.0. The
-        #: watchdog reads this to justify an escalation a force-upload cannot
-        #: turn into a wake - see watchdog_policy.should_escalate_moving and
-        #: drive_evidence.py.
+        #: shift other than P), or when the REST fallback saw it move while the
+        #: push stream was silent (odometer ahead, or a drive state that is not
+        #: P - see drive_evidence.rest_motion_evidence). A frame that shows P
+        #: resets it to 0.0. The watchdog reads this to justify an escalation a
+        #: force-upload cannot turn into a wake - see
+        #: watchdog_policy.should_escalate_moving and drive_evidence.py.
         self.last_motion_at: float = 0.0
         #: The last position that was actually a GPS fix, and how old it is.
         #: ``interval.drive.coordValid`` says whether a frame's coordinates are a
@@ -863,6 +870,21 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 widget_odometer, self.max_odometer,
             )
             return
+        # The fallback is also the only evidence of movement while the push
+        # stream is wedged, and a force-upload cannot wake a moving car: an
+        # odometer ahead of the held state, or a drive state that is not P,
+        # lets the watchdog recover outside the 12 h sleeping-car budget. Issue
+        # #3 (2026-10-23): 426 minutes stale with a stuck "parked" verdict
+        # while the REST odometer advanced 67 km. See
+        # drive_evidence.rest_motion_evidence.
+        moving, motion_reason = rest_motion_evidence(widget, self._last_full_data)
+        if moving:
+            self.last_motion_at = time.time()
+            _LOGGER.info(
+                "REST fallback shows the car moving while the push stream is "
+                "silent (%s) — arming the bounded motion escalation",
+                motion_reason,
+            )
         # widget has top-level keys like charge/hvac/door/window/odometer/ext/fuelTank
         widget_sections = {
             k: v for k, v in widget.items()

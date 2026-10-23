@@ -91,6 +91,16 @@ measured in hours while the silence threshold is minutes, a parked car can sit i
 awake stays `Silent` alongside `Not authorized` refusals, treat it as the case
 above.
 
+**A wedged fan-out must not hide a moving car.** The REST widget fallback keeps
+being polled while the push stream is quiet, so since 0.6.27 its snapshot also
+counts as motion evidence: an odometer ahead of the last accepted push, or a
+drive/gear state that is not P, lets the watchdog spend its one bounded
+force-upload (one per 10 minutes, one per episode of motion) instead of waiting
+out the 12-hour sleeping-car budget. A `Standby` vehicle mode is not movement —
+the car is parked, so the normal budget still applies. Issue #3's 2026-10-23
+capture is the case this closes: 426 minutes without meaningful data while the
+REST odometer advanced 67 km and the last accepted state still said parked.
+
 ## The car's location is stale after parking — or after a drive {#location-is-stale}
 
 The tracker only knows where the car last **told** it. Position arrives in the car's

@@ -256,6 +256,87 @@ class TheFixTracker(unittest.TestCase):
         self.assertEqual(tracker.age_seconds(1100.0), 100.0)
 
 
+class TheRestFallbackSaysTheCarMoved(unittest.TestCase):
+    """Issue #3, 2026-10-23: REST odometer +67 km while the push fan-out wedged.
+
+    The fallback merge is the only source that can say "the car is moving" when
+    the state topic is silent, and the watchdog's bounded motion escalation is
+    what turns that into one force-upload instead of 426 minutes (or a 12 h
+    wait) of frozen telemetry.
+    """
+
+    @staticmethod
+    def _held(odometer=62234):
+        return {"msg_content": {"instant": {"odometer": {"total_mileage": odometer}}}}
+
+    def test_an_odometer_ahead_of_the_held_state_is_evidence(self):
+        is_moving, reason = evidence.rest_motion_evidence(
+            {"odometer": {"total_mileage": 62301}}, self._held(62234)
+        )
+        self.assertTrue(is_moving)
+        self.assertIn("67", reason)
+
+    def test_an_equal_odometer_is_not_evidence(self):
+        self.assertEqual(
+            evidence.rest_motion_evidence(
+                {"odometer": {"total_mileage": 62234}}, self._held(62234)
+            ),
+            (False, None),
+        )
+
+    def test_rounding_noise_is_not_evidence(self):
+        self.assertFalse(
+            evidence.rest_motion_evidence(
+                {"odometer": {"total_mileage": 62233.6}}, self._held(62234)
+            )[0]
+        )
+
+    def test_a_gear_that_is_not_park_is_evidence(self):
+        for shift in (0, 1, 2, "D", "R", "N"):  # N, D, R ints and strings
+            with self.subTest(shift=shift):
+                is_moving, reason = evidence.rest_motion_evidence(
+                    {"drive": {"shift_state": shift}}, self._held()
+                )
+                self.assertTrue(is_moving)
+                self.assertIn("not P", reason)
+
+    def test_park_is_not_evidence(self):
+        for shift in (3, 4, "P", "p"):
+            with self.subTest(shift=shift):
+                self.assertEqual(
+                    evidence.rest_motion_evidence(
+                        {"drive": {"shift_state": shift}}, self._held()
+                    ),
+                    (False, None),
+                )
+
+    def test_vehicle_mode_driving_is_evidence(self):
+        is_moving, reason = evidence.rest_motion_evidence(
+            {"ext": {"vehicleMode": 2}}, self._held()
+        )
+        self.assertTrue(is_moving)
+        self.assertIn("Driving", reason)
+
+    def test_standby_is_not_evidence(self):
+        """1 is Standby: the car is awake but parked, so the budget still applies."""
+        self.assertEqual(
+            evidence.rest_motion_evidence(
+                {"ext": {"vehicleMode": 1}}, self._held()
+            ),
+            (False, None),
+        )
+
+    def test_missing_or_unreadable_snapshots_are_no_evidence(self):
+        for widget in ({}, None, {"drive": {"shift_state": None}}, {"ext": {}}):
+            with self.subTest(widget=widget):
+                self.assertFalse(evidence.rest_motion_evidence(widget, self._held())[0])
+        self.assertFalse(
+            evidence.rest_motion_evidence(
+                {"odometer": {"total_mileage": 62301}}, None
+            )[0]
+        )
+
+
 class TheIntegrationActuallyUsesIt(unittest.TestCase):
     """Pinned at the call sites, so the module cannot become dead code."""
 

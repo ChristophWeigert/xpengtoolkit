@@ -216,6 +216,15 @@ force-upload cannot wake anything, so that escalation skips the 12-hour budget -
 one per 10 minutes, one per episode of motion - which is what keeps a mid-drive
 stall from freezing the sensors for the rest of the trip.
 
+While the push stream is wedged the REST widget fallback is the only thing still
+being polled, so it is also watched for movement: an odometer ahead of the last
+accepted push, or its own drive/gear state saying the car is not in P, counts as
+motion evidence (0.6.27). That lets the bounded escalation above fire while the
+pusher is stuck, instead of the 12-hour sleeping-car budget holding it - the case
+behind issue #3 on 2026-10-23 was 426 minutes without meaningful data while the
+REST odometer advanced 67 km. A `Standby` vehicle mode is not movement: the car
+is parked, so the sleeping-car budget still applies.
+
 ### Credentials rotate, and the identity is per-install
 
 The MQTT password is short-lived (about 60-90 s). It is **minted on demand**:

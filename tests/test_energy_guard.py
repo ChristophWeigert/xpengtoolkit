@@ -334,6 +334,48 @@ class TheMergeTeachesTheMqttBaseline(unittest.TestCase):
         self.assertEqual(adopted, [])
 
 
+class TheRestFallbackIsMotionEvidence(unittest.TestCase):
+    """Issue #3: a wedged fan-out must not hide a moving car from the watchdog.
+
+    The fallback is the only thing still reporting when the state topic is
+    silent; its odometer or drive state is what turns "426 minutes stale while
+    the last accepted state said parked" into one bounded force-upload.
+    """
+
+    def _merge(self, held, widget):
+        coord = _coordinator_with(held)
+        coord.last_energy_data_timestamp = datetime.now(timezone.utc) - timedelta(hours=2)
+        coord.last_data_timestamp = datetime.now(timezone.utc)
+        coord._merge_widget_state_if_mqtt_stale(widget)
+        return coord
+
+    def test_an_odometer_advance_arms_the_motion_escalation(self):
+        coord = self._merge(
+            _state(60, odo=62234), {"odometer": {"total_mileage": 62301}}
+        )
+        self.assertGreater(coord.last_motion_at, 0.0)
+
+    def test_a_drive_mode_that_is_not_park_arms_it(self):
+        coord = self._merge(_state(60), {"drive": {"shift_state": 1}})
+        self.assertGreater(coord.last_motion_at, 0.0)
+
+    def test_a_parked_snapshot_leaves_it_alone(self):
+        coord = self._merge(
+            _state(60, odo=62234),
+            {"odometer": {"total_mileage": 62234}, "ext": {"vehicleMode": 0}},
+        )
+        self.assertEqual(coord.last_motion_at, 0.0)
+
+    def test_a_closed_gate_does_not_arm_it(self):
+        coord = _coordinator_with(_state(60, odo=62234))
+        coord.last_energy_data_timestamp = datetime.now(timezone.utc)
+        coord.last_data_timestamp = datetime.now(timezone.utc)
+        coord._merge_widget_state_if_mqtt_stale(
+            {"odometer": {"total_mileage": 62301}}
+        )
+        self.assertEqual(coord.last_motion_at, 0.0)
+
+
 class TheWiringIsPresent(unittest.TestCase):
     """The guards only work if the integration actually calls them."""
 
@@ -345,6 +387,14 @@ class TheWiringIsPresent(unittest.TestCase):
 
     def test_the_energy_replay_check_is_wired_into_the_mqtt_path(self):
         self.assertIn("coordinator.parked_energy_replay(data)", self.init)
+
+    def test_the_rest_fallback_is_wired_into_the_watchdog_evidence(self):
+        coord_src = (_component.component_dir() / "coordinator.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("rest_motion_evidence(widget, self._last_full_data)", coord_src)
+        self.assertIn("REST fallback shows the car moving", coord_src)
+        self.assertIn("self.last_motion_at = time.time()", coord_src)
 
     def test_the_mqtt_client_exposes_adopt_state(self):
         client = (_component.component_dir() / "mqtt_client.py").read_text(encoding="utf-8")
