@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import time
 
 from homeassistant.components.device_tracker import SourceType
 from homeassistant.components.device_tracker.config_entry import TrackerEntity
@@ -47,23 +48,26 @@ class XPengDeviceTracker(XPengEntity, TrackerEntity):
 
     @property
     def latitude(self) -> float | None:
-        """Return latitude."""
-        val = self._get_nested_value("msg_content.interval.drive.latitude")
-        if val is not None and val != 0:
-            return float(val)
-        return None
+        """Return latitude of the last position that was a real fix."""
+        fix = self.coordinator.gps_fix.position
+        return fix[0] if fix else None
 
     @property
     def longitude(self) -> float | None:
-        """Return longitude."""
-        val = self._get_nested_value("msg_content.interval.drive.longitude")
-        if val is not None and val != 0:
-            return float(val)
-        return None
+        """Return longitude of the last position that was a real fix."""
+        fix = self.coordinator.gps_fix.position
+        return fix[1] if fix else None
 
     @property
-    def extra_state_attributes(self) -> dict[str, str | float | None]:
-        """Return extra attributes."""
+    def extra_state_attributes(self) -> dict[str, str | float | bool | None]:
+        """Return extra attributes.
+
+        ``coord_valid`` and ``fix_age_s`` are the point of this entity: the car
+        can report coordinates that are its last known position rather than a
+        current fix (``interval.drive.coordValid`` false), and a position whose
+        age is not visible is what made "the car is still at home" look like a
+        lost GPS. Age is None when no valid fix has been seen yet this session.
+        """
         speed_raw = self._get_nested_value("msg_content.interval.drive.speed")
         angle = self._get_nested_value("msg_content.interval.drive.angle")
         coord_type = self._get_nested_value("msg_content.interval.drive.coordType")
@@ -75,8 +79,11 @@ class XPengDeviceTracker(XPengEntity, TrackerEntity):
             except (ValueError, TypeError):
                 pass
 
+        age = self.coordinator.gps_fix.age_seconds(time.time())
         return {
             "speed": speed,
             "bearing": angle,
             "coord_type": coord_type,
+            "coord_valid": self.coordinator.gps_fix.coord_valid,
+            "fix_age_s": None if age is None else round(age),
         }

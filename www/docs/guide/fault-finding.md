@@ -91,6 +91,36 @@ measured in hours while the silence threshold is minutes, a parked car can sit i
 awake stays `Silent` alongside `Not authorized` refusals, treat it as the case
 above.
 
+## The car's location is stale after parking — or after a drive {#location-is-stale}
+
+The tracker only knows where the car last **told** it. Position arrives in the car's
+own telemetry (`interval.drive.latitude/longitude`) — never from the REST poll — and
+a car that has gone to sleep stops sending it. A parked car is deliberately never
+force-woken on a schedule, so the last position is kept until something makes the
+car report again:
+
+- **The car wakes by itself** (a charge, a command, its own schedule) and the
+  position updates.
+- **Press `Wake vehicle`** — that request makes the car upload a full state. `Force
+  update` will not help: it asks passively, and a sleeping car answers with a stub.
+- **The silence watchdog** does it once automatically after 30 minutes without data,
+  capped at one force-upload per 12 hours (0.6.20+ adds a second allowance while the
+  car was moving). If that budget was spent earlier, a stalled session can leave the
+  map stale until you wake it.
+
+Two attributes on the tracker answer "is this position real?": `coord_valid` is the
+car's own GPS-validity flag, and `fix_age_s` is the age of the last position that was
+an actual fix. Since 0.6.24, a frame whose coordinates are the car's last known
+position (`coordValid` false) no longer moves the car — the last valid position is
+kept and flagged, instead of a stale coordinate being published as a live one.
+
+If the position did not move **even while driving**, the frames were not arriving at
+all: XPENG's cloud push fan-out stalls while the socket still looks healthy, and
+`Last data update` will be stale too. Enable debug logging for
+`custom_components.xpeng` and look for `Drive evidence:` lines — `gps=` says whether
+a frame carried coordinates and `coord_valid=` whether the car considered them a
+current fix.
+
 ## Nothing is updating
 
 Read these in order:

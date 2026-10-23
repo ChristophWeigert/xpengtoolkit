@@ -20,7 +20,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .command_policy import CommandPolicy, default_policy
 from .const import DOMAIN
-from .drive_evidence import view as drive_view
+from .drive_evidence import FixTracker, view as drive_view, with_previous_fix
 from .replay_guard import is_replay, odometer_from_state, odometer_from_widget
 from .vin_descriptor import decode as decode_vin, mask_vin
 
@@ -140,6 +140,12 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         #: turn into a wake - see watchdog_policy.should_escalate_moving and
         #: drive_evidence.py.
         self.last_motion_at: float = 0.0
+        #: The last position that was actually a GPS fix, and how old it is.
+        #: ``interval.drive.coordValid`` says whether a frame's coordinates are a
+        #: current fix or the car's last known position; see drive_evidence.py.
+        #: The tracker (and the raw latitude/longitude sensors) read this rather
+        #: than publishing whatever coordinates arrived.
+        self.gps_fix: FixTracker = FixTracker()
         # True while the only state we hold was restored from disk (no live
         # push received yet this session).
         self.state_is_restored: bool = False
@@ -287,6 +293,14 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.last_data_timestamp = datetime.fromisoformat(ts)
             except ValueError:
                 self.last_data_timestamp = None
+        # Seed the fix tracker from the restored state. When the cache carries a
+        # timestamp, the fix is exactly that old; without one the position is
+        # known but its age is not, which the tracker reports as None rather
+        # than pretending it is fresh.
+        self.gps_fix.observe(
+            data,
+            self.last_data_timestamp.timestamp() if self.last_data_timestamp else None,
+        )
         _LOGGER.info(
             "Restored cached vehicle state from %s (car not contacted)", ts,
         )
@@ -344,8 +358,13 @@ class XPengDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return False
         if odometer is not None:
             self.max_odometer = max(self.max_odometer or odometer, odometer)
+        # A frame that admits its coordinates are not a current fix
+        # (`coordValid` false) must not move the car on the map. Carry the last
+        # valid position forward, or drop the coordinates when there is none.
+        data = with_previous_fix(data, self._last_full_data)
         self._last_full_data = data
         self.last_data_timestamp = datetime.now(timezone.utc)
+        self.gps_fix.observe(data, self.last_data_timestamp.timestamp())
         # Before _update_parked_consumption, which reads vehicle_parked; and
         # before the entities are notified, so a transition is logged with the
         # evidence that caused it (issue #3 diagnostics).

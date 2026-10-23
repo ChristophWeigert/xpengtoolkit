@@ -142,20 +142,142 @@ class GpsIsReportedByPresenceOnly(unittest.TestCase):
         self.assertIsNone(evidence.view(_state({"speed": 30}))["gps"])
 
 
+class GpsFixValidity(unittest.TestCase):
+    """`coordValid` says whether the coordinates are current - honour it."""
+
+    def test_validity_encodings(self):
+        cases = ((1, True), ("1", True), ("true", True), ("valid", True),
+                 (0, False), ("0", False), ("false", False), ("", False))
+        for value, expected in cases:
+            with self.subTest(value=value):
+                frame = _state(interval={"coordValid": value})
+                self.assertIs(evidence.coord_valid(frame), expected)
+
+    def test_a_missing_or_unreadable_flag_is_unknown(self):
+        self.assertIsNone(evidence.coord_valid(_state(interval={"speed": 5})))
+        self.assertIsNone(evidence.coord_valid(_state(interval={"coordValid": "maybe"})))
+        self.assertIsNone(evidence.coord_valid(None))
+
+    def test_the_view_carries_the_flag(self):
+        self.assertIs(
+            evidence.view(_state(interval={"coordValid": 0}))["coord_valid"], False
+        )
+
+    def test_zero_is_not_a_position(self):
+        self.assertIsNone(
+            evidence.position(_state(interval={"latitude": 0, "longitude": 0}))
+        )
+        self.assertEqual(
+            evidence.position(_state(interval={"latitude": -32.1, "longitude": 152.5})),
+            (-32.1, 152.5),
+        )
+
+
+class AnUnusableFixIsNotPublished(unittest.TestCase):
+    """The G9 report: a car showing its old position as if it were current."""
+
+    previous = _state(interval={"latitude": -32.07, "longitude": 152.48, "speed": 0})
+
+    def test_an_invalid_frame_keeps_the_last_valid_position(self):
+        frame = _state(
+            interval={"coordValid": 0, "latitude": -33.0, "longitude": 151.0, "speed": 42}
+        )
+        repaired = evidence.with_previous_fix(frame, self.previous)
+        drive = repaired["msg_content"]["interval"]["drive"]
+        self.assertEqual((drive["latitude"], drive["longitude"]), (-32.07, 152.48))
+        # The rest of the frame is untouched: only the position is held.
+        self.assertEqual(drive["speed"], 42)
+
+    def test_with_no_previous_fix_the_coordinates_are_dropped(self):
+        frame = _state(interval={"coordValid": 0, "latitude": -33.0, "longitude": 151.0})
+        repaired = evidence.with_previous_fix(frame, None)
+        drive = repaired["msg_content"]["interval"]["drive"]
+        self.assertNotIn("latitude", drive)
+        self.assertNotIn("longitude", drive)
+
+    def test_a_valid_frame_passes_through_untouched(self):
+        frame = _state(interval={"coordValid": 1, "latitude": -33.0, "longitude": 151.0})
+        self.assertIs(evidence.with_previous_fix(frame, self.previous), frame)
+
+    def test_a_frame_that_never_mentions_validity_is_left_alone(self):
+        frame = _state(interval={"latitude": -33.0, "longitude": 151.0})
+        self.assertIs(evidence.with_previous_fix(frame, self.previous), frame)
+
+    def test_zero_coordinates_carry_the_previous_fix(self):
+        frame = _state(interval={"latitude": 0, "longitude": 0})
+        repaired = evidence.with_previous_fix(frame, self.previous)
+        drive = repaired["msg_content"]["interval"]["drive"]
+        self.assertEqual((drive["latitude"], drive["longitude"]), (-32.07, 152.48))
+
+    def test_a_frame_without_an_interval_block_is_left_alone(self):
+        frame = {"msg_content": {"instant": {"drive": {"speed": 0}}}}
+        self.assertIs(evidence.with_previous_fix(frame, self.previous), frame)
+
+
+class TheFixTracker(unittest.TestCase):
+    """Age is the whole point: a held position must not look fresh."""
+
+    def test_a_valid_fix_records_position_and_time(self):
+        tracker = evidence.FixTracker()
+        tracker.observe(
+            _state(interval={"coordValid": 1, "latitude": -32.1, "longitude": 152.5}),
+            now=1000.0,
+        )
+        self.assertEqual(tracker.position, (-32.1, 152.5))
+        self.assertIs(tracker.coord_valid, True)
+        self.assertEqual(tracker.age_seconds(1060.0), 60.0)
+
+    def test_an_invalid_frame_does_not_make_the_fix_younger(self):
+        tracker = evidence.FixTracker()
+        tracker.observe(
+            _state(interval={"coordValid": 1, "latitude": -32.1, "longitude": 152.5}),
+            now=1000.0,
+        )
+        tracker.observe(
+            _state(interval={"coordValid": 0, "latitude": -32.1, "longitude": 152.5}),
+            now=2000.0,
+        )
+        self.assertIs(tracker.coord_valid, False)
+        self.assertEqual(tracker.age_seconds(2000.0), 1000.0)
+
+    def test_a_restored_position_with_no_timestamp_has_no_age(self):
+        tracker = evidence.FixTracker()
+        tracker.observe(_state(interval={"latitude": -32.1, "longitude": 152.5}))
+        self.assertEqual(tracker.position, (-32.1, 152.5))
+        self.assertIsNone(tracker.age_seconds(2000.0))
+
+    def test_a_frame_without_a_position_leaves_the_held_fix_alone(self):
+        tracker = evidence.FixTracker()
+        tracker.observe(
+            _state(interval={"latitude": -32.1, "longitude": 152.5}), now=1000.0
+        )
+        tracker.observe(_state(interval={"speed": 72}), now=1001.0)
+        self.assertEqual(tracker.position, (-32.1, 152.5))
+        self.assertEqual(tracker.age_seconds(1100.0), 100.0)
+
+
 class TheIntegrationActuallyUsesIt(unittest.TestCase):
     """Pinned at the call sites, so the module cannot become dead code."""
 
-    def test_the_coordinator_classifies_and_records_through_it(self):
+    def test_the_coordinator_classifies_and_tracks_the_fix_through_it(self):
         coordinator = (COMPONENT / "coordinator.py").read_text(encoding="utf-8")
-        self.assertIn("from .drive_evidence import view as drive_view", coordinator)
+        self.assertIn("view as drive_view", coordinator)
+        self.assertIn("FixTracker", coordinator)
+        self.assertIn("with_previous_fix", coordinator)
         self.assertIn('return drive_view(self._last_full_data)["parked"]', coordinator)
         self.assertIn("def parking_view", coordinator)
         self.assertIn("self.note_drive_evidence(data)", coordinator)
+        self.assertIn("data = with_previous_fix(data, self._last_full_data)", coordinator)
+        self.assertIn("self.gps_fix.observe(data,", coordinator)
 
-    def test_the_entrypoint_logs_the_evidence_and_escalates_on_motion(self):
+    def test_the_tracker_exposes_fix_quality_and_the_log_records_it(self):
+        tracker = (COMPONENT / "device_tracker.py").read_text(encoding="utf-8")
+        self.assertIn("coordinator.gps_fix.position", tracker)
+        self.assertIn('"coord_valid"', tracker)
+        self.assertIn('"fix_age_s"', tracker)
         init = (COMPONENT / "__init__.py").read_text(encoding="utf-8")
         self.assertIn("Drive evidence: parked=%s", init)
-        self.assertIn("Parking verdict %s -> %s", init)
+        self.assertIn("coord_valid=%r", init)
         self.assertIn("should_escalate_moving(", init)
         self.assertIn("coordinator.last_motion_at", init)
         self.assertIn("Periodic query: kind=%s", init)

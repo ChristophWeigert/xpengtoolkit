@@ -194,9 +194,9 @@ Standard Range LFP pack is about 66 kWh). Driving and charging are excluded.
 
 | Entity | Type | Unit | Notes |
 | --- | --- | --- | --- |
-| `device_tracker.xpeng_<vehicle>_location` | device_tracker | – | Source type `gps`. Latitude/longitude of `0` are treated as no fix and reported as unknown. Attributes `speed`, `bearing`, `coord_type` |
-| `sensor.xpeng_<vehicle>_latitude` | sensor | – | Raw latitude; no device class |
-| `sensor.xpeng_<vehicle>_longitude` | sensor | – | Raw longitude; no device class |
+| `device_tracker.xpeng_<vehicle>_location` | device_tracker | – | Source type `gps`. Latitude/longitude of `0` are treated as no fix and reported as unknown. Since 0.6.24 the position is the last **valid** fix: a frame that reports its coordinates as not current (`interval.drive.coordValid` false) does not move the car. Attributes `speed`, `bearing`, `coord_type`, `coord_valid` (the car's own GPS-validity flag, `null` when it does not report one) and `fix_age_s` (seconds since the last real fix — a growing number is the honest signal that the car has not reported a position) |
+| `sensor.xpeng_<vehicle>_latitude` | sensor | – | Raw latitude; no device class. An unusable fix does not overwrite it — see the tracker's `coord_valid` / `fix_age_s` |
+| `sensor.xpeng_<vehicle>_longitude` | sensor | – | Raw longitude; no device class. An unusable fix does not overwrite it — see the tracker's `coord_valid` / `fix_age_s` |
 | `sensor.xpeng_<vehicle>_weather_at_vehicle` | sensor | °C | Weather at the car from the XPENG assistant service. Attributes include `condition` (Chinese condition strings mapped to English), `temp_min`, `temp_max`, `real_feel`, `humidity`, `aqi`, `aqi_rating`, `cloud_cover`, `wind_direction`, `wind_speed`, `pressure`, `visibility`, `sunrise`, `sunset` |
 
 ## Security, sentinel and X-Guard
