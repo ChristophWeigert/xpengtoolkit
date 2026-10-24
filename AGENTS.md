@@ -37,3 +37,14 @@ in [`.cursor/rules/publish-identity.mdc`](.cursor/rules/publish-identity.mdc).
   `git show HEAD:custom_components/xpeng/manifest.json | grep version` before
   tagging - a release whose manifest still says the previous version makes HACS
   offer the update forever.
+- Translations: `translations/en.json` is the runtime source of truth and
+  `strings.json` the reviewed copy; a test keeps them identical. Every other
+  `translations/<lang>.json` must carry the same 339 keys - run
+  `python3 tools/check_translations.py` after touching any of them, and
+  `python3 tests/test_translations.py` (also part of the normal suite). Rules and
+  the language list: `docs/TRANSLATIONS.md`.
+- Entity names: set a translation key, never `_attr_name` (it wins over the
+  translation and freezes the name in English). Entity ids are pinned to the
+  English name by `XPengEntity.suggested_object_id` via `entity_names.py`, so a
+  translated name must never change an id; do not add a placeholder to an
+  English entity name.

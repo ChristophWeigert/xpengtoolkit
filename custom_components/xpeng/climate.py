@@ -50,7 +50,7 @@ async def async_setup_entry(
 class XPengClimate(XPengEntity, ClimateEntity):
     """Measured cabin climate with capability-selected, confirmed commands."""
 
-    _attr_name = "Climate"
+    _attr_translation_key = "cabin_climate"
     _attr_icon = "mdi:air-conditioner"
     _attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT_COOL]
     _policy_group = GROUP_COMFORT

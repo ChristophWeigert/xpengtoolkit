@@ -45,7 +45,6 @@ class XPengLock(XPengEntity, LockEntity):
     # and reports the lock state.
     _policy_group = GROUP_SECURING
     _policy_groups = (GROUP_SECURING, GROUP_ACCESS)
-    _attr_name = "Door lock"
     _attr_translation_key = "door_lock"
     _attr_assumed_state = True  # optimistic — don't bounce on stale state
 

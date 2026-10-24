@@ -1,0 +1,785 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Anslut din XPENG-bil",
+        "description": "Använd ett DEDIKERAT XPENG-konto som bilen har delats till – INTE ditt primära konto. XPENG tillåter bara en aktiv session per konto, så inloggning här loggar ut appen i telefonen gång på gång.\n\nDe flesta konton kräver XPENGs skjutreglage-captcha, som den här skärmen inte kan visa, så \"Import tokens from the onboarding tool\" är vägen som alltid går igenom.",
+        "data": {
+          "auth_method": "Inloggningssätt"
+        },
+        "data_description": {
+          "auth_method": "Importera tokens är det pålitliga valet – se ovan. Nästa skärm frågar bara efter VIN om metoden du väljer behöver det."
+        }
+      },
+      "email_code": {
+        "title": "E-postverifiering",
+        "description": "En verifieringskod har skickats till {email}. Ange koden nedan.",
+        "data": {
+          "email_code": "Verifieringskod",
+          "usable_battery_kwh": "Användbar batterikapacitet (kWh)",
+          "command_mode": "Kommandobehörigheter",
+          "allow_wake": "Låt integrationen väcka bilen"
+        },
+        "data_description": {
+          "email_code": "6-siffrig kod som skickades till din e-post",
+          "usable_battery_kwh": "Ställ in detta efter bilens batteripaket, utifrån den siffra det är känt som. Ett VIN anger bara modellfamiljen, så inget kan välja detta åt dig. Användbar kWh: G6 66.0 paket = 65.3 | G6 68.5 = 67.8 | G6 80.8 = 80.0 | G6 87.5 (MY24 NMC) = 87.5 | G9 78.2 = 75.8 | G9 79.0 = 78.2 | G9 93.1 (LFP, MY25 och framåt) = 92.2 | G9 98.0 (NMC, MY23-24) = 93.1. Endast uppskattningen av parkeringsförbrukning använder den.",
+          "command_mode": "Safe Plus är standard för en ny installation: status, klimat, ljus, låsning och laddning, medan upplåsning, bagageutrymme och fönster, OTA och råa kommandon är avstängda. Read only och Safe är snävare; Full access omfattar upplåsning. Custom erbjuds under Konfigurera.",
+          "allow_wake": "Att väcka en sovande bil kostar lite av dess 12V-batteri och används bara för att hämta ett färskt fullständigt tillstånd. Avfrågningar vid laddning och körning påverkas inte."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Återautentisera XPENG",
+        "description": "Dina XPENG-inloggningstokens har gått ut. En verifieringskod har skickats till {email}.",
+        "data": {
+          "email_code": "Verifieringskod"
+        },
+        "data_description": {
+          "email_code": "6-siffrig kod som skickades till din e-post"
+        }
+      },
+      "reconfigure": {
+        "title": "Uppdatera XPENG-inloggningsuppgifter",
+        "description": "Uppdatera MQTT-inloggningsuppgifterna manuellt. Stäng XPENG-appen i telefonen innan du ansluter.",
+        "data": {
+          "client_id": "MQTT-klient-ID",
+          "password": "MQTT-lösenord",
+          "server": "MQTT-server (host:port)"
+        }
+      },
+      "google": {
+        "title": "Logga in med Google",
+        "description": "Logga in med Google för att förnya XPENG-inloggningsuppgifterna.\n\n**Den här vägen är inte captcha-fri.** XPENG tillämpar samma skjutreglage-captcha på kontot efter Google-inloggningen, och den utmaningen kan inte lösas inifrån Home Assistant. Om inloggningen avvisas med ett captcha-fel kör du tools/onboard_email_login.py i stället och använder metoden \"Import tokens from the onboarding tool\".\n\n**Om en webbläsare inte kan leverera callbacken** (på en Mac med XPENG-appen installerad öppnas appen av länken; utan appen skickar Google dig tillbaka till startsidan och koden går förlorad), kör hjälpskriptet i stället:\n\n`swift tools/oauth_capture.swift`\n\nDet öppnar systemets inloggningsfönster, fångar callbacken och skriver ut `VERIFIER:` och `CALLBACK:`. Klistra in callback-URL:en nedan och verifieraren i det andra fältet.\n\n**Annars**, öppna den här länken och logga in, och klistra sedan in omdirigerings-URL:en:\n\n{url}",
+        "data": {
+          "redirect_url": "Klistra in omdirigerings-URL:en här",
+          "code_verifier": "PKCE-verifierare (från tools/oauth_capture.swift)",
+          "vin": "Fordonsidentifikationsnummer (VIN)",
+          "usable_battery_kwh": "Användbar batterikapacitet (kWh)",
+          "command_mode": "Kommandobehörigheter",
+          "allow_wake": "Låt integrationen väcka bilen"
+        },
+        "data_description": {
+          "redirect_url": "Hela callback-URL:en, eller koden för sig",
+          "code_verifier": "Lämna tomt om du inte fångade callbacken med systemets inloggningshjälp",
+          "vin": "Ditt fordons 17 tecken långa VIN – det avgör vilka entitets-ID:n den här posten får.",
+          "usable_battery_kwh": "Ställ in detta efter bilens batteripaket, utifrån den siffra det är känt som. Ett VIN anger bara modellfamiljen, så inget kan välja detta åt dig. Användbar kWh: G6 66.0 paket = 65.3 | G6 68.5 = 67.8 | G6 80.8 = 80.0 | G6 87.5 (MY24 NMC) = 87.5 | G9 78.2 = 75.8 | G9 79.0 = 78.2 | G9 93.1 (LFP, MY25 och framåt) = 92.2 | G9 98.0 (NMC, MY23-24) = 93.1. Endast uppskattningen av parkeringsförbrukning använder den.",
+          "command_mode": "Safe Plus är standard för en ny installation: status, klimat, ljus, låsning och laddning, medan upplåsning, bagageutrymme och fönster, OTA och råa kommandon är avstängda. Read only och Safe är snävare; Full access omfattar upplåsning. Custom erbjuds under Konfigurera.",
+          "allow_wake": "Att väcka en sovande bil kostar lite av dess 12V-batteri och används bara för att hämta ett färskt fullständigt tillstånd. Avfrågningar vid laddning och körning påverkas inte."
+        }
+      },
+      "email_password": {
+        "title": "E-postinloggning",
+        "description": "Använd ett DEDIKERAT XPENG-konto som bilen har delats till – använd INTE ditt primära konto. En inloggning här skapar en andra klient på samma konto, och XPENG tillåter bara en aktiv session, så appen i telefonen blir utloggad gång på gång. Skapa ett nytt XPENG-konto, dela bilen till det från ditt huvudkonto i appen och logga sedan in här med det.\n\nXPENG skyddar de flesta konton med en skjutreglage-captcha, och den utmaningen kan bara klaras av en människa som drar i den i en riktig webbläsare – Home Assistant kan inte göra det. Om inloggningen avvisas som captcha-skyddad, stanna här: kör tools/onboard_email_login.py på en maskin med webbläsare och använd metoden \"Import tokens from the onboarding tool\" i stället.",
+        "data": {
+          "xpeng_email": "E-postadress",
+          "xpeng_password": "Lösenord",
+          "vin": "Fordonsidentifikationsnummer (VIN)"
+        },
+        "data_description": {
+          "xpeng_email": "Din e-postadress för XPENG-kontot",
+          "xpeng_password": "Ditt lösenord för XPENG-kontot",
+          "vin": "Ditt fordons 17 tecken långa VIN. Det avgör vilka entitets-ID:n den här posten får, så ett felaktigt VIN skapar en andra uppsättning som inte pekar på något."
+        }
+      },
+      "import_tokens": {
+        "title": "Importera onboardingtokens",
+        "description": "Båda filerna måste komma från SAMMA körning av onboardingverktyget: tenanten bär det deviceId som tokens är förseglade mot, så ett par från olika körningar avvisas.\n\nPå en maskin med webbläsare: `pip install cryptography`, extrahera mTLS-certifikaten från en APK (steg 2), kör sedan `python3 tools/onboard_email_login.py --email YOU@example.com --save --mqtt` – det frågar efter lösenordet och kräver ett drag i skjutreglaget. Eller låt förnyelseappen skapa paret med lösaren, vilket inte kräver någon dator alls.\n\nKlistra in båda filerna nedan, eller ange deras sökvägar om de redan finns på den här värden.\n\n{pair_search}",
+        "data": {
+          "tokens_json": "Innehållet i xpeng_tokens.json",
+          "tokens_path": "Sökväg till xpeng_tokens.json (i stället för att klistra in)",
+          "tenant_json": "Innehållet i xpeng_tenant.json",
+          "tenant_path": "Sökväg till xpeng_tenant.json (i stället för att klistra in)",
+          "vin": "Fordonsidentifikationsnummer (VIN)",
+          "usable_battery_kwh": "Användbar batterikapacitet (kWh)",
+          "command_mode": "Kommandobehörigheter",
+          "allow_wake": "Låt integrationen väcka bilen"
+        },
+        "data_description": {
+          "tokens_json": "Hela filen, inklusive json-omslaget",
+          "tenant_json": "Hela filen – den bär det deviceId som tokens är förseglade mot",
+          "vin": "Läses från tokenfilen när den innehåller ett, så lämna oftast detta tomt",
+          "usable_battery_kwh": "Ställ in detta efter bilens batteripaket, utifrån den siffra det är känt som. Ett VIN anger bara modellfamiljen, så inget kan välja detta åt dig. Användbar kWh: G6 66.0 paket = 65.3 | G6 68.5 = 67.8 | G6 80.8 = 80.0 | G6 87.5 (MY24 NMC) = 87.5 | G9 78.2 = 75.8 | G9 79.0 = 78.2 | G9 93.1 (LFP, MY25 och framåt) = 92.2 | G9 98.0 (NMC, MY23-24) = 93.1. Endast uppskattningen av parkeringsförbrukning använder den.",
+          "command_mode": "Safe Plus är standard för en ny installation: status, klimat, ljus, låsning och laddning, medan upplåsning, bagageutrymme och fönster, OTA och råa kommandon är avstängda. Read only och Safe är snävare; Full access omfattar upplåsning. Custom erbjuds under Konfigurera.",
+          "allow_wake": "Att väcka en sovande bil kostar lite av dess 12V-batteri och används bara för att hämta ett färskt fullständigt tillstånd. Avfrågningar vid laddning och körning påverkas inte."
+        }
+      },
+      "command_mode": {
+        "title": "Vad får den här integrationen göra med bilen?",
+        "description": "Det här är ett tak för hela integrationen, inte en användarbehörighet: det gäller även automatiseringar, skript, röstassistenter och åtkomsttokens. Kontouppgifterna är desamma på alla nivåer – poängen är att en läckt token eller en delad dashboard inte ska kunna låsa upp bilen.\n\nDet hindrar inte en administratör (de kan ändra inställningen) och inte heller någon som redan kan läsa eller skriva din Home Assistant-konfiguration. Du kan ändra det senare under Konfigurera > Kommandobehörigheter.",
+        "data": {
+          "command_mode": "Kommandobehörigheter",
+          "allow_wake": "Låt integrationen väcka bilen"
+        },
+        "data_description": {
+          "command_mode": "Safe Plus är standard för en ny installation: status, klimat, ljus, låsning och laddning, medan upplåsning, bagageutrymme och fönster, OTA och råa kommandon är avstängda. Read only och Safe är snävare; Full access är vad integrationen gjorde innan det här alternativet fanns, och omfattar upplåsning. Välj Custom för att i stället välja per kapabilitetsgrupp.",
+          "allow_wake": "Att väcka en sovande bil kostar lite av dess 12V-batteri och används bara för att hämta ett färskt fullständigt tillstånd. Stänger du av detta blir integrationen helt passiv, till priset av mer föråldrade sensorer."
+        }
+      }
+    },
+    "error": {
+      "required": "Det här fältet är obligatoriskt",
+      "invalid_client_id": "Klient-ID måste ha formatet xmart:app:userId:deviceUUID",
+      "cannot_connect": "Det gick inte att ansluta till XPENGs MQTT-broker",
+      "login_failed": "Inloggningen misslyckades. Kontrollera din e-postadress och ditt lösenord.",
+      "invalid_code": "Det gick inte att hitta någon autentiseringskod i den URL:en. Kopiera hela URL:en från adressfältet efter inloggningen.",
+      "unknown": "Oväntat fel",
+      "captcha_gated": "XPENG ber om sin skjutreglage-captcha, och den utmaningen kan bara klaras av en människa som drar i den i en riktig webbläsare – Home Assistant kan inte göra det. Kör tools/onboard_email_login.py på en maskin med webbläsare (verktyget öppnar XPENGs skjutreglage; dra i det en gång) och lägg sedan till integrationen igen med metoden \"Import tokens from the onboarding tool\" och klistra in de två filerna den skrev.",
+      "invalid_tokens_json": "Det där är inte giltig JSON, så det kan inte vara den xpeng_tokens.json som onboardingverktyget skrev. Klistra in hela filen precis som verktyget sparade den.",
+      "invalid_tokens": "Tokendatan saknar något som krävs: den måste innehålla accessToken, och antingen ett mqttAccount clientId eller ett uid. Kör onboardingverktyget igen och använd filerna från samma körning.",
+      "invalid_tokens_path": "Det gick inte att läsa xpeng_tokens.json från den sökvägen på Home Assistant-värden. Kontrollera sökvägen, eller klistra in filinnehållet i stället.",
+      "invalid_tenant_json": "Det där är inte giltig JSON, så det kan inte vara den xpeng_tenant.json som onboardingverktyget skrev. Klistra in hela filen precis som verktyget sparade den.",
+      "invalid_tenant": "Tenantdatan saknar något som krävs: den måste innehålla deviceId och en keys-pool som inte är tom, och varje nyckel måste vara base64 i det format som onboardingverktyget skriver. Kör onboardingverktyget igen och använd tenantfilen från samma körning – tokens och tenant hör ihop som ett par.",
+      "invalid_tenant_path": "Det gick inte att läsa xpeng_tenant.json från den sökvägen på Home Assistant-värden. Kontrollera sökvägen, eller klistra in filinnehållet i stället.",
+      "invalid_vin": "Tokenfilen innehåller inget VIN, och inget angavs. Ange det 17 tecken långa VIN:t för det fordon som tokens tillhör."
+    },
+    "abort": {
+      "already_configured": "Det här fordonet är redan konfigurerat",
+      "reconfigured": "Inloggningsuppgifterna uppdaterades",
+      "reauth_successful": "Återautentiseringen lyckades. Inloggningsuppgifterna har uppdaterats.",
+      "no_credentials": "Inga sparade inloggningsuppgifter (e-postadress/lösenord). Konfigurera om integrationen.",
+      "login_failed": "Återautentiseringen misslyckades: XPENG avvisade inloggningsförsöket. Gör om onboarding med onboardingverktyget, ta sedan bort den här XPENG-posten och lägg till fordonet igen med metoden \"Import tokens from the onboarding tool\".",
+      "captcha_gated": "XPENG kräver sin skjutreglage-captcha för att logga in, och den utmaningen kan inte lösas inifrån Home Assistant. Kör tools/onboard_email_login.py på en maskin med webbläsare och dra i skjutreglaget en gång, ta sedan bort den här XPENG-posten och lägg till fordonet igen med metoden \"Import tokens from the onboarding tool\".",
+      "unknown": "Okänt fel",
+      "command_mode_unreachable": "Det här flödet tappade sin plats; börja om från Lägg till integration."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "XPENG-alternativ",
+        "data": {
+          "command_mode": "Kommandobehörigheter",
+          "allow_wake": "Låt integrationen väcka bilen",
+          "scan_interval": "MQTT-förfrågningsintervall (sekunder)",
+          "parked_scan_interval": "Förfrågningsintervall när bilen är parkerad (sekunder)",
+          "mqtt_refresh_interval": "Säkerhetsnätsintervall för MQTT-inloggningsuppgifter (sekunder)",
+          "rest_scan_interval": "Avfrågningsintervall för REST-API (sekunder)",
+          "mqtt_listener_enabled": "Aktivera MQTT-lyssnare",
+          "mqtt_listener_topics": "MQTT-ämnen att prenumerera på",
+          "mqtt_topic_discovery": "Aktivera MQTT-ämnesupptäckt",
+          "capture_enabled": "Spara råa MQTT-ramar till en fil",
+          "capture_path": "Katalog för datafångst",
+          "capture_topics": "Ämnen att fånga",
+          "token_file": "Tokenfil för inloggning (äldre)",
+          "tenant_file": "Cachefil för tenant (äldre)",
+          "cert_dir": "Certifikatkatalog",
+          "iccid": "TBox SIM-kortets ICCID",
+          "usable_battery_kwh": "Användbar batterikapacitet (kWh)",
+          "notification_poll_interval": "Avfrågningsintervall för meddelandecentret (sekunder)",
+          "teslamate_provider_enabled": "Aktivera TeslaMate API-leverantören",
+          "teslamate_provider_port": "Port för TeslaMate-leverantören",
+          "teslamate_provider_token": "Token för TeslaMate-leverantören",
+          "legacy_entities": "Behåll äldre knappar och dubblerade sensorer",
+          "charge_port_controls": "Reglage för motordriven laddport",
+          "enable_vehicle_card": "Installera och hantera dashboardkortet XPENG Vehicle"
+        },
+        "data_description": {
+          "command_mode": "Read only, Safe, Safe Plus och Full access är förval; Custom öppnar en andra skärm där du ställer in varje kapabilitetsgrupp till Full, Read only eller Disabled. En installation som aldrig har konfigurerats ligger kvar på Full access, så en ändring här kan inte oväntat ta bort en funktion från en automatisering.",
+          "allow_wake": "Påverkar bara väckning av en sovande bil för en fullständig tillståndsuppdatering. Avfrågningar vid laddning och körning påverkas inte eftersom bilen redan är vaken.",
+          "scan_interval": "Hur ofta fordonsstatusen efterfrågas via MQTT (10–3600 sekunder). Förfrågan tvingar bara fram en uppladdning medan bilen laddar eller kör, så den väcker aldrig en sovande bil; en laddningsindikation höjer avfrågningstakten till det här intervallet.",
+          "parked_scan_interval": "Passivt förfrågningsintervall när bilen är parkerad (60–7200 sekunder). Saktar även ned REST-avfrågningen när bilen är parkerad. Väcker aldrig bilen.",
+          "mqtt_refresh_interval": "Hur ofta en frånkopplad MQTT-klient försöker igen, och åldersgränsen bakom sensorn för inloggningsuppgifter (10–300 sekunder). Inloggningsuppgifter skapas vid behov före en anslutning; detta roterar aldrig en aktiv session.",
+          "rest_scan_interval": "Hur ofta REST-API:et avfrågas för fordonsbilden och XOS-versionen (60–3600 sekunder). Aviseringar från meddelandecentret har ett eget intervall.",
+          "mqtt_listener_enabled": "Prenumerera på ytterligare MQTT-ämnen utöver det primära ämnet för fordonsstatus",
+          "mqtt_listener_topics": "Ytterligare MQTT-ämnen att prenumerera på (ett per rad, eller kommaseparerade). Stöder MQTT-jokertecken (+ och #) och expanderar platshållarna för device-id och user-id som beskrivs under MQTT listener i dokumentationen – till exempel appens enhetskanal för push. Sensorn för lyssnaren registrerar huruvida brokern beviljade varje ämne.",
+          "mqtt_topic_discovery": "Försök automatiskt prenumerera på kända XPENG-brokerämnen (CanPack, StatPack m.fl.) för att upptäcka åtkomlig data",
+          "capture_enabled": "Skriv varje ram från ämnena nedan till en binär journal för avkodning offline, utan att avkoda eller uppdatera entiteter per ram.",
+          "capture_path": "Var datafångster skrivs. Använd en sökväg utanför /config – /share följer inte med i alla säkerhetskopior. Faller tillbaka på <config>/xpeng-can om katalogen inte kan skapas.",
+          "capture_topics": "Ett per rad eller kommaseparerade; MQTT-jokertecken (+, #) stöds. Lämna tomt för de kända CAN-ämnena.",
+          "token_file": "Sökväg till JSON med inloggningstokens från CLI-inloggningsskriptet. Behövs bara om du inte använder inloggning i HA.",
+          "tenant_file": "Sökväg till cachad tenantdata. Hämtas automatiskt om den saknas.",
+          "cert_dir": "Absolut sökväg till katalogen med ca-chain.crt, client-cert-0.pem och client-key.pem. Standard: /config/custom_components/xpeng/certs.",
+          "iccid": "TBox SIM-kortets ICCID. Valfritt: lämna det tomt så skapas inte sensorn; ange det och integrationen lägger till en diagnostiksensor som visar värdet. Inget API på appnivå exponerar det, så läs det på bilens skärm genom att slå *#9925*131# i head-unitens telefonnummerfält.",
+          "usable_battery_kwh": "Ställ in detta efter bilens batteripaket, utifrån den siffra det är känt som. Ett VIN anger bara modellfamiljen, så inget kan välja detta åt dig. Användbar kWh: G6 66.0 paket = 65.3 | G6 68.5 = 67.8 | G6 80.8 = 80.0 | G6 87.5 (MY24 NMC) = 87.5 | G9 78.2 = 75.8 | G9 79.0 = 78.2 | G9 93.1 (LFP, MY25 och framåt) = 92.2 | G9 98.0 (NMC, MY23-24) = 93.1. Endast uppskattningen av parkeringsförbrukning använder den.",
+          "notification_poll_interval": "Hur ofta XPENGs meddelandecenter avfrågas efter aviseringar. Sex förfrågningar per avfrågning, en per kategori; en avisering kan inte komma snabbare än så. Sensorn registrerar den faktiska fördröjningen som `delay_s`.",
+          "teslamate_provider_enabled": "Kör ett Tesla-kompatibelt API på porten nedan så att TeslaMate kan logga den här bilen som om den vore en Tesla. Endast läsning: inga kommandoändpunkter serveras, så detta kan varken flytta eller låsa upp bilen. Avstängt som standard.",
+          "teslamate_provider_port": "Porten som leverantören lyssnar på, nåbar från TeslaMate-containern eller värden. Får inte vara 8123 (Home Assistant självt). 8200 är standard så att den inte krockar med TeslaMates eget webbgränssnitt på 4000.",
+          "teslamate_provider_token": "Delad hemlighet. Kopiera den till TeslaMates miljövariabel TOKEN; TeslaMate skickar den som en bearer-token vid varje förfrågan och leverantören avvisar allt annat. Genereras vid första visning – ändrar du den måste TeslaMate loggas in igen.",
+          "legacy_entities": "Stäng av för sammanslagna entiteter för bagageutrymme, fönster och laddport samt en gemensam laddningsbrytare. Tar bort gamla parade knappar och dubblerade sensorer; uppdatera automatiseringarna först. Slå på för att återställa äldre entiteter.",
+          "charge_port_controls": "Stäng av för en manuell laddportslucka. Entiteten för laddporten rapporterar fortfarande status, men utan åtgärder för att öppna och stänga.",
+          "enable_vehicle_card": "Valfritt, avstängt som standard. Registrerar en delad kortresurs, uppdaterar den med integrationen och migrerar matchande äldre /local/-kortresurser. I YAML-resursläge laddas modulen globalt; ta bort en eventuell gammal manuell XPENG-resurs från YAML en gång. Stänger du av detta för alla fordon, eller tar bort det sista fordonet som valt in det, tas den hanterade resursen bort. Dashboardlayouter redigeras aldrig."
+        }
+      },
+      "groups": {
+        "title": "Kommandobehörigheter per kapabilitetsgrupp",
+        "description": "Varje grupp är oberoende. Full tillåter gruppens kommandon, Read only behåller dess entiteter och deras status men avvisar varje kommando, och Disabled skapar dem inte alls.\n\nGrupperna är indelade efter vad en åtgärd gör med bilen snarare än efter delsystem, vilket är varför låsning och upplåsning inte ligger i samma grupp: låsning tar bara bort åtkomst, upplåsning lämnar över bilen.",
+        "data": {
+          "queries": "Förfrågningar och data",
+          "comfort": "Komfort och klimat",
+          "lights": "Ljus och larm",
+          "charging": "Laddning",
+          "securing": "Säkrande åtgärder",
+          "access": "Åtkomståtgärder",
+          "power": "Tillbehörsström",
+          "firmware": "Firmware och OTA",
+          "advanced": "Avancerade och råa kommandon"
+        },
+        "data_description": {
+          "queries": "Tillståndsuppdateringar, väckning, X-Guard-förfrågan, OTA-kontroll, listning av klimatscheman, navigationskort, ögonblicksbildsfångst.",
+          "comfort": "Kupéklimat och lägen (inklusive husdjursläge och sterilisering), avfrostning, sätes- och rattvärme/ventilation samt klimatscheman. Fläkthastighetsstyrning ingår inte.",
+          "lights": "Blinka med strålkastarna, parkeringsljus, tuta.",
+          "charging": "Starta och stoppa laddning, laddningsgräns och båda laddportsluckorna.",
+          "securing": "Lås, stäng fönster, stäng bagageutrymmet, aktivera X-Guard. Dessa minskar bara åtkomsten till bilen, så de kan inte äventyra den.",
+          "access": "Lås upp, öppna bagageutrymmet, öppna eller vädra fönstren, avaktivera X-Guard. Det här är gruppen som lämnar över bilen.",
+          "power": "V2L-uttaget i bagageutrymmet och dess timer för automatisk avstängning.",
+          "firmware": "Starta, avbryta och aktivera automatiska OTA-uppgraderingar samt skicka uppgraderingsåterkoppling.",
+          "advanced": "send_raw_mqtt plus X-Combo-scener. Råa kommandon kan uttrycka vilken annan grupp som helst, inklusive upplåsning, och scener är ogenomskinliga program på serversidan – håll dessa på Full access om du inte vet varför."
+        }
+      }
+    },
+    "error": {
+      "cert_files_missing": "Ett eller flera certifikatfiler saknas i den katalogen. Den måste innehålla ca-chain.crt, client-cert-0.pem och client-key.pem.",
+      "token_required": "En token på minst 8 tecken krävs: leverantören är nåbar i nätverket och TeslaMate autentiserar sig med det här värdet.",
+      "invalid_port": "Ange en port mellan 1 och 65535.",
+      "port_conflict": "Port 8123 är Home Assistants egen HTTP-server. Välj en annan port, t.ex. 8200."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery_soc": {
+        "name": "Batteri"
+      },
+      "range": {
+        "name": "Räckvidd"
+      },
+      "odometer": {
+        "name": "Mätarställning"
+      },
+      "charging_state": {
+        "name": "Laddningsstatus"
+      },
+      "charge_power": {
+        "name": "Laddningseffekt"
+      },
+      "charge_voltage": {
+        "name": "Laddningsspänning"
+      },
+      "charge_current": {
+        "name": "Laddström"
+      },
+      "charge_rate": {
+        "name": "Laddningstakt"
+      },
+      "discharge_capacity": {
+        "name": "Urladdningskapacitet"
+      },
+      "charge_limit": {
+        "name": "Laddströmsgräns"
+      },
+      "max_charge": {
+        "name": "Maxladdning"
+      },
+      "charge_time_remaining": {
+        "name": "Återstående laddningstid"
+      },
+      "slow_charge_port": {
+        "name": "Laddport"
+      },
+      "fast_charge_added_range": {
+        "name": "Tillagd räckvidd vid snabbladdning"
+      },
+      "charge_schedule_start": {
+        "name": "Laddschemas start"
+      },
+      "charge_schedule_end": {
+        "name": "Laddschemas slut"
+      },
+      "cabin_temperature": {
+        "name": "Kupétemperatur"
+      },
+      "set_temperature": {
+        "name": "Inställd temperatur"
+      },
+      "hvac_fan_speed": {
+        "name": "Klimatfläkthastighet"
+      },
+      "latitude": {
+        "name": "Latitud"
+      },
+      "longitude": {
+        "name": "Longitud"
+      },
+      "speed": {
+        "name": "Hastighet"
+      },
+      "heading": {
+        "name": "Riktning"
+      },
+      "shift_state": {
+        "name": "Växelläge"
+      },
+      "vehicle_mode": {
+        "name": "Fordonsläge"
+      },
+      "car_power_state": {
+        "name": "Strömläge"
+      },
+      "tyre_pressure_fl": {
+        "name": "Däcktryck fram vänster"
+      },
+      "tyre_pressure_fr": {
+        "name": "Däcktryck fram höger"
+      },
+      "tyre_pressure_rl": {
+        "name": "Däcktryck bak vänster"
+      },
+      "tyre_pressure_rr": {
+        "name": "Däcktryck bak höger"
+      },
+      "driver_seat_heat": {
+        "name": "Förarsätesvärme"
+      },
+      "passenger_seat_heat": {
+        "name": "Passagerarsätesvärme"
+      },
+      "steering_wheel_heat": {
+        "name": "Rattvärme"
+      },
+      "trunk_power_timer": {
+        "name": "Tidsstyrning bagageuttag"
+      },
+      "last_charge_energy": {
+        "name": "Energi senaste laddning"
+      },
+      "last_charge_range": {
+        "name": "Räckvidd tillagd senaste laddning"
+      },
+      "last_charge_duration": {
+        "name": "Varaktighet senaste laddning"
+      },
+      "sentinel_sensitivity": {
+        "name": "Sentinel-känslighet"
+      },
+      "ota_status": {
+        "name": "OTA-status"
+      },
+      "ota_last_checked": {
+        "name": "OTA senast kontrollerad"
+      },
+      "hvac_quick_warm": {
+        "name": "Klimat snabbvärme"
+      },
+      "hvac_quick_cool": {
+        "name": "Klimat snabbkyla"
+      },
+      "range_type": {
+        "name": "Räckviddstyp"
+      },
+      "credential_age": {
+        "name": "Inloggningsuppgifternas ålder"
+      },
+      "last_renewal": {
+        "name": "Senast förnyad"
+      },
+      "last_update": {
+        "name": "Senaste datauppdatering"
+      },
+      "last_data_update": {
+        "name": "Tidsstämpel senaste data"
+      },
+      "xos_version": {
+        "name": "XOS-version"
+      },
+      "mqtt_listener": {
+        "name": "MQTT-lyssnare"
+      },
+      "mqtt_discovery": {
+        "name": "MQTT-upptäckt"
+      },
+      "capture": {
+        "name": "Rådatafångst"
+      },
+      "command_feedback": {
+        "name": "Kommandosvar"
+      },
+      "last_notification": {
+        "name": "Senaste avisering"
+      },
+      "maintenance": {
+        "name": "Nästa underhåll"
+      },
+      "xcombos": {
+        "name": "X-Combos"
+      },
+      "parked_consumption": {
+        "name": "Parkeringsförbrukning"
+      },
+      "ota_upgrade": {
+        "name": "OTA-uppdatering"
+      },
+      "beta_program": {
+        "name": "Betaprogram"
+      },
+      "remote_capabilities": {
+        "name": "Fjärrfunktioner"
+      },
+      "vehicle_extension": {
+        "name": "Fordonsutökning"
+      },
+      "left_comfort_preon_seconds": {
+        "name": "Nedräkning left-comfort-förvärmning"
+      },
+      "hvac_schedules": {
+        "name": "Klimatscheman"
+      },
+      "cdu_id": {
+        "name": "CDU-ID"
+      },
+      "cdu_partition": {
+        "name": "CDU-partition"
+      },
+      "vehicle_identity": {
+        "name": "Fordonsidentitet"
+      },
+      "iccid": {
+        "name": "TBox ICCID"
+      },
+      "weather": {
+        "name": "Väder vid fordonet"
+      },
+      "polling_status": {
+        "name": "Avfrågningsstatus"
+      },
+      "next_poll": {
+        "name": "Nästa avfrågning"
+      },
+      "account": {
+        "name": "Konto"
+      },
+      "driver_seat_ventilation": {
+        "name": "Förarsätesventilation"
+      },
+      "passenger_seat_ventilation": {
+        "name": "Passagerarsätesventilation"
+      },
+      "left_rear_seat_heat": {
+        "name": "Vänster baksätesvärme"
+      },
+      "right_rear_seat_heat": {
+        "name": "Höger baksätesvärme"
+      },
+      "left_rear_seat_ventilation": {
+        "name": "Vänster baksätesventilation"
+      },
+      "right_rear_seat_ventilation": {
+        "name": "Höger baksätesventilation"
+      }
+    },
+    "calendar": {
+      "hvac_schedule_calendar": {
+        "name": "Klimatschema"
+      }
+    },
+    "binary_sensor": {
+      "locked": {
+        "name": "Lås"
+      },
+      "charging": {
+        "name": "Laddning"
+      },
+      "plugged_in": {
+        "name": "Inkopplad"
+      },
+      "hvac_on": {
+        "name": "Klimat"
+      },
+      "hvac_auto": {
+        "name": "Klimat automatiskt"
+      },
+      "defrost": {
+        "name": "Avfrostning"
+      },
+      "mirror_heat": {
+        "name": "Spegelvärme"
+      },
+      "any_door_open": {
+        "name": "Dörrar"
+      },
+      "driver_door": {
+        "name": "Förardörr"
+      },
+      "passenger_door": {
+        "name": "Passagerardörr"
+      },
+      "rear_left_door": {
+        "name": "Bakre vänster dörr"
+      },
+      "rear_right_door": {
+        "name": "Bakre höger dörr"
+      },
+      "trunk": {
+        "name": "Bagageutrymme"
+      },
+      "bonnet": {
+        "name": "Motorhuv"
+      },
+      "any_window_open": {
+        "name": "Fönster"
+      },
+      "sentinel_mode": {
+        "name": "Sentinel-läge"
+      },
+      "trunk_power": {
+        "name": "Bagageuttag"
+      },
+      "xguard": {
+        "name": "X-Guard-kamera"
+      },
+      "temp_lock": {
+        "name": "Tillfälligt lås"
+      },
+      "credentials_valid": {
+        "name": "Inloggningsuppgifter giltiga"
+      },
+      "mqtt_connected": {
+        "name": "MQTT ansluten"
+      }
+    },
+    "device_tracker": {
+      "location": {
+        "name": "Plats"
+      }
+    },
+    "button": {
+      "flash_lights": {
+        "name": "Blinka strålkastarna"
+      },
+      "honk_horn": {
+        "name": "Tuta"
+      },
+      "close_windows": {
+        "name": "Stäng fönster"
+      },
+      "vent_windows": {
+        "name": "Vädra fönster"
+      },
+      "force_update": {
+        "name": "Tvinga uppdatering"
+      },
+      "wake_vehicle": {
+        "name": "Väck fordonet"
+      },
+      "query_xguard": {
+        "name": "Fråga X-Guard"
+      },
+      "open_trunk": {
+        "name": "Öppna bagageutrymmet"
+      },
+      "close_trunk": {
+        "name": "Stäng bagageutrymmet"
+      },
+      "start_charge": {
+        "name": "Starta laddning"
+      },
+      "stop_charge": {
+        "name": "Stoppa laddning"
+      },
+      "open_charge_port": {
+        "name": "Öppna laddporten"
+      },
+      "close_charge_port": {
+        "name": "Stäng laddporten"
+      },
+      "open_windows": {
+        "name": "Öppna fönster"
+      }
+    },
+    "switch": {
+      "sentinel_switch": {
+        "name": "X-Guard"
+      },
+      "trunk_power_switch": {
+        "name": "Bagageuttag"
+      },
+      "defrost_switch": {
+        "name": "Framruteavfrostning"
+      },
+      "parking_lights_switch": {
+        "name": "Parkeringsljus"
+      },
+      "auto_upgrade_switch": {
+        "name": "OTA-autouppgradering"
+      },
+      "charging": {
+        "name": "Laddning"
+      },
+      "climate_max_heating": {
+        "name": "Maximal värme"
+      },
+      "climate_max_cooling": {
+        "name": "Maximal kyla"
+      },
+      "climate_refresh": {
+        "name": "Uppfräschning"
+      },
+      "climate_sterilisation": {
+        "name": "Sterilisering"
+      },
+      "climate_ac_cleaning": {
+        "name": "AC-rengöring"
+      },
+      "climate_rear_defrost": {
+        "name": "Bakruteavfrostning"
+      },
+      "climate_pet_mode": {
+        "name": "Husdjursläge"
+      }
+    },
+    "number": {
+      "sentinel_sensitivity_control": {
+        "name": "Sentinel-känslighet"
+      },
+      "trunk_power_timer_control": {
+        "name": "Tidsstyrning bagageuttag"
+      },
+      "charge_limit_control": {
+        "name": "Laddningsgräns"
+      },
+      "fan_speed_control": {
+        "name": "Fläkthastighet"
+      }
+    },
+    "climate": {
+      "cabin_climate": {
+        "name": "Klimat"
+      }
+    },
+    "lock": {
+      "door_lock": {
+        "name": "Dörrlås"
+      }
+    },
+    "select": {
+      "driver_seat_heat_select": {
+        "name": "Förarsätesvärme"
+      },
+      "passenger_seat_heat_select": {
+        "name": "Passagerarsätesvärme"
+      },
+      "steering_wheel_heat_select": {
+        "name": "Rattvärme"
+      },
+      "driver_seat_ventilation_select": {
+        "name": "Förarsätesventilation"
+      },
+      "passenger_seat_ventilation_select": {
+        "name": "Passagerarsätesventilation"
+      },
+      "left_rear_seat_heat_select": {
+        "name": "Vänster baksätesvärme"
+      },
+      "right_rear_seat_heat_select": {
+        "name": "Höger baksätesvärme"
+      },
+      "left_rear_seat_ventilation_select": {
+        "name": "Vänster baksätesventilation"
+      },
+      "right_rear_seat_ventilation_select": {
+        "name": "Höger baksätesventilation"
+      }
+    },
+    "image": {
+      "vehicle_picture": {
+        "name": "Fordonsbild"
+      }
+    },
+    "cover": {
+      "trunk": {
+        "name": "Bagageutrymme"
+      },
+      "windows": {
+        "name": "Fönster"
+      },
+      "charge_port": {
+        "name": "Laddport"
+      }
+    }
+  },
+  "issues": {
+    "login_expired": {
+      "title": "XPENG-inloggningen har gått ut för {entry} (VIN {vin})",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Importera XPENG-tokens igen",
+            "description": "XPENG-inloggningsuppgifterna för **{entry}** (VIN `{vin}`) har gått ut och kunde inte förnyas automatiskt, så fordonets entiteter har slutat uppdateras.\n\nHome Assistant kan inte logga in själv: XPENG skyddar inloggningen med en skjutreglage-captcha som bara en människa kan klara genom att dra i den i en riktig webbläsare.\n\n**1.** Kör onboardingverktyget igen på en dator:\n\n```\npython3 tools/onboard_email_login.py \\\n    --email YOUR_EMAIL --password 'YOUR_PASSWORD' \\\n    --save --mqtt\n```\n\nDra i skjutreglaget en gång när webbläsaren öppnas.\n\n**2.** Klistra in de två filerna det skrev nedan och skicka sedan. Båda behövs: tenanten bär den enhetsidentitet som tokens förseglades mot.\n\nFull genomgång: https://github.com/xpengtoolkit/xpengtoolkit#setup",
+            "data": {
+              "tokens_json": "Innehållet i xpeng_tokens.json",
+              "tokens_path": "…eller dess sökväg på Home Assistant-värden",
+              "tenant_json": "Innehållet i xpeng_tenant.json",
+              "tenant_path": "…eller dess sökväg på Home Assistant-värden"
+            },
+            "data_description": {
+              "tokens_json": "Klistra in hela filen, inklusive json-omslaget.",
+              "tenant_json": "Klistra in hela filen. Den måste komma från samma körning som tokens."
+            }
+          }
+        },
+        "abort": {
+          "entry_gone": "Den här integrationsposten finns inte längre, så det fanns inget att reparera."
+        }
+      }
+    },
+    "credentials_rejected": {
+      "title": "XPENG-inloggningsuppgifterna avvisades för {entry} (VIN {vin})",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Importera XPENG-tokens igen",
+            "description": "XPENG avvisade de sparade inloggningsuppgifterna för **{entry}** (VIN `{vin}`), och de kunde inte förnyas automatiskt.\n\nDet betyder oftast att paret inte längre är giltigt, eller att tokens och tenant kommer från olika onboardingkörningar – de måste importeras tillsammans, eftersom tenanten registrerar den enhetsidentitet som tokens förseglades mot.\n\nKör `tools/onboard_email_login.py` igen och klistra sedan in det färska paret nedan. Se https://github.com/xpengtoolkit/xpengtoolkit#setup",
+            "data": {
+              "tokens_json": "Innehållet i xpeng_tokens.json",
+              "tokens_path": "…eller dess sökväg på Home Assistant-värden",
+              "tenant_json": "Innehållet i xpeng_tenant.json",
+              "tenant_path": "…eller dess sökväg på Home Assistant-värden"
+            },
+            "data_description": {
+              "tokens_json": "Klistra in hela filen, inklusive json-omslaget.",
+              "tenant_json": "Klistra in hela filen. Den måste komma från samma körning som tokens."
+            }
+          }
+        },
+        "abort": {
+          "entry_gone": "Den här integrationsposten finns inte längre, så det fanns inget att reparera."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "command_not_sent": {
+      "message": "Kommandot skickades inte eftersom XPENGs MQTT-anslutning inte är tillgänglig. Kontrollera MQTT ansluten och försök igen."
+    },
+    "invalid_seat_option": {
+      "message": "Sätesinställningen \"{option}\" stöds inte av den här kontrollen."
+    },
+    "charge_port_control_disabled": {
+      "message": "Fjärrstyrning av laddporten är avstängd för det här fordonet. Aktivera reglage för motordriven laddport bara om fordonet stöder det."
+    },
+    "invalid_climate_option": {
+      "message": "Klimatinställning som inte stöds: {option}."
+    },
+    "pet_mode_rear_seat_reminder": {
+      "message": "Husdjursläge kan inte aktiveras på distans medan påminnelse för baksätet är aktiverad i bilen (kod {code})."
+    },
+    "vehicle_command_rejected": {
+      "message": "Fordonet avvisade kommandot (kod {code}). Kontrollera fordonets status och kommandosvaret för mer information."
+    },
+    "command_not_confirmed": {
+      "message": "Fordonet bekräftade inte kommandot. Kontrollera anslutningen och fordonets aktuella status innan du försöker igen."
+    },
+    "command_response_invalid": {
+      "message": "Fordonet returnerade ett oväntat kommandosvar. Kontrollera kommandosvaret för mer information."
+    },
+    "charging_start_rejected": {
+      "message": "Laddningen kunde inte startas (fordonskod {code}). Kontrollera att kabeln är ansluten och att laddstationen är redo."
+    },
+    "fan_speed_unverified": {
+      "message": "Fjärrstyrning av fläkthastigheten har inte verifierats för det här fordonet."
+    },
+    "climate_mode_unavailable": {
+      "message": "{mode} har inte bekräftats som stödd av det här fordonet."
+    },
+    "climate_start_partial": {
+      "message": "Måltemperaturen uppdaterades, men det gick inte att bekräfta att luftkonditioneringen är på: {error}. Kontrollera fordonets status innan du försöker igen."
+    }
+  }
+}

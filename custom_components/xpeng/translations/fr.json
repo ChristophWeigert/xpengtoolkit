@@ -1,0 +1,785 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connectez votre véhicule XPENG",
+        "description": "Utilisez un compte XPENG DÉDIÉ partagé avec votre voiture — PAS votre compte principal. XPENG n'autorise qu'une seule session active par compte\u00a0: vous connecter ici déconnecte donc l'application de votre téléphone à répétition.\n\nLa plupart des comptes sont bloqués par le captcha à glissière imposé par XPENG, que cet écran ne peut pas afficher\u00a0; la méthode «\u00a0Import tokens from the onboarding tool\u00a0» est donc celle qui aboutit toujours.",
+        "data": {
+          "auth_method": "Méthode de connexion"
+        },
+        "data_description": {
+          "auth_method": "L'importation de jetons est le choix fiable — voir ci-dessus. L'écran suivant ne demande le VIN que si la méthode choisie en a besoin."
+        }
+      },
+      "email_code": {
+        "title": "Vérification par e-mail",
+        "description": "Un code de vérification a été envoyé à {email}. Saisissez le code ci-dessous.",
+        "data": {
+          "email_code": "Code de vérification",
+          "usable_battery_kwh": "Capacité utile de la batterie (kWh)",
+          "command_mode": "Autorisations de commande",
+          "allow_wake": "Autoriser l'intégration à réveiller la voiture"
+        },
+        "data_description": {
+          "email_code": "Code à 6 chiffres envoyé à votre adresse e-mail",
+          "usable_battery_kwh": "Réglez cette valeur sur la capacité de la batterie de votre voiture, d'après le chiffre qui la caractérise. Un VIN ne donne que la famille du modèle, donc rien ne peut la choisir à votre place. kWh utiles\u00a0: batterie G6 66,0 = 65,3 | G6 68,5 = 67,8 | G6 80,8 = 80,0 | G6 87,5 (NMC MY24) = 87,5 | G9 78,2 = 75,8 | G9 79,0 = 78,2 | G9 93,1 (LFP, MY25 et après) = 92,2 | G9 98,0 (NMC, MY23-24) = 93,1. Seule l'estimation de la consommation en stationnement l'utilise.",
+          "command_mode": "Safe Plus est la valeur par défaut d'une nouvelle installation\u00a0: état, climatisation, éclairage, verrouillage et charge, le déverrouillage, le coffre et les vitres, l'OTA et les commandes brutes restant désactivés. Read only et Safe sont plus restrictifs\u00a0; Full access inclut le déverrouillage. Custom est proposé sous Configurer.",
+          "allow_wake": "Réveiller une voiture en veille consomme un peu de sa batterie 12 V et sert uniquement à récupérer un état complet à jour. Les relevés de charge et de conduite ne sont pas affectés."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Réauthentification XPENG",
+        "description": "Vos jetons de connexion XPENG ont expiré. Un code de vérification a été envoyé à {email}.",
+        "data": {
+          "email_code": "Code de vérification"
+        },
+        "data_description": {
+          "email_code": "Code à 6 chiffres envoyé à votre adresse e-mail"
+        }
+      },
+      "reconfigure": {
+        "title": "Mettre à jour les identifiants XPENG",
+        "description": "Mettez à jour manuellement les identifiants MQTT. Fermez l'application XPENG sur votre téléphone avant de vous connecter.",
+        "data": {
+          "client_id": "ID client MQTT",
+          "password": "Mot de passe MQTT",
+          "server": "Serveur MQTT (hôte:port)"
+        }
+      },
+      "google": {
+        "title": "Se connecter avec Google",
+        "description": "Connectez-vous avec Google pour renouveler les identifiants XPENG.\n\n**Cette méthode n'échappe pas au captcha.** XPENG applique le même captcha à glissière au compte après la connexion Google, et ce défi ne peut pas être résolu depuis Home Assistant. Si la connexion est refusée avec une erreur de captcha, exécutez plutôt tools/onboard_email_login.py et utilisez la méthode «\u00a0Import tokens from the onboarding tool\u00a0».\n\n**Si un navigateur ne peut pas transmettre le rappel** (sur un Mac où l'application XPENG est installée, le lien ouvre l'application\u00a0; sans elle, Google renvoie vers la page d'accueil et le code est perdu), exécutez plutôt l'assistant\u00a0:\n\n`swift tools/oauth_capture.swift`\n\nIl ouvre la fenêtre de connexion du système, capture le rappel et affiche `VERIFIER:` et `CALLBACK:`. Collez l'URL de rappel ci-dessous et le vérificateur dans le second champ.\n\n**Sinon**, ouvrez ce lien et connectez-vous, puis collez l'URL de redirection\u00a0:\n\n{url}",
+        "data": {
+          "redirect_url": "Collez l'URL de redirection ici",
+          "code_verifier": "Vérificateur PKCE (depuis tools/oauth_capture.swift)",
+          "vin": "Numéro d'identification du véhicule (VIN)",
+          "usable_battery_kwh": "Capacité utile de la batterie (kWh)",
+          "command_mode": "Autorisations de commande",
+          "allow_wake": "Autoriser l'intégration à réveiller la voiture"
+        },
+        "data_description": {
+          "redirect_url": "L'URL de rappel complète, ou le code seul",
+          "code_verifier": "Laissez vide sauf si vous avez capturé le rappel avec l'assistant de connexion du système",
+          "vin": "Le VIN à 17 caractères de votre véhicule — il détermine les ID d'entité de cette entrée.",
+          "usable_battery_kwh": "Réglez cette valeur sur la capacité de la batterie de votre voiture, d'après le chiffre qui la caractérise. Un VIN ne donne que la famille du modèle, donc rien ne peut la choisir à votre place. kWh utiles\u00a0: batterie G6 66,0 = 65,3 | G6 68,5 = 67,8 | G6 80,8 = 80,0 | G6 87,5 (NMC MY24) = 87,5 | G9 78,2 = 75,8 | G9 79,0 = 78,2 | G9 93,1 (LFP, MY25 et après) = 92,2 | G9 98,0 (NMC, MY23-24) = 93,1. Seule l'estimation de la consommation en stationnement l'utilise.",
+          "command_mode": "Safe Plus est la valeur par défaut d'une nouvelle installation\u00a0: état, climatisation, éclairage, verrouillage et charge, le déverrouillage, le coffre et les vitres, l'OTA et les commandes brutes restant désactivés. Read only et Safe sont plus restrictifs\u00a0; Full access inclut le déverrouillage. Custom est proposé sous Configurer.",
+          "allow_wake": "Réveiller une voiture en veille consomme un peu de sa batterie 12 V et sert uniquement à récupérer un état complet à jour. Les relevés de charge et de conduite ne sont pas affectés."
+        }
+      },
+      "email_password": {
+        "title": "Connexion par e-mail",
+        "description": "Utilisez un compte XPENG DÉDIÉ partagé avec votre voiture — n'utilisez PAS votre compte principal. Se connecter ici crée un second client sur le même compte, et XPENG n'autorise qu'une seule session active\u00a0: l'application de votre téléphone sera donc déconnectée à répétition. Créez un nouveau compte XPENG, partagez la voiture avec ce compte depuis votre compte principal dans l'application, puis connectez-vous ici avec celui-ci.\n\nXPENG bloque la plupart des comptes avec un captcha à glissière, et ce défi ne peut être résolu que par une personne le faisant glisser dans un vrai navigateur — Home Assistant ne peut pas le faire. Si cette connexion est refusée pour cause de captcha, arrêtez-vous ici\u00a0: exécutez tools/onboard_email_login.py sur une machine disposant d'un navigateur et utilisez plutôt la méthode «\u00a0Import tokens from the onboarding tool\u00a0».",
+        "data": {
+          "xpeng_email": "Adresse e-mail",
+          "xpeng_password": "Mot de passe",
+          "vin": "Numéro d'identification du véhicule (VIN)"
+        },
+        "data_description": {
+          "xpeng_email": "L'adresse e-mail de votre compte XPENG",
+          "xpeng_password": "Le mot de passe de votre compte XPENG",
+          "vin": "Le VIN à 17 caractères de votre véhicule. Il détermine les ID d'entité de cette entrée, donc un VIN erroné crée un second jeu d'entités qui ne pointe vers rien."
+        }
+      },
+      "import_tokens": {
+        "title": "Importer les jetons d'onboarding",
+        "description": "Les deux fichiers doivent provenir de la MÊME exécution de l'outil d'onboarding\u00a0: le tenant contient le deviceId auquel les jetons sont scellés, donc une paire issue d'exécutions différentes est rejetée.\n\nSur une machine dotée d'un navigateur\u00a0: `pip install cryptography`, extrayez les certificats mTLS depuis un APK (étape 2), puis exécutez `python3 tools/onboard_email_login.py --email YOU@example.com --save --mqtt` — il demande le mot de passe et nécessite de faire glisser le curseur une fois. Ou laissez l'application de renouvellement générer la paire avec le solveur, ce qui ne nécessite aucun ordinateur de bureau.\n\nCollez les deux fichiers ci-dessous, ou indiquez leur chemin s'ils se trouvent déjà sur cet hôte.\n\n{pair_search}",
+        "data": {
+          "tokens_json": "Contenu de xpeng_tokens.json",
+          "tokens_path": "Chemin de xpeng_tokens.json (au lieu de le coller)",
+          "tenant_json": "Contenu de xpeng_tenant.json",
+          "tenant_path": "Chemin de xpeng_tenant.json (au lieu de le coller)",
+          "vin": "Numéro d'identification du véhicule (VIN)",
+          "usable_battery_kwh": "Capacité utile de la batterie (kWh)",
+          "command_mode": "Autorisations de commande",
+          "allow_wake": "Autoriser l'intégration à réveiller la voiture"
+        },
+        "data_description": {
+          "tokens_json": "Le fichier entier, enveloppe json comprise",
+          "tenant_json": "Le fichier entier — il contient le deviceId auquel les jetons sont scellés",
+          "vin": "Lu depuis le fichier de jetons lorsqu'il en contient un\u00a0; laissez donc généralement ce champ vide",
+          "usable_battery_kwh": "Réglez cette valeur sur la capacité de la batterie de votre voiture, d'après le chiffre qui la caractérise. Un VIN ne donne que la famille du modèle, donc rien ne peut la choisir à votre place. kWh utiles\u00a0: batterie G6 66,0 = 65,3 | G6 68,5 = 67,8 | G6 80,8 = 80,0 | G6 87,5 (NMC MY24) = 87,5 | G9 78,2 = 75,8 | G9 79,0 = 78,2 | G9 93,1 (LFP, MY25 et après) = 92,2 | G9 98,0 (NMC, MY23-24) = 93,1. Seule l'estimation de la consommation en stationnement l'utilise.",
+          "command_mode": "Safe Plus est la valeur par défaut d'une nouvelle installation\u00a0: état, climatisation, éclairage, verrouillage et charge, le déverrouillage, le coffre et les vitres, l'OTA et les commandes brutes restant désactivés. Read only et Safe sont plus restrictifs\u00a0; Full access inclut le déverrouillage. Custom est proposé sous Configurer.",
+          "allow_wake": "Réveiller une voiture en veille consomme un peu de sa batterie 12 V et sert uniquement à récupérer un état complet à jour. Les relevés de charge et de conduite ne sont pas affectés."
+        }
+      },
+      "command_mode": {
+        "title": "Que peut faire cette intégration à la voiture\u00a0?",
+        "description": "Il s'agit d'un plafond pour toute l'intégration, pas d'une autorisation par utilisateur\u00a0: il s'applique aussi aux automatisations, aux scripts, aux assistants vocaux et aux jetons d'accès. Les identifiants du compte sont identiques à tous les niveaux — l'objectif est qu'un jeton divulgué ou un tableau de bord partagé ne puisse pas déverrouiller la voiture.\n\nCela n'arrête pas un administrateur (il peut modifier ce réglage) et cela n'arrête pas non plus quiconque peut déjà lire ou écrire votre configuration Home Assistant. Vous pouvez le modifier plus tard sous Configurer > Autorisations de commande.",
+        "data": {
+          "command_mode": "Autorisations de commande",
+          "allow_wake": "Autoriser l'intégration à réveiller la voiture"
+        },
+        "data_description": {
+          "command_mode": "Safe Plus est la valeur par défaut d'une nouvelle installation\u00a0: état, climatisation, éclairage, verrouillage et charge, le déverrouillage, le coffre et les vitres, l'OTA et les commandes brutes restant désactivés. Read only et Safe sont plus restrictifs\u00a0; Full access correspond à ce que faisait l'intégration avant l'existence de cette option et inclut le déverrouillage. Choisissez Custom pour choisir par groupe de capacités.",
+          "allow_wake": "Réveiller une voiture en veille consomme un peu de sa batterie 12 V et sert uniquement à récupérer un état complet à jour. Désactiver cette option rend l'intégration strictement passive, au prix de capteurs moins à jour."
+        }
+      }
+    },
+    "error": {
+      "required": "Ce champ est obligatoire",
+      "invalid_client_id": "L'ID client doit être au format xmart:app:userId:deviceUUID",
+      "cannot_connect": "Impossible de se connecter au courtier MQTT XPENG",
+      "login_failed": "Échec de la connexion. Vérifiez votre adresse e-mail et votre mot de passe.",
+      "invalid_code": "Aucun code d'authentification trouvé dans cette URL. Copiez l'URL complète depuis la barre d'adresse après vous être connecté.",
+      "unknown": "Erreur inattendue",
+      "captcha_gated": "XPENG demande son captcha à glissière, et ce défi ne peut être résolu que par une personne le faisant glisser dans un vrai navigateur — Home Assistant ne peut pas le faire. Exécutez tools/onboard_email_login.py sur une machine disposant d'un navigateur (l'outil ouvre le curseur XPENG\u00a0; faites-le glisser une fois), puis ajoutez à nouveau l'intégration avec la méthode «\u00a0Import tokens from the onboarding tool\u00a0» et collez les deux fichiers qu'il a écrits.",
+      "invalid_tokens_json": "Ce n'est pas du JSON valide, ce ne peut donc pas être le xpeng_tokens.json qu'a écrit l'outil d'onboarding. Collez le fichier entier exactement tel que l'outil l'a enregistré.",
+      "invalid_tokens": "Il manque quelque chose d'obligatoire dans les données de jeton\u00a0: elles doivent contenir accessToken, ainsi qu'un clientId mqttAccount ou un uid. Réexécutez l'outil d'onboarding et utilisez les fichiers de cette même exécution.",
+      "invalid_tokens_path": "Impossible de lire ce chemin xpeng_tokens.json sur l'hôte Home Assistant. Vérifiez le chemin, ou collez plutôt le contenu du fichier.",
+      "invalid_tenant_json": "Ce n'est pas du JSON valide, ce ne peut donc pas être le xpeng_tenant.json qu'a écrit l'outil d'onboarding. Collez le fichier entier exactement tel que l'outil l'a enregistré.",
+      "invalid_tenant": "Il manque quelque chose d'obligatoire dans les données de tenant\u00a0: elles doivent contenir deviceId et un pool de clés non vide, et chaque clé doit être en base64 au format écrit par l'outil d'onboarding. Réexécutez l'outil d'onboarding et utilisez le fichier de tenant de cette même exécution — les jetons et le tenant forment une paire assortie.",
+      "invalid_tenant_path": "Impossible de lire ce chemin xpeng_tenant.json sur l'hôte Home Assistant. Vérifiez le chemin, ou collez plutôt le contenu du fichier.",
+      "invalid_vin": "Le fichier de jetons ne contient aucun VIN et aucun n'a été saisi. Saisissez le VIN à 17 caractères du véhicule auquel ces jetons appartiennent."
+    },
+    "abort": {
+      "already_configured": "Ce véhicule est déjà configuré",
+      "reconfigured": "Identifiants mis à jour avec succès",
+      "reauth_successful": "Réauthentification réussie. Identifiants actualisés.",
+      "no_credentials": "Aucune adresse e-mail ni mot de passe enregistrés. Veuillez reconfigurer l'intégration.",
+      "login_failed": "Échec de la réauthentification\u00a0: XPENG a refusé la tentative de connexion. Relancez l'outil d'onboarding, puis supprimez cette entrée XPENG et ajoutez le véhicule à nouveau avec la méthode «\u00a0Import tokens from the onboarding tool\u00a0».",
+      "captcha_gated": "XPENG exige son captcha à glissière pour se connecter, et ce défi ne peut pas être résolu depuis Home Assistant. Exécutez tools/onboard_email_login.py sur une machine disposant d'un navigateur et faites glisser le curseur une fois, puis supprimez cette entrée XPENG et ajoutez le véhicule à nouveau avec la méthode «\u00a0Import tokens from the onboarding tool\u00a0».",
+      "unknown": "Erreur inconnue",
+      "command_mode_unreachable": "Ce flux a perdu son contexte\u00a0; recommencez depuis Ajouter une intégration."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options XPENG",
+        "data": {
+          "command_mode": "Autorisations de commande",
+          "allow_wake": "Autoriser l'intégration à réveiller la voiture",
+          "scan_interval": "Intervalle d'interrogation MQTT (secondes)",
+          "parked_scan_interval": "Intervalle d'interrogation en stationnement (secondes)",
+          "mqtt_refresh_interval": "Intervalle de sécurité des identifiants MQTT (secondes)",
+          "rest_scan_interval": "Intervalle d'interrogation de l'API REST (secondes)",
+          "mqtt_listener_enabled": "Activer l'écouteur MQTT",
+          "mqtt_listener_topics": "Sujets MQTT auxquels s'abonner",
+          "mqtt_topic_discovery": "Activer la découverte des sujets MQTT",
+          "capture_enabled": "Enregistrer les trames MQTT brutes dans un fichier",
+          "capture_path": "Répertoire de capture",
+          "capture_topics": "Sujets à capturer",
+          "token_file": "Fichier de jetons de connexion (hérité)",
+          "tenant_file": "Fichier de cache du tenant (hérité)",
+          "cert_dir": "Répertoire des certificats",
+          "iccid": "ICCID de la SIM TBox",
+          "usable_battery_kwh": "Capacité utile de la batterie (kWh)",
+          "notification_poll_interval": "Intervalle d'interrogation du centre de messages (secondes)",
+          "teslamate_provider_enabled": "Activer le fournisseur d'API TeslaMate",
+          "teslamate_provider_port": "Port du fournisseur TeslaMate",
+          "teslamate_provider_token": "Jeton du fournisseur TeslaMate",
+          "legacy_entities": "Conserver les boutons hérités et les capteurs en double",
+          "charge_port_controls": "Commandes de la trappe de recharge motorisée",
+          "enable_vehicle_card": "Installer et gérer la carte de tableau de bord XPENG Vehicle"
+        },
+        "data_description": {
+          "command_mode": "Read only, Safe, Safe Plus et Full access sont des préréglages\u00a0; Custom ouvre un second écran et vous permet de régler chaque groupe de capacités sur Full, Read only ou Disabled. Une installation qui n'a jamais été configurée reste en Full access, donc ce changement ne peut pas retirer une capacité à une automatisation à l'improviste.",
+          "allow_wake": "Cela ne concerne que le réveil d'une voiture en veille pour une mise à jour complète de l'état. Les relevés de charge et de conduite ne sont pas affectés, car la voiture est déjà éveillée.",
+          "scan_interval": "Fréquence d'interrogation de l'état du véhicule via MQTT (10 à 3600 secondes). L'interrogation ne force le téléversement que pendant la charge ou la conduite, elle ne réveille donc jamais une voiture en veille\u00a0; un indice de charge porte l'interrogation à cette cadence.",
+          "parked_scan_interval": "Intervalle d'interrogation passive en stationnement (60 à 7200 secondes). Ralentit aussi l'interrogation REST en stationnement. Ne réveille jamais la voiture.",
+          "mqtt_refresh_interval": "Cadence de nouvelle tentative pour un client MQTT déconnecté, et limite d'âge derrière le capteur des identifiants (10 à 300 secondes). Les identifiants sont générés à la demande avant une connexion\u00a0; cela ne renouvelle jamais une session active.",
+          "rest_scan_interval": "Fréquence d'interrogation de l'API REST pour l'image du véhicule et la version de XOS (60 à 3600 secondes). Les notifications du centre de messages ont leur propre intervalle.",
+          "mqtt_listener_enabled": "S'abonner à des sujets MQTT supplémentaires au-delà du sujet principal d'état du véhicule",
+          "mqtt_listener_topics": "Sujets MQTT supplémentaires auxquels s'abonner (un par ligne, ou séparés par des virgules). Prend en charge les jokers MQTT (+ et #) et développe les espaces réservés d'ID d'appareil et d'ID d'utilisateur décrits à la section «\u00a0Écouteur MQTT\u00a0» de la documentation — par exemple le canal de notifications push de l'application. Le capteur de l'écouteur indique si le courtier a accordé chaque sujet.",
+          "mqtt_topic_discovery": "Essayer automatiquement de s'abonner aux sujets connus du courtier XPENG (CanPack, StatPack, etc.) afin de découvrir les données accessibles",
+          "capture_enabled": "Écrire chaque trame des sujets ci-dessous dans un journal binaire pour un décodage hors ligne, sans décoder ni mettre à jour les entités à chaque trame.",
+          "capture_path": "Où les captures sont écrites. Utilisez un chemin hors de /config — /share n'est pas inclus dans toutes les sauvegardes. Revient à <config>/xpeng-can si le répertoire ne peut pas être créé.",
+          "capture_topics": "Un par ligne ou séparés par des virgules\u00a0; les jokers MQTT (+, #) sont pris en charge. Laissez vide pour les sujets CAN connus.",
+          "token_file": "Chemin du JSON de jetons de connexion produit par le script de connexion en ligne de commande. Nécessaire uniquement si vous n'utilisez pas la connexion intégrée à Home Assistant.",
+          "tenant_file": "Chemin des données de tenant mises en cache. Récupérées automatiquement si elles sont absentes.",
+          "cert_dir": "Chemin absolu du répertoire contenant ca-chain.crt, client-cert-0.pem et client-key.pem. Par défaut\u00a0: /config/custom_components/xpeng/certs.",
+          "iccid": "ICCID de la SIM TBox. Facultatif\u00a0: laissez vide et ce capteur n'est pas créé\u00a0; renseignez-le et l'intégration ajoute un capteur de diagnostic affichant la valeur. Aucune API de niveau application ne l'expose, lisez-la donc sur l'écran de la voiture en saisissant *#9925*131# dans le composeur de l'unité centrale.",
+          "usable_battery_kwh": "Réglez cette valeur sur la capacité de la batterie de votre voiture, d'après le chiffre qui la caractérise. Un VIN ne donne que la famille du modèle, donc rien ne peut la choisir à votre place. kWh utiles\u00a0: batterie G6 66,0 = 65,3 | G6 68,5 = 67,8 | G6 80,8 = 80,0 | G6 87,5 (NMC MY24) = 87,5 | G9 78,2 = 75,8 | G9 79,0 = 78,2 | G9 93,1 (LFP, MY25 et après) = 92,2 | G9 98,0 (NMC, MY23-24) = 93,1. Seule l'estimation de la consommation en stationnement l'utilise.",
+          "notification_poll_interval": "Fréquence d'interrogation du centre de messages XPENG pour les notifications. Six requêtes par interrogation, une par catégorie\u00a0; une notification ne peut pas arriver plus tôt. Le capteur enregistre le délai réel sous `delay_s`.",
+          "teslamate_provider_enabled": "Exécuter une API compatible Tesla sur le port ci-dessous afin que TeslaMate puisse enregistrer cette voiture comme si c'était une Tesla. En lecture seule\u00a0: aucune route de commande n'est servie, cette option ne peut donc ni déplacer ni déverrouiller la voiture. Désactivée par défaut.",
+          "teslamate_provider_port": "Port sur lequel le fournisseur écoute, joignable depuis le conteneur ou l'hôte TeslaMate. Ne doit pas être 8123 (Home Assistant lui-même). 8200 est la valeur par défaut pour éviter tout conflit avec l'interface web de TeslaMate sur 4000.",
+          "teslamate_provider_token": "Secret partagé. Copiez-le dans la variable d'environnement TOKEN de TeslaMate\u00a0; TeslaMate l'envoie comme jeton porteur à chaque requête et le fournisseur rejette toute autre valeur. Généré à la première consultation — si vous le changez, TeslaMate doit se reconnecter.",
+          "legacy_entities": "Désactivez pour des entités de volet et un interrupteur de charge unifiés. Retire les anciens boutons appairés et les capteurs en double\u00a0; mettez d'abord à jour les automatisations. Réactivez pour restaurer les entités héritées.",
+          "charge_port_controls": "Désactivez pour une trappe de recharge manuelle. L'entité de volet de la trappe de recharge continue de remonter son état, sans actions d'ouverture ni de fermeture.",
+          "enable_vehicle_card": "Facultative, désactivée par défaut. Enregistre une ressource de carte partagée, la met à jour avec l'intégration et migre les ressources de carte /local/ héritées correspondantes. En mode ressource YAML, elle charge le module globalement\u00a0; supprimez une fois toute ancienne ressource XPENG manuelle du YAML. Désactiver cette option pour tous les véhicules, ou retirer le dernier véhicule l'ayant activée, supprime la ressource gérée. Les dispositions des tableaux de bord ne sont jamais modifiées."
+        }
+      },
+      "groups": {
+        "title": "Autorisations de commande par groupe de capacités",
+        "description": "Chaque groupe est indépendant. Full autorise ses commandes, Read only conserve ses entités et leur état mais refuse toute commande, et Disabled ne les crée pas du tout.\n\nLes groupes sont divisés selon ce qu'une action fait à la voiture plutôt que par sous-système\u00a0: c'est pourquoi le verrouillage et le déverrouillage ne sont pas dans le même groupe — le verrouillage ne fait que retirer l'accès, le déverrouillage livre la voiture.",
+        "data": {
+          "queries": "Requêtes et données",
+          "comfort": "Confort et climatisation",
+          "lights": "Éclairage et alertes",
+          "charging": "Recharge",
+          "securing": "Actions de sécurisation",
+          "access": "Actions d'accès",
+          "power": "Alimentation des accessoires",
+          "firmware": "Micrologiciel et OTA",
+          "advanced": "Commandes avancées et brutes"
+        },
+        "data_description": {
+          "queries": "Mises à jour d'état, réveil, interrogation de X-Guard, vérification OTA, liste des programmations de climatisation, cartes de navigation, capture d'instantanés.",
+          "comfort": "Climatisation et modes de l'habitacle (y compris le mode animal et la stérilisation), dégivrage, chauffage et ventilation des sièges et du volant, et programmations de climatisation. Le réglage de la vitesse de ventilation est exclu.",
+          "lights": "Appel de phares, feux de stationnement, klaxon.",
+          "charging": "Démarrer et arrêter la charge, limite de charge, et les deux trappes de recharge.",
+          "securing": "Verrouiller, fermer les vitres, fermer le coffre, armer X-Guard. Ces commandes ne font que réduire l'accès à la voiture, elles ne peuvent donc pas la compromettre.",
+          "access": "Déverrouiller, ouvrir le coffre, ouvrir ou entrouvrir les vitres, désarmer X-Guard. C'est le groupe qui remet la voiture entre d'autres mains.",
+          "power": "La prise V2L dans le coffre et sa minuterie d'arrêt automatique.",
+          "firmware": "Déclencher, annuler et activer les mises à jour OTA automatiques, et envoyer un retour sur la mise à jour.",
+          "advanced": "send_raw_mqtt ainsi que les scènes X-Combo. Les commandes brutes peuvent exprimer n'importe quel autre groupe, y compris le déverrouillage, et les scènes sont des programmes opaques côté serveur — gardez-les en Full access sauf si vous savez pourquoi."
+        }
+      }
+    },
+    "error": {
+      "cert_files_missing": "Un ou plusieurs fichiers de certificat manquent dans ce répertoire. Il doit contenir ca-chain.crt, client-cert-0.pem et client-key.pem.",
+      "token_required": "Un jeton d'au moins 8 caractères est requis\u00a0: le fournisseur est joignable sur le réseau et TeslaMate s'authentifie avec cette valeur.",
+      "invalid_port": "Saisissez un port entre 1 et 65535.",
+      "port_conflict": "Le port 8123 est le serveur HTTP de Home Assistant lui-même. Choisissez un autre port, par exemple 8200."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery_soc": {
+        "name": "Batterie"
+      },
+      "range": {
+        "name": "Autonomie"
+      },
+      "odometer": {
+        "name": "Compteur kilométrique"
+      },
+      "charging_state": {
+        "name": "État de charge"
+      },
+      "charge_power": {
+        "name": "Puissance de charge"
+      },
+      "charge_voltage": {
+        "name": "Tension de charge"
+      },
+      "charge_current": {
+        "name": "Courant de charge"
+      },
+      "charge_rate": {
+        "name": "Vitesse de charge"
+      },
+      "discharge_capacity": {
+        "name": "Capacité de décharge"
+      },
+      "charge_limit": {
+        "name": "Limite de courant de charge"
+      },
+      "max_charge": {
+        "name": "Charge maximale"
+      },
+      "charge_time_remaining": {
+        "name": "Temps de charge restant"
+      },
+      "slow_charge_port": {
+        "name": "Trappe de recharge"
+      },
+      "fast_charge_added_range": {
+        "name": "Autonomie ajoutée en charge rapide"
+      },
+      "charge_schedule_start": {
+        "name": "Début de la programmation de charge"
+      },
+      "charge_schedule_end": {
+        "name": "Fin de la programmation de charge"
+      },
+      "cabin_temperature": {
+        "name": "Température de l'habitacle"
+      },
+      "set_temperature": {
+        "name": "Température de consigne"
+      },
+      "hvac_fan_speed": {
+        "name": "Vitesse de ventilation"
+      },
+      "latitude": {
+        "name": "Latitude"
+      },
+      "longitude": {
+        "name": "Longitude"
+      },
+      "speed": {
+        "name": "Vitesse"
+      },
+      "heading": {
+        "name": "Cap"
+      },
+      "shift_state": {
+        "name": "Position du sélecteur"
+      },
+      "vehicle_mode": {
+        "name": "Mode du véhicule"
+      },
+      "car_power_state": {
+        "name": "État d'alimentation"
+      },
+      "tyre_pressure_fl": {
+        "name": "Pression pneu avant gauche"
+      },
+      "tyre_pressure_fr": {
+        "name": "Pression pneu avant droit"
+      },
+      "tyre_pressure_rl": {
+        "name": "Pression pneu arrière gauche"
+      },
+      "tyre_pressure_rr": {
+        "name": "Pression pneu arrière droit"
+      },
+      "driver_seat_heat": {
+        "name": "Siège conducteur chauffant"
+      },
+      "passenger_seat_heat": {
+        "name": "Siège passager chauffant"
+      },
+      "steering_wheel_heat": {
+        "name": "Volant chauffant"
+      },
+      "trunk_power_timer": {
+        "name": "Minuterie d'alimentation du coffre"
+      },
+      "last_charge_energy": {
+        "name": "Énergie de la dernière charge"
+      },
+      "last_charge_range": {
+        "name": "Autonomie ajoutée à la dernière charge"
+      },
+      "last_charge_duration": {
+        "name": "Durée de la dernière charge"
+      },
+      "sentinel_sensitivity": {
+        "name": "Sensibilité du mode sentinelle"
+      },
+      "ota_status": {
+        "name": "État OTA"
+      },
+      "ota_last_checked": {
+        "name": "Dernière vérification OTA"
+      },
+      "hvac_quick_warm": {
+        "name": "Préchauffage rapide"
+      },
+      "hvac_quick_cool": {
+        "name": "Refroidissement rapide"
+      },
+      "range_type": {
+        "name": "Type d'autonomie"
+      },
+      "credential_age": {
+        "name": "Âge des identifiants"
+      },
+      "last_renewal": {
+        "name": "Dernier renouvellement"
+      },
+      "last_update": {
+        "name": "Dernière mise à jour des données"
+      },
+      "last_data_update": {
+        "name": "Horodatage des dernières données"
+      },
+      "xos_version": {
+        "name": "Version de XOS"
+      },
+      "mqtt_listener": {
+        "name": "Écouteur MQTT"
+      },
+      "mqtt_discovery": {
+        "name": "Découverte MQTT"
+      },
+      "capture": {
+        "name": "Capture brute"
+      },
+      "command_feedback": {
+        "name": "Retour de commande"
+      },
+      "last_notification": {
+        "name": "Dernière notification"
+      },
+      "maintenance": {
+        "name": "Prochain entretien"
+      },
+      "xcombos": {
+        "name": "X-Combos"
+      },
+      "parked_consumption": {
+        "name": "Consommation en stationnement"
+      },
+      "ota_upgrade": {
+        "name": "Mise à jour OTA"
+      },
+      "beta_program": {
+        "name": "Programme bêta"
+      },
+      "remote_capabilities": {
+        "name": "Capacités à distance"
+      },
+      "vehicle_extension": {
+        "name": "Extension du véhicule"
+      },
+      "left_comfort_preon_seconds": {
+        "name": "Compte à rebours maintien du climat gauche"
+      },
+      "hvac_schedules": {
+        "name": "Programmations de climatisation"
+      },
+      "cdu_id": {
+        "name": "ID CDU"
+      },
+      "cdu_partition": {
+        "name": "Partition CDU"
+      },
+      "vehicle_identity": {
+        "name": "Identité du véhicule"
+      },
+      "iccid": {
+        "name": "ICCID TBox"
+      },
+      "weather": {
+        "name": "Météo au véhicule"
+      },
+      "polling_status": {
+        "name": "État de l'interrogation"
+      },
+      "next_poll": {
+        "name": "Prochaine interrogation"
+      },
+      "account": {
+        "name": "Compte"
+      },
+      "driver_seat_ventilation": {
+        "name": "Siège conducteur ventilé"
+      },
+      "passenger_seat_ventilation": {
+        "name": "Siège passager ventilé"
+      },
+      "left_rear_seat_heat": {
+        "name": "Siège arrière gauche chauffant"
+      },
+      "right_rear_seat_heat": {
+        "name": "Siège arrière droit chauffant"
+      },
+      "left_rear_seat_ventilation": {
+        "name": "Siège arrière gauche ventilé"
+      },
+      "right_rear_seat_ventilation": {
+        "name": "Siège arrière droit ventilé"
+      }
+    },
+    "calendar": {
+      "hvac_schedule_calendar": {
+        "name": "Programmation de climatisation"
+      }
+    },
+    "binary_sensor": {
+      "locked": {
+        "name": "Verrouillage"
+      },
+      "charging": {
+        "name": "Recharge"
+      },
+      "plugged_in": {
+        "name": "Branché"
+      },
+      "hvac_on": {
+        "name": "Climatisation"
+      },
+      "hvac_auto": {
+        "name": "Climatisation auto"
+      },
+      "defrost": {
+        "name": "Dégivrage"
+      },
+      "mirror_heat": {
+        "name": "Chauffage des rétroviseurs"
+      },
+      "any_door_open": {
+        "name": "Portes"
+      },
+      "driver_door": {
+        "name": "Porte conducteur"
+      },
+      "passenger_door": {
+        "name": "Porte passager"
+      },
+      "rear_left_door": {
+        "name": "Porte arrière gauche"
+      },
+      "rear_right_door": {
+        "name": "Porte arrière droite"
+      },
+      "trunk": {
+        "name": "Coffre"
+      },
+      "bonnet": {
+        "name": "Capot"
+      },
+      "any_window_open": {
+        "name": "Vitres"
+      },
+      "sentinel_mode": {
+        "name": "Mode sentinelle"
+      },
+      "trunk_power": {
+        "name": "Alimentation du coffre"
+      },
+      "xguard": {
+        "name": "Caméra X-Guard"
+      },
+      "temp_lock": {
+        "name": "Verrouillage temporaire"
+      },
+      "credentials_valid": {
+        "name": "Identifiants valides"
+      },
+      "mqtt_connected": {
+        "name": "MQTT connecté"
+      }
+    },
+    "device_tracker": {
+      "location": {
+        "name": "Position"
+      }
+    },
+    "button": {
+      "flash_lights": {
+        "name": "Appel de phares"
+      },
+      "honk_horn": {
+        "name": "Klaxonner"
+      },
+      "close_windows": {
+        "name": "Fermer les vitres"
+      },
+      "vent_windows": {
+        "name": "Entrouvrir les vitres"
+      },
+      "force_update": {
+        "name": "Forcer la mise à jour"
+      },
+      "wake_vehicle": {
+        "name": "Réveiller le véhicule"
+      },
+      "query_xguard": {
+        "name": "Interroger X-Guard"
+      },
+      "open_trunk": {
+        "name": "Ouvrir le coffre"
+      },
+      "close_trunk": {
+        "name": "Fermer le coffre"
+      },
+      "start_charge": {
+        "name": "Démarrer la charge"
+      },
+      "stop_charge": {
+        "name": "Arrêter la charge"
+      },
+      "open_charge_port": {
+        "name": "Ouvrir la trappe de recharge"
+      },
+      "close_charge_port": {
+        "name": "Fermer la trappe de recharge"
+      },
+      "open_windows": {
+        "name": "Ouvrir les vitres"
+      }
+    },
+    "switch": {
+      "sentinel_switch": {
+        "name": "X-Guard"
+      },
+      "trunk_power_switch": {
+        "name": "Alimentation du coffre"
+      },
+      "defrost_switch": {
+        "name": "Dégivrage avant"
+      },
+      "parking_lights_switch": {
+        "name": "Feux de stationnement"
+      },
+      "auto_upgrade_switch": {
+        "name": "Mise à jour OTA automatique"
+      },
+      "charging": {
+        "name": "Recharge"
+      },
+      "climate_max_heating": {
+        "name": "Chauffage maximal"
+      },
+      "climate_max_cooling": {
+        "name": "Refroidissement maximal"
+      },
+      "climate_refresh": {
+        "name": "Rafraîchir"
+      },
+      "climate_sterilisation": {
+        "name": "Stérilisation"
+      },
+      "climate_ac_cleaning": {
+        "name": "Nettoyage de la climatisation"
+      },
+      "climate_rear_defrost": {
+        "name": "Dégivrage de la lunette arrière"
+      },
+      "climate_pet_mode": {
+        "name": "Mode animal"
+      }
+    },
+    "number": {
+      "sentinel_sensitivity_control": {
+        "name": "Sensibilité du mode sentinelle"
+      },
+      "trunk_power_timer_control": {
+        "name": "Minuterie d'alimentation du coffre"
+      },
+      "charge_limit_control": {
+        "name": "Limite de charge"
+      },
+      "fan_speed_control": {
+        "name": "Vitesse de ventilation"
+      }
+    },
+    "climate": {
+      "cabin_climate": {
+        "name": "Climatisation"
+      }
+    },
+    "lock": {
+      "door_lock": {
+        "name": "Verrouillage des portes"
+      }
+    },
+    "select": {
+      "driver_seat_heat_select": {
+        "name": "Siège conducteur chauffant"
+      },
+      "passenger_seat_heat_select": {
+        "name": "Siège passager chauffant"
+      },
+      "steering_wheel_heat_select": {
+        "name": "Volant chauffant"
+      },
+      "driver_seat_ventilation_select": {
+        "name": "Siège conducteur ventilé"
+      },
+      "passenger_seat_ventilation_select": {
+        "name": "Siège passager ventilé"
+      },
+      "left_rear_seat_heat_select": {
+        "name": "Siège arrière gauche chauffant"
+      },
+      "right_rear_seat_heat_select": {
+        "name": "Siège arrière droit chauffant"
+      },
+      "left_rear_seat_ventilation_select": {
+        "name": "Siège arrière gauche ventilé"
+      },
+      "right_rear_seat_ventilation_select": {
+        "name": "Siège arrière droit ventilé"
+      }
+    },
+    "image": {
+      "vehicle_picture": {
+        "name": "Photo du véhicule"
+      }
+    },
+    "cover": {
+      "trunk": {
+        "name": "Coffre"
+      },
+      "windows": {
+        "name": "Vitres"
+      },
+      "charge_port": {
+        "name": "Trappe de recharge"
+      }
+    }
+  },
+  "issues": {
+    "login_expired": {
+      "title": "Connexion XPENG expirée pour {entry} (VIN {vin})",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Réimporter les jetons XPENG",
+            "description": "Les identifiants XPENG de **{entry}** (VIN `{vin}`) ont expiré et n'ont pas pu être renouvelés automatiquement\u00a0; les entités du véhicule ont donc cessé de se mettre à jour.\n\nHome Assistant ne peut pas se connecter seul\u00a0: XPENG protège la connexion par un captcha à glissière qu'une personne doit faire glisser dans un vrai navigateur pour le résoudre.\n\n**1.** Sur un ordinateur, réexécutez l'outil d'onboarding\u00a0:\n\n```\npython3 tools/onboard_email_login.py \\\n    --email YOUR_EMAIL --password 'YOUR_PASSWORD' \\\n    --save --mqtt\n```\n\nFaites glisser le curseur une fois lorsque le navigateur s'ouvre.\n\n**2.** Collez les deux fichiers qu'il a écrits ci-dessous, puis validez. Les deux sont nécessaires\u00a0: le tenant contient l'identité de l'appareil à laquelle les jetons ont été scellés.\n\nTutoriel complet\u00a0: https://github.com/xpengtoolkit/xpengtoolkit#setup",
+            "data": {
+              "tokens_json": "Contenu de xpeng_tokens.json",
+              "tokens_path": "…ou son chemin sur l'hôte Home Assistant",
+              "tenant_json": "Contenu de xpeng_tenant.json",
+              "tenant_path": "…ou son chemin sur l'hôte Home Assistant"
+            },
+            "data_description": {
+              "tokens_json": "Collez le fichier entier, enveloppe json comprise.",
+              "tenant_json": "Collez le fichier entier. Il doit provenir de la même exécution que les jetons."
+            }
+          }
+        },
+        "abort": {
+          "entry_gone": "Cette entrée d'intégration n'existe plus\u00a0; il n'y avait donc rien à réparer."
+        }
+      }
+    },
+    "credentials_rejected": {
+      "title": "Identifiants XPENG refusés pour {entry} (VIN {vin})",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Réimporter les jetons XPENG",
+            "description": "XPENG a refusé les identifiants enregistrés pour **{entry}** (VIN `{vin}`), et ils n'ont pas pu être renouvelés automatiquement.\n\nCela signifie généralement que la paire n'est plus valide, ou que les jetons et le tenant proviennent d'exécutions d'onboarding différentes — ils doivent être importés ensemble, car le tenant enregistre l'identité de l'appareil à laquelle les jetons ont été scellés.\n\nRéexécutez `tools/onboard_email_login.py`, puis collez la nouvelle paire ci-dessous. Voir https://github.com/xpengtoolkit/xpengtoolkit#setup",
+            "data": {
+              "tokens_json": "Contenu de xpeng_tokens.json",
+              "tokens_path": "…ou son chemin sur l'hôte Home Assistant",
+              "tenant_json": "Contenu de xpeng_tenant.json",
+              "tenant_path": "…ou son chemin sur l'hôte Home Assistant"
+            },
+            "data_description": {
+              "tokens_json": "Collez le fichier entier, enveloppe json comprise.",
+              "tenant_json": "Collez le fichier entier. Il doit provenir de la même exécution que les jetons."
+            }
+          }
+        },
+        "abort": {
+          "entry_gone": "Cette entrée d'intégration n'existe plus\u00a0; il n'y avait donc rien à réparer."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "command_not_sent": {
+      "message": "La commande n'a pas été envoyée car la connexion MQTT XPENG est indisponible. Vérifiez «\u00a0MQTT connecté\u00a0» et réessayez."
+    },
+    "invalid_seat_option": {
+      "message": "Le réglage du siège «\u00a0{option}\u00a0» n'est pas pris en charge par cette commande."
+    },
+    "charge_port_control_disabled": {
+      "message": "Les commandes à distance de la trappe de recharge sont désactivées pour ce véhicule. N'activez les commandes de trappe de recharge motorisée que si le véhicule les prend en charge."
+    },
+    "invalid_climate_option": {
+      "message": "Réglage de climatisation non pris en charge\u00a0: {option}."
+    },
+    "pet_mode_rear_seat_reminder": {
+      "message": "Le mode animal ne peut pas être activé à distance tant que le rappel de siège arrière est activé dans le véhicule (code {code})."
+    },
+    "vehicle_command_rejected": {
+      "message": "Le véhicule a refusé la commande (code {code}). Vérifiez l'état du véhicule et le retour de commande pour plus de détails."
+    },
+    "command_not_confirmed": {
+      "message": "Le véhicule n'a pas confirmé la commande. Vérifiez la connectivité et l'état actuel du véhicule avant de réessayer."
+    },
+    "command_response_invalid": {
+      "message": "Le véhicule a renvoyé une réponse de commande inattendue. Vérifiez le retour de commande pour plus de détails."
+    },
+    "charging_start_rejected": {
+      "message": "La charge n'a pas pu être démarrée (code véhicule {code}). Vérifiez que le câble est branché et que la borne de recharge est prête."
+    },
+    "fan_speed_unverified": {
+      "message": "La commande à distance de la vitesse de ventilation n'a pas été vérifiée pour ce véhicule."
+    },
+    "climate_mode_unavailable": {
+      "message": "La prise en charge de {mode} par ce véhicule n'est pas confirmée."
+    },
+    "climate_start_partial": {
+      "message": "La consigne de température a été mise à jour, mais l'alimentation de la climatisation n'a pas pu être confirmée\u00a0: {error}. Vérifiez l'état du véhicule avant de réessayer."
+    }
+  }
+}

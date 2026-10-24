@@ -585,7 +585,7 @@
     },
     "switch": {
       "sentinel_switch": {
-        "name": "Sentinel mode"
+        "name": "X-Guard"
       },
       "trunk_power_switch": {
         "name": "Trunk power"
@@ -633,6 +633,9 @@
       },
       "charge_limit_control": {
         "name": "Charge limit"
+      },
+      "fan_speed_control": {
+        "name": "Fan speed"
       }
     },
     "climate": {

@@ -35,6 +35,7 @@ export default defineConfig({
             ],
           },
           { text: "Notifications", link: "/guide/notifications" },
+          { text: "Languages", link: "/guide/translations" },
           { text: "EVCC", link: "/guide/evcc" },
         ],
       },

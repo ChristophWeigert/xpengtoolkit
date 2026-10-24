@@ -103,7 +103,6 @@ async def async_setup_entry(
         XPengSeatSelect(
             coordinator, mqtt_client,
             key="driver_seat_heat_select",
-            name="Driver seat heating",
             icon="mdi:car-seat-heater",
             cmd_type=1,
             value_path="msg_content.instant.seat.driver_seat_heat",
@@ -113,7 +112,6 @@ async def async_setup_entry(
         XPengSeatSelect(
             coordinator, mqtt_client,
             key="passenger_seat_heat_select",
-            name="Passenger seat heating",
             icon="mdi:car-seat-heater",
             cmd_type=0,
             value_path="msg_content.instant.seat.passenger_seat_heat",
@@ -123,7 +121,6 @@ async def async_setup_entry(
         XPengSeatSelect(
             coordinator, mqtt_client,
             key="driver_seat_ventilation_select",
-            name="Driver seat ventilation",
             icon="mdi:car-seat",
             cmd_type=1,
             value_path="msg_content.instant.seat.driver_seat_ventilation",
@@ -133,7 +130,6 @@ async def async_setup_entry(
         XPengSeatSelect(
             coordinator, mqtt_client,
             key="passenger_seat_ventilation_select",
-            name="Passenger seat ventilation",
             icon="mdi:car-seat",
             cmd_type=0,
             value_path="msg_content.instant.seat.passenger_seat_ventilation",
@@ -146,7 +142,6 @@ async def async_setup_entry(
         XPengSeatSelect(
             coordinator, mqtt_client,
             key="left_rear_seat_heat_select",
-            name="Left rear seat heating",
             icon="mdi:car-seat-heater",
             cmd_type=3,
             value_path="msg_content.instant.seat.left_rear_seat_heat",
@@ -156,7 +151,6 @@ async def async_setup_entry(
         XPengSeatSelect(
             coordinator, mqtt_client,
             key="right_rear_seat_heat_select",
-            name="Right rear seat heating",
             icon="mdi:car-seat-heater",
             cmd_type=4,
             value_path="msg_content.instant.seat.right_rear_seat_heat",
@@ -166,7 +160,6 @@ async def async_setup_entry(
         XPengSeatSelect(
             coordinator, mqtt_client,
             key="left_rear_seat_ventilation_select",
-            name="Left rear seat ventilation",
             icon="mdi:car-seat",
             cmd_type=3,
             value_path="msg_content.instant.seat.left_rear_seat_ventilation",
@@ -177,7 +170,6 @@ async def async_setup_entry(
         XPengSeatSelect(
             coordinator, mqtt_client,
             key="right_rear_seat_ventilation_select",
-            name="Right rear seat ventilation",
             icon="mdi:car-seat",
             cmd_type=4,
             value_path="msg_content.instant.seat.right_rear_seat_ventilation",
@@ -203,7 +195,6 @@ class XPengSeatSelect(XPengEntity, SelectEntity):
         coordinator: XPengDataCoordinator,
         mqtt_client: XPengMQTTClient,
         key: str,
-        name: str,
         icon: str,
         cmd_type: int,
         value_path: str,
@@ -223,7 +214,6 @@ class XPengSeatSelect(XPengEntity, SelectEntity):
         self._attr_options = options
         self._attr_unique_id = f"xpeng_{self._vin}_{key}"
         self._attr_translation_key = key
-        self._attr_name = name
         self._attr_icon = icon
 
     @property
@@ -288,7 +278,6 @@ class XPengSteeringWheelHeatSelect(XPengEntity, SelectEntity):
     """Select entity for steering wheel heating level."""
 
     _policy_group = GROUP_COMFORT
-    _attr_name = "Steering wheel heating"
     _attr_translation_key = "steering_wheel_heat_select"
     _attr_icon = "mdi:steering"
     _attr_options = STEER_OPTIONS

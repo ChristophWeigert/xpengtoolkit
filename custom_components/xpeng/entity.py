@@ -14,6 +14,7 @@ from .command_policy import (
     default_policy,
 )
 from .const import DOMAIN
+from .entity_names import english_name
 from .vehicle_capabilities import ENTITY_FEATURES, from_coordinator
 from .coordinator import XPengDataCoordinator
 
@@ -48,6 +49,29 @@ class XPengEntity(CoordinatorEntity[XPengDataCoordinator]):
         if supported is not None:
             return supported
         return getattr(self, "_attr_entity_registry_enabled_default", True)
+
+    @property
+    def suggested_object_id(self) -> str | None:
+        """Suggest the *English* name as the source of the entity id.
+
+        Home Assistant builds the object id from the entity name in the active
+        UI language (``entity_platform.py`` composes the device name with
+        ``entity.suggested_object_id``). With translated names that would give a
+        German install ``sensor.xpeng_<vin>_batterie`` while the README, the
+        blueprints and every automation example spell
+        ``sensor.xpeng_<vin>_battery`` - and an entity id is painful to change
+        afterwards. Pinning the suggestion to the English name keeps ids
+        identical in every language; only the friendly name is translated.
+
+        English names carry no placeholders today, so no substitution is needed
+        here. An entity without a translation key (the per-schedule HVAC
+        switches, whose names are built from live data) keeps Home Assistant's
+        own suggestion, which is likewise English.
+        """
+        if self.platform is not None and (key := self.translation_key) is not None:
+            if name := english_name(self.platform.domain, key):
+                return name
+        return super().suggested_object_id
 
     async def async_update(self) -> None:
         """No-op: there is nothing to fetch, and asking would take everything down.

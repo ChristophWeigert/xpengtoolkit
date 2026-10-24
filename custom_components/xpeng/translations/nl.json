@@ -1,0 +1,785 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Verbind je XPENG-voertuig",
+        "description": "Gebruik een APART XPENG-account dat met je auto is gedeeld - NIET je hoofdaccount. XPENG staat één actieve sessie per account toe, dus als je hier inlogt, word je herhaaldelijk uitgelogd in de app op je telefoon.\n\nDe meeste accounts worden tegengehouden door de schuifcaptcha van XPENG, die dit scherm niet kan tonen. Daarom is de methode 'Import tokens from the onboarding tool' de route die altijd lukt.",
+        "data": {
+          "auth_method": "Inlogmethode"
+        },
+        "data_description": {
+          "auth_method": "Tokens importeren is de betrouwbare keuze - zie hierboven. Het volgende scherm vraagt alleen om het VIN als de methode die je kiest er een nodig heeft."
+        }
+      },
+      "email_code": {
+        "title": "E-mailverificatie",
+        "description": "Er is een verificatiecode naar {email} gestuurd. Voer de code hieronder in.",
+        "data": {
+          "email_code": "Verificatiecode",
+          "usable_battery_kwh": "Bruikbare batterijcapaciteit (kWh)",
+          "command_mode": "Commandorechten",
+          "allow_wake": "Sta de integratie toe de auto te wekken"
+        },
+        "data_description": {
+          "email_code": "6-cijferige code die naar je e-mail is gestuurd",
+          "usable_battery_kwh": "Stel dit in op de batterij van je auto, aan de hand van het getal waaronder die bekend is. Een VIN geeft alleen de modelfamilie, dus niets kan dit voor je invullen. Bruikbare kWh: G6 66,0-batterij = 65,3 | G6 68,5 = 67,8 | G6 80,8 = 80,0 | G6 87,5 (MY24 NMC) = 87,5 | G9 78,2 = 75,8 | G9 79,0 = 78,2 | G9 93,1 (LFP, MY25 en later) = 92,2 | G9 98,0 (NMC, MY23-24) = 93,1. Alleen de schatting van het verbruik bij stilstand gebruikt dit.",
+          "command_mode": "Safe Plus is de standaard voor een nieuwe installatie: status, klimaat, verlichting, vergrendelen en laden, waarbij ontgrendelen, de kofferbak en de ramen, OTA en ruwe commando's uitgeschakeld blijven. Read only en Safe zijn beperkter; Full access omvat ontgrendelen. Custom wordt aangeboden onder Configureren.",
+          "allow_wake": "Een slapende auto wekken kost een beetje van de 12V-batterij en wordt alleen gebruikt om een verse volledige status op te halen. Laad- en ritpeilingen worden niet beïnvloed."
+        }
+      },
+      "reauth_confirm": {
+        "title": "XPENG opnieuw verifiëren",
+        "description": "Je XPENG-inlogtokens zijn verlopen. Er is een verificatiecode naar {email} gestuurd.",
+        "data": {
+          "email_code": "Verificatiecode"
+        },
+        "data_description": {
+          "email_code": "6-cijferige code die naar je e-mail is gestuurd"
+        }
+      },
+      "reconfigure": {
+        "title": "XPENG-inloggegevens bijwerken",
+        "description": "Werk de MQTT-inloggegevens handmatig bij. Sluit de XPENG-app op je telefoon voordat je verbinding maakt.",
+        "data": {
+          "client_id": "MQTT-client-ID",
+          "password": "MQTT-wachtwoord",
+          "server": "MQTT-server (host:poort)"
+        }
+      },
+      "google": {
+        "title": "Inloggen met Google",
+        "description": "Log in met Google om de XPENG-inloggegevens te vernieuwen.\n\n**Deze route is niet captcha-vrij.** XPENG past na het inloggen met Google dezelfde schuifcaptcha toe op het account, en die uitdaging kan niet vanuit Home Assistant worden opgelost. Als het inloggen wordt geweigerd met een captchafout, voer dan in plaats daarvan tools/onboard_email_login.py uit en gebruik de methode 'Import tokens from the onboarding tool'.\n\n**Als een browser de callback niet kan afleveren** (op een Mac met de XPENG-app geïnstalleerd opent de link de app; zonder de app stuurt Google je naar de startpagina en gaat de code verloren), gebruik dan in plaats daarvan het hulpscript:\n\n`swift tools/oauth_capture.swift`\n\nHet opent het systeemvenster om in te loggen, vangt de callback op en toont `VERIFIER:` en `CALLBACK:`. Plak de callback-URL hieronder en de verifier in het tweede veld.\n\n**Anders** open je deze link, log je in en plak je daarna de omleidings-URL:\n\n{url}",
+        "data": {
+          "redirect_url": "Plak hier de omleidings-URL",
+          "code_verifier": "PKCE-verifier (uit tools/oauth_capture.swift)",
+          "vin": "Voertuigidentificatienummer (VIN)",
+          "usable_battery_kwh": "Bruikbare batterijcapaciteit (kWh)",
+          "command_mode": "Commandorechten",
+          "allow_wake": "Sta de integratie toe de auto te wekken"
+        },
+        "data_description": {
+          "redirect_url": "De volledige callback-URL, of alleen de code",
+          "code_verifier": "Laat leeg tenzij je de callback met het hulpscript voor systeemlogin hebt opgevangen",
+          "vin": "Het VIN van 17 tekens van je voertuig - het bepaalt de entiteits-ID's van deze vermelding.",
+          "usable_battery_kwh": "Stel dit in op de batterij van je auto, aan de hand van het getal waaronder die bekend is. Een VIN geeft alleen de modelfamilie, dus niets kan dit voor je invullen. Bruikbare kWh: G6 66,0-batterij = 65,3 | G6 68,5 = 67,8 | G6 80,8 = 80,0 | G6 87,5 (MY24 NMC) = 87,5 | G9 78,2 = 75,8 | G9 79,0 = 78,2 | G9 93,1 (LFP, MY25 en later) = 92,2 | G9 98,0 (NMC, MY23-24) = 93,1. Alleen de schatting van het verbruik bij stilstand gebruikt dit.",
+          "command_mode": "Safe Plus is de standaard voor een nieuwe installatie: status, klimaat, verlichting, vergrendelen en laden, waarbij ontgrendelen, de kofferbak en de ramen, OTA en ruwe commando's uitgeschakeld blijven. Read only en Safe zijn beperkter; Full access omvat ontgrendelen. Custom wordt aangeboden onder Configureren.",
+          "allow_wake": "Een slapende auto wekken kost een beetje van de 12V-batterij en wordt alleen gebruikt om een verse volledige status op te halen. Laad- en ritpeilingen worden niet beïnvloed."
+        }
+      },
+      "email_password": {
+        "title": "Inloggen met e-mail",
+        "description": "Gebruik een APART XPENG-account dat met je auto is gedeeld - gebruik NIET je hoofdaccount. Inloggen hier maakt een tweede client aan op hetzelfde account, en XPENG staat maar één actieve sessie toe, dus je wordt herhaaldelijk uitgelogd in de app op je telefoon. Maak een nieuw XPENG-account aan, deel de auto vanuit je hoofdaccount met dat account in de app en log hier vervolgens met dat account in.\n\nXPENG schermt de meeste accounts af met een schuifcaptcha, en die uitdaging kan alleen een mens oplossen door hem in een echte browser te verslepen - dat kan Home Assistant niet. Als dit inloggen wordt geweigerd omdat de captcha vereist is, stop dan hier: voer tools/onboard_email_login.py uit op een machine met een browser en gebruik in plaats daarvan de methode 'Import tokens from the onboarding tool'.",
+        "data": {
+          "xpeng_email": "E-mailadres",
+          "xpeng_password": "Wachtwoord",
+          "vin": "Voertuigidentificatienummer (VIN)"
+        },
+        "data_description": {
+          "xpeng_email": "Het e-mailadres van je XPENG-account",
+          "xpeng_password": "Het wachtwoord van je XPENG-account",
+          "vin": "Het VIN van 17 tekens van je voertuig. Het bepaalt de entiteits-ID's van deze vermelding, dus een verkeerd VIN maakt een tweede set aan die nergens naar wijst."
+        }
+      },
+      "import_tokens": {
+        "title": "Onboardingtokens importeren",
+        "description": "Beide bestanden moeten uit DEZELFDE run van de onboardingtool komen: de tenant bevat de deviceId waaraan de tokens zijn gekoppeld, dus een paar uit verschillende runs wordt geweigerd.\n\nOp een machine met een browser: `pip install cryptography`, haal de mTLS-certificaten uit een APK (stap 2) en voer `python3 tools/onboard_email_login.py --email YOU@example.com --save --mqtt` uit - het script vraagt om het wachtwoord en vereist één keer een schuifbeweging. Of laat de vernieuwingsapp het paar maken met de solver, waarvoor helemaal geen desktop nodig is.\n\nPlak beide bestanden hieronder, of geef hun paden op als ze al op deze host staan.\n\n{pair_search}",
+        "data": {
+          "tokens_json": "inhoud van xpeng_tokens.json",
+          "tokens_path": "pad naar xpeng_tokens.json (in plaats van plakken)",
+          "tenant_json": "inhoud van xpeng_tenant.json",
+          "tenant_path": "pad naar xpeng_tenant.json (in plaats van plakken)",
+          "vin": "Voertuigidentificatienummer (VIN)",
+          "usable_battery_kwh": "Bruikbare batterijcapaciteit (kWh)",
+          "command_mode": "Commandorechten",
+          "allow_wake": "Sta de integratie toe de auto te wekken"
+        },
+        "data_description": {
+          "tokens_json": "Het hele bestand, inclusief de JSON-wrapper",
+          "tenant_json": "Het hele bestand - het bevat de deviceId waaraan de tokens zijn gekoppeld",
+          "vin": "Wordt uit het tokenbestand gelezen als daar een VIN in staat, dus laat dit meestal leeg",
+          "usable_battery_kwh": "Stel dit in op de batterij van je auto, aan de hand van het getal waaronder die bekend is. Een VIN geeft alleen de modelfamilie, dus niets kan dit voor je invullen. Bruikbare kWh: G6 66,0-batterij = 65,3 | G6 68,5 = 67,8 | G6 80,8 = 80,0 | G6 87,5 (MY24 NMC) = 87,5 | G9 78,2 = 75,8 | G9 79,0 = 78,2 | G9 93,1 (LFP, MY25 en later) = 92,2 | G9 98,0 (NMC, MY23-24) = 93,1. Alleen de schatting van het verbruik bij stilstand gebruikt dit.",
+          "command_mode": "Safe Plus is de standaard voor een nieuwe installatie: status, klimaat, verlichting, vergrendelen en laden, waarbij ontgrendelen, de kofferbak en de ramen, OTA en ruwe commando's uitgeschakeld blijven. Read only en Safe zijn beperkter; Full access omvat ontgrendelen. Custom wordt aangeboden onder Configureren.",
+          "allow_wake": "Een slapende auto wekken kost een beetje van de 12V-batterij en wordt alleen gebruikt om een verse volledige status op te halen. Laad- en ritpeilingen worden niet beïnvloed."
+        }
+      },
+      "command_mode": {
+        "title": "Wat mag deze integratie met de auto doen?",
+        "description": "Dit is een bovengrens voor de hele integratie, geen gebruikersrecht: het geldt ook voor automatiseringen, scripts, spraakassistenten en toegangstokens. De accountgegevens zijn op elk niveau hetzelfde - het punt is dat een gelekt token of een gedeeld dashboard de auto niet kan ontgrendelen.\n\nHet weerhoudt een beheerder er niet van (die kan deze instelling wijzigen) en het weerhoudt niemand die je Home Assistant-configuratie al kan lezen of schrijven. Je kunt dit later wijzigen onder Configureren > Commandorechten.",
+        "data": {
+          "command_mode": "Commandorechten",
+          "allow_wake": "Sta de integratie toe de auto te wekken"
+        },
+        "data_description": {
+          "command_mode": "Safe Plus is de standaard voor een nieuwe installatie: status, klimaat, verlichting, vergrendelen en laden, waarbij ontgrendelen, de kofferbak en de ramen, OTA en ruwe commando's uitgeschakeld blijven. Read only en Safe zijn beperkter; Full access is wat de integratie deed voordat deze optie bestond, en omvat ontgrendelen. Kies Custom om in plaats daarvan per capaciteitsgroep te kiezen.",
+          "allow_wake": "Een slapende auto wekken kost een beetje van de 12V-batterij en wordt alleen gebruikt om een verse volledige status op te halen. Zet je dit uit, dan is de integratie strikt passief, ten koste van verouderde sensoren."
+        }
+      }
+    },
+    "error": {
+      "required": "Dit veld is verplicht",
+      "invalid_client_id": "Client-ID moet de indeling xmart:app:userId:deviceUUID hebben",
+      "cannot_connect": "Kan geen verbinding maken met de XPENG MQTT-broker",
+      "login_failed": "Inloggen mislukt. Controleer je e-mailadres en wachtwoord.",
+      "invalid_code": "Kon geen autorisatiecode in die URL vinden. Kopieer de volledige URL uit de adresbalk nadat je hebt ingelogd.",
+      "unknown": "Onverwachte fout",
+      "captcha_gated": "XPENG vraagt om zijn schuifcaptcha, en die uitdaging kan alleen een mens oplossen door hem in een echte browser te verslepen - dat kan Home Assistant niet. Voer tools/onboard_email_login.py uit op een machine met een browser (de tool opent de schuif van XPENG; versleep hem één keer) en voeg de integratie daarna opnieuw toe met de methode 'Import tokens from the onboarding tool' en plak de twee bestanden die de tool heeft geschreven.",
+      "invalid_tokens_json": "Dat is geen geldige JSON, dus het kan niet het xpeng_tokens.json zijn dat de onboardingtool heeft geschreven. Plak het hele bestand precies zoals de tool het heeft opgeslagen.",
+      "invalid_tokens": "Er ontbreekt iets verplichts in de tokengegevens: ze moeten accessToken bevatten, en ofwel een mqttAccount-clientId ofwel een uid. Voer de onboardingtool opnieuw uit en gebruik de bestanden uit diezelfde run.",
+      "invalid_tokens_path": "Kon dat pad naar xpeng_tokens.json niet lezen op de Home Assistant-host. Controleer het pad, of plak in plaats daarvan de bestandsinhoud.",
+      "invalid_tenant_json": "Dat is geen geldige JSON, dus het kan niet het xpeng_tenant.json zijn dat de onboardingtool heeft geschreven. Plak het hele bestand precies zoals de tool het heeft opgeslagen.",
+      "invalid_tenant": "Er ontbreekt iets verplichts in de tenantgegevens: ze moeten deviceId en een niet-lege keys-pool bevatten, en elke sleutel moet base64 zijn in de indeling die de onboardingtool schrijft. Voer de onboardingtool opnieuw uit en gebruik het tenantbestand uit diezelfde run - de tokens en de tenant vormen een gekoppeld paar.",
+      "invalid_tenant_path": "Kon dat pad naar xpeng_tenant.json niet lezen op de Home Assistant-host. Controleer het pad, of plak in plaats daarvan de bestandsinhoud.",
+      "invalid_vin": "Het tokenbestand bevat geen VIN en er is ook geen VIN ingevoerd. Voer het VIN van 17 tekens in van het voertuig waartoe deze tokens behoren."
+    },
+    "abort": {
+      "already_configured": "Dit voertuig is al geconfigureerd",
+      "reconfigured": "Inloggegevens bijgewerkt",
+      "reauth_successful": "Opnieuw verifiëren gelukt. Inloggegevens vernieuwd.",
+      "no_credentials": "Geen opgeslagen e-mailadres/wachtwoord. Configureer de integratie opnieuw.",
+      "login_failed": "Opnieuw verifiëren mislukt: XPENG weigerde de inlogpoging. Voer de onboarding opnieuw uit met de onboardingtool, verwijder daarna deze XPENG-vermelding en voeg het voertuig opnieuw toe met de methode 'Import tokens from the onboarding tool'.",
+      "captcha_gated": "XPENG vereist zijn schuifcaptcha om in te loggen, en die uitdaging kan niet binnen Home Assistant worden opgelost. Voer tools/onboard_email_login.py uit op een machine met een browser en versleep de schuif één keer; verwijder daarna deze XPENG-vermelding en voeg het voertuig opnieuw toe met de methode 'Import tokens from the onboarding tool'.",
+      "unknown": "Onbekende fout",
+      "command_mode_unreachable": "Deze flow is de draad kwijt; begin opnieuw via Integratie toevoegen."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "XPENG-opties",
+        "data": {
+          "command_mode": "Commandorechten",
+          "allow_wake": "Sta de integratie toe de auto te wekken",
+          "scan_interval": "MQTT-query-interval (seconden)",
+          "parked_scan_interval": "Query-interval bij stilstand (seconden)",
+          "mqtt_refresh_interval": "Interval van het vangnet voor MQTT-inloggegevens (seconden)",
+          "rest_scan_interval": "REST API-pollinterval (seconden)",
+          "mqtt_listener_enabled": "MQTT-listener inschakelen",
+          "mqtt_listener_topics": "MQTT-onderwerpen om je op te abonneren",
+          "mqtt_topic_discovery": "MQTT-onderwerpdetectie inschakelen",
+          "capture_enabled": "Ruwe MQTT-frames naar een bestand opnemen",
+          "capture_path": "Opnamemap",
+          "capture_topics": "Op te nemen onderwerpen",
+          "token_file": "Inlogtokenbestand (verouderd)",
+          "tenant_file": "Tenant-cachebestand (verouderd)",
+          "cert_dir": "Certificaatmap",
+          "iccid": "TBox SIM-ICCID",
+          "usable_battery_kwh": "Bruikbare batterijcapaciteit (kWh)",
+          "notification_poll_interval": "Pollinterval van het Berichtencentrum (seconden)",
+          "teslamate_provider_enabled": "TeslaMate API-provider inschakelen",
+          "teslamate_provider_port": "Poort van de TeslaMate-provider",
+          "teslamate_provider_token": "Token van de TeslaMate-provider",
+          "legacy_entities": "Oude knoppen en dubbele sensoren behouden",
+          "charge_port_controls": "Bediening van de gemotoriseerde laadpoort",
+          "enable_vehicle_card": "XPENG Vehicle-dashboardkaart installeren en beheren"
+        },
+        "data_description": {
+          "command_mode": "Read only, Safe, Safe Plus en Full access zijn presets; Custom opent een tweede scherm waarin je elke capaciteitsgroep op Full, Read only of Disabled kunt zetten. Een installatie die nooit is geconfigureerd blijft op Full access, dus dit wijzigen kan een automatisering niet plotseling een mogelijkheid ontnemen.",
+          "allow_wake": "Beïnvloedt alleen het wekken van een slapende auto voor een volledige statusupdate. Laad- en ritpeilingen worden niet beïnvloed, omdat de auto dan al wakker is.",
+          "scan_interval": "Hoe vaak de voertuigstatus via MQTT wordt opgevraagd (10-3600 seconden). De query dwingt alleen uploaden af terwijl de auto laadt of rijdt, dus hij wekt nooit een slapende auto; een laadhint verhoogt de peiling naar dit ritme.",
+          "parked_scan_interval": "Passief query-interval tijdens stilstand (60-7200 seconden). Vertraagt ook de REST-peiling tijdens stilstand. Wekt de auto nooit.",
+          "mqtt_refresh_interval": "Ritme voor opnieuw proberen bij een losgekoppelde MQTT-client, en de leeftijdsgrens achter de inloggegevenssensor (10-300 seconden). Inloggegevens worden op aanvraag aangemaakt vóór een verbinding; dit roteert nooit een actieve sessie.",
+          "rest_scan_interval": "Hoe vaak de REST API wordt gepolld voor de voertuigafbeelding en de XOS-versie (60-3600 seconden). Meldingen van het Berichtencentrum hebben hun eigen interval.",
+          "mqtt_listener_enabled": "Abonneer je op extra MQTT-onderwerpen naast het primaire onderwerp met de voertuigstatus",
+          "mqtt_listener_topics": "Extra MQTT-onderwerpen om je op te abonneren (één per regel, of gescheiden door komma's). Ondersteunt MQTT-wildcards (+ en #) en breidt de placeholders voor device-id en user-id uit die onder MQTT-listener in de documentatie worden beschreven - bijvoorbeeld het pushkanaal van het apparaat in de app. De listenersensor legt vast of de broker elk onderwerp heeft toegekend.",
+          "mqtt_topic_discovery": "Automatisch proberen je te abonneren op bekende XPENG-brokeronderwerpen (CanPack, StatPack, enz.) om toegankelijke gegevens te ontdekken",
+          "capture_enabled": "Schrijf elk frame van de onderstaande onderwerpen naar een binair journaal voor offline decodering, zonder per frame te decoderen of entiteiten bij te werken.",
+          "capture_path": "Waar opnamen worden opgeslagen. Gebruik een pad buiten /config - /share wordt niet in elke back-up meegenomen. Valt terug op <config>/xpeng-can als de map niet kan worden aangemaakt.",
+          "capture_topics": "Eén per regel of gescheiden door komma's; MQTT-wildcards (+, #) worden ondersteund. Laat leeg voor de bekende CAN-onderwerpen.",
+          "token_file": "Pad naar het JSON-bestand met inlogtokens van het CLI-inlogscript. Alleen nodig als je geen inloggen binnen Home Assistant gebruikt.",
+          "tenant_file": "Pad naar gecachte tenantgegevens. Wordt automatisch opgehaald als ze ontbreken.",
+          "cert_dir": "Absoluut pad naar de map met ca-chain.crt, client-cert-0.pem en client-key.pem. Standaard: /config/custom_components/xpeng/certs.",
+          "iccid": "TBox SIM-ICCID. Optioneel: laat dit leeg en deze sensor wordt niet aangemaakt; vul je het in, dan voegt de integratie één diagnostische sensor toe die de waarde toont. Geen enkele app-API geeft dit vrij, dus lees het af op het scherm van de auto door *#9925*131# in de kiezer van de head-unit in te voeren.",
+          "usable_battery_kwh": "Stel dit in op de batterij van je auto, aan de hand van het getal waaronder die bekend is. Een VIN geeft alleen de modelfamilie, dus niets kan dit voor je invullen. Bruikbare kWh: G6 66,0-batterij = 65,3 | G6 68,5 = 67,8 | G6 80,8 = 80,0 | G6 87,5 (MY24 NMC) = 87,5 | G9 78,2 = 75,8 | G9 79,0 = 78,2 | G9 93,1 (LFP, MY25 en later) = 92,2 | G9 98,0 (NMC, MY23-24) = 93,1. Alleen de schatting van het verbruik bij stilstand gebruikt dit.",
+          "notification_poll_interval": "Hoe vaak het Berichtencentrum van XPENG op meldingen wordt gepolld. Zes verzoeken per peiling, één per categorie; een melding kan niet sneller aankomen dan dit. De sensor legt de werkelijke vertraging vast als `delay_s`.",
+          "teslamate_provider_enabled": "Draai een Tesla-compatibele API op de onderstaande poort, zodat TeslaMate deze auto kan loggen alsof het een Tesla is. Alleen-lezen: er worden geen commandoroutes aangeboden, dus dit kan de auto niet verplaatsen of ontgrendelen. Standaard uit.",
+          "teslamate_provider_port": "De poort waarop de provider luistert, bereikbaar vanaf de TeslaMate-container of -host. Mag niet 8123 zijn (Home Assistant zelf). 8200 is de standaard, zodat hij niet botst met de eigen webinterface van TeslaMate op 4000.",
+          "teslamate_provider_token": "Gedeeld geheim. Kopieer dit naar de TOKEN-omgevingsvariabele van TeslaMate; TeslaMate stuurt het als bearertoken mee bij elk verzoek en de provider weigert al het andere. Wordt aangemaakt bij de eerste weergave - wijzig je het, dan moet TeslaMate opnieuw inloggen.",
+          "legacy_entities": "Zet uit voor uniforme covers en de laadschakelaar. Schakelt oude gepaarde knoppen en dubbele sensoren uit; werk eerst je automatiseringen bij. Zet aan om de oude entiteiten te herstellen.",
+          "charge_port_controls": "Zet uit voor een handmatig laadklepje. De cover van de laadpoort meldt nog steeds de status, zonder acties om te openen of te sluiten.",
+          "enable_vehicle_card": "Optioneel, standaard uit. Registreert één gedeelde kaartbron, werkt die bij met de integratie en migreert overeenkomende oude /local/-kaartbronnen. In de YAML-bronmodus laadt het de module globaal; verwijder eenmalig een oude handmatige XPENG-bron uit YAML. Als je dit voor alle voertuigen uitzet, of het laatste voertuig dat heeft ingestemd verwijdert, wordt de beheerde bron verwijderd. Dashboardindelingen worden nooit bewerkt."
+        }
+      },
+      "groups": {
+        "title": "Commandorechten per capaciteitsgroep",
+        "description": "Elke groep staat op zichzelf. Full staat de commando's van de groep toe, Read only behoudt de entiteiten en hun status maar weigert elk commando, en Disabled maakt ze helemaal niet aan.\n\nDe groepen zijn ingedeeld naar wat een actie met de auto doet, niet naar subsysteem. Daarom zitten vergrendelen en ontgrendelen niet in dezelfde groep: vergrendelen neemt alleen toegang weg, ontgrendelen geeft de auto over.",
+        "data": {
+          "queries": "Query's en gegevens",
+          "comfort": "Comfort en klimaat",
+          "lights": "Verlichting en signalen",
+          "charging": "Laden",
+          "securing": "Beveiligen",
+          "access": "Toegang",
+          "power": "Accessoirevoeding",
+          "firmware": "Firmware en OTA",
+          "advanced": "Geavanceerde en ruwe commando's"
+        },
+        "data_description": {
+          "queries": "Statusupdates, wekken, X-Guard-query, OTA-controle, HVAC-schema's opvragen, navigatiekaarten, snapshot-opname.",
+          "comfort": "Klimaat in de cabine en modi (waaronder Huisdierenmodus en Sterilisatie), ontdooien, stoel- en stuurwielverwarming/-ventilatie en HVAC-schema's. Regeling van de ventilatorsnelheid is niet inbegrepen.",
+          "lights": "Knipperen met de lichten, parkeerlicht, claxon.",
+          "charging": "Laden starten en stoppen, laadlimiet en beide deurtjes van de laadpoort.",
+          "securing": "Vergrendelen, ramen sluiten, kofferbak sluiten, X-Guard activeren. Deze verminderen alleen de toegang tot de auto, dus ze kunnen de auto niet in gevaar brengen.",
+          "access": "Ontgrendelen, kofferbak openen, ramen openen of op een kier zetten, X-Guard deactiveren. Dit is de groep die de auto overdraagt.",
+          "power": "Het V2L-stopcontact in de kofferbak en de automatische uitschakeltimer.",
+          "firmware": "Automatische OTA-upgrades starten, annuleren en inschakelen, en upgradefeedback versturen.",
+          "advanced": "send_raw_mqtt plus X-Combo-scènes. Ruwe commando's kunnen elke andere groep uitdrukken, inclusief ontgrendelen, en scènes zijn ondoorzichtige serverprogramma's - houd deze op Full access tenzij je weet waarom."
+        }
+      }
+    },
+    "error": {
+      "cert_files_missing": "In die map ontbreken een of meer certificaatbestanden. De map moet ca-chain.crt, client-cert-0.pem en client-key.pem bevatten.",
+      "token_required": "Er is een token van minstens 8 tekens vereist: de provider is bereikbaar op het netwerk en TeslaMate verifieert met deze waarde.",
+      "invalid_port": "Voer een poort tussen 1 en 65535 in.",
+      "port_conflict": "Poort 8123 is de eigen HTTP-server van Home Assistant. Kies een andere poort, bijvoorbeeld 8200."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery_soc": {
+        "name": "Batterij"
+      },
+      "range": {
+        "name": "Bereik"
+      },
+      "odometer": {
+        "name": "Kilometerstand"
+      },
+      "charging_state": {
+        "name": "Laadstatus"
+      },
+      "charge_power": {
+        "name": "Laadvermogen"
+      },
+      "charge_voltage": {
+        "name": "Laadspanning"
+      },
+      "charge_current": {
+        "name": "Laadstroom"
+      },
+      "charge_rate": {
+        "name": "Laadsnelheid"
+      },
+      "discharge_capacity": {
+        "name": "Ontlaadcapaciteit"
+      },
+      "charge_limit": {
+        "name": "Laadstroomlimiet"
+      },
+      "max_charge": {
+        "name": "Max. laadniveau"
+      },
+      "charge_time_remaining": {
+        "name": "Resterende laadtijd"
+      },
+      "slow_charge_port": {
+        "name": "Laadpoort"
+      },
+      "fast_charge_added_range": {
+        "name": "Toegevoegd bereik bij snelladen"
+      },
+      "charge_schedule_start": {
+        "name": "Start laadschema"
+      },
+      "charge_schedule_end": {
+        "name": "Einde laadschema"
+      },
+      "cabin_temperature": {
+        "name": "Interieurtemperatuur"
+      },
+      "set_temperature": {
+        "name": "Ingestelde temperatuur"
+      },
+      "hvac_fan_speed": {
+        "name": "Ventilatorsnelheid"
+      },
+      "latitude": {
+        "name": "Breedtegraad"
+      },
+      "longitude": {
+        "name": "Lengtegraad"
+      },
+      "speed": {
+        "name": "Snelheid"
+      },
+      "heading": {
+        "name": "Koers"
+      },
+      "shift_state": {
+        "name": "Rijstand"
+      },
+      "vehicle_mode": {
+        "name": "Voertuigmodus"
+      },
+      "car_power_state": {
+        "name": "Voedingsstatus"
+      },
+      "tyre_pressure_fl": {
+        "name": "Bandenspanning linksvoor"
+      },
+      "tyre_pressure_fr": {
+        "name": "Bandenspanning rechtsvoor"
+      },
+      "tyre_pressure_rl": {
+        "name": "Bandenspanning linksachter"
+      },
+      "tyre_pressure_rr": {
+        "name": "Bandenspanning rechtsachter"
+      },
+      "driver_seat_heat": {
+        "name": "Stoelverwarming bestuurder"
+      },
+      "passenger_seat_heat": {
+        "name": "Stoelverwarming passagier"
+      },
+      "steering_wheel_heat": {
+        "name": "Stuurwielverwarming"
+      },
+      "trunk_power_timer": {
+        "name": "V2L-uitschakeltimer"
+      },
+      "last_charge_energy": {
+        "name": "Laatste laadenergie"
+      },
+      "last_charge_range": {
+        "name": "Laatst toegevoegd bereik"
+      },
+      "last_charge_duration": {
+        "name": "Laatste laadduur"
+      },
+      "sentinel_sensitivity": {
+        "name": "Sentinel-gevoeligheid"
+      },
+      "ota_status": {
+        "name": "OTA-status"
+      },
+      "ota_last_checked": {
+        "name": "OTA laatst gecontroleerd"
+      },
+      "hvac_quick_warm": {
+        "name": "Snel verwarmen"
+      },
+      "hvac_quick_cool": {
+        "name": "Snel koelen"
+      },
+      "range_type": {
+        "name": "Bereiktype"
+      },
+      "credential_age": {
+        "name": "Leeftijd inloggegevens"
+      },
+      "last_renewal": {
+        "name": "Laatste vernieuwing"
+      },
+      "last_update": {
+        "name": "Laatste gegevensupdate"
+      },
+      "last_data_update": {
+        "name": "Tijdstempel laatste gegevens"
+      },
+      "xos_version": {
+        "name": "XOS-versie"
+      },
+      "mqtt_listener": {
+        "name": "MQTT-listener"
+      },
+      "mqtt_discovery": {
+        "name": "MQTT-detectie"
+      },
+      "capture": {
+        "name": "Ruwe opname"
+      },
+      "command_feedback": {
+        "name": "Commando-feedback"
+      },
+      "last_notification": {
+        "name": "Laatste melding"
+      },
+      "maintenance": {
+        "name": "Volgend onderhoud"
+      },
+      "xcombos": {
+        "name": "X-Combos"
+      },
+      "parked_consumption": {
+        "name": "Verbruik bij stilstand"
+      },
+      "ota_upgrade": {
+        "name": "OTA-update"
+      },
+      "beta_program": {
+        "name": "Bètaprogramma"
+      },
+      "remote_capabilities": {
+        "name": "Functies op afstand"
+      },
+      "vehicle_extension": {
+        "name": "Voertuigextensie"
+      },
+      "left_comfort_preon_seconds": {
+        "name": "Aftellen klimaatbehoud links"
+      },
+      "hvac_schedules": {
+        "name": "Klimaatschema's"
+      },
+      "cdu_id": {
+        "name": "CDU-ID"
+      },
+      "cdu_partition": {
+        "name": "CDU-partitie"
+      },
+      "vehicle_identity": {
+        "name": "Voertuigidentiteit"
+      },
+      "iccid": {
+        "name": "TBox-ICCID"
+      },
+      "weather": {
+        "name": "Weer bij voertuig"
+      },
+      "polling_status": {
+        "name": "Pollingstatus"
+      },
+      "next_poll": {
+        "name": "Volgende polling"
+      },
+      "account": {
+        "name": "Account"
+      },
+      "driver_seat_ventilation": {
+        "name": "Stoelventilatie bestuurder"
+      },
+      "passenger_seat_ventilation": {
+        "name": "Stoelventilatie passagier"
+      },
+      "left_rear_seat_heat": {
+        "name": "Stoelverwarming linksachter"
+      },
+      "right_rear_seat_heat": {
+        "name": "Stoelverwarming rechtsachter"
+      },
+      "left_rear_seat_ventilation": {
+        "name": "Stoelventilatie linksachter"
+      },
+      "right_rear_seat_ventilation": {
+        "name": "Stoelventilatie rechtsachter"
+      }
+    },
+    "calendar": {
+      "hvac_schedule_calendar": {
+        "name": "Klimaatschema"
+      }
+    },
+    "binary_sensor": {
+      "locked": {
+        "name": "Deurvergrendeling"
+      },
+      "charging": {
+        "name": "Laden"
+      },
+      "plugged_in": {
+        "name": "Aangesloten"
+      },
+      "hvac_on": {
+        "name": "Klimaat"
+      },
+      "hvac_auto": {
+        "name": "Klimaat automatisch"
+      },
+      "defrost": {
+        "name": "Ontdooien"
+      },
+      "mirror_heat": {
+        "name": "Spiegelverwarming"
+      },
+      "any_door_open": {
+        "name": "Portieren"
+      },
+      "driver_door": {
+        "name": "Bestuurdersportier"
+      },
+      "passenger_door": {
+        "name": "Passagiersportier"
+      },
+      "rear_left_door": {
+        "name": "Achterportier links"
+      },
+      "rear_right_door": {
+        "name": "Achterportier rechts"
+      },
+      "trunk": {
+        "name": "Kofferbak"
+      },
+      "bonnet": {
+        "name": "Motorkap"
+      },
+      "any_window_open": {
+        "name": "Ramen"
+      },
+      "sentinel_mode": {
+        "name": "Sentinelmodus"
+      },
+      "trunk_power": {
+        "name": "V2L-stopcontact"
+      },
+      "xguard": {
+        "name": "X-Guard-camera"
+      },
+      "temp_lock": {
+        "name": "Tijdelijke vergrendeling"
+      },
+      "credentials_valid": {
+        "name": "Inloggegevens geldig"
+      },
+      "mqtt_connected": {
+        "name": "MQTT verbonden"
+      }
+    },
+    "device_tracker": {
+      "location": {
+        "name": "Locatie"
+      }
+    },
+    "button": {
+      "flash_lights": {
+        "name": "Knipperen met de lichten"
+      },
+      "honk_horn": {
+        "name": "Claxonneren"
+      },
+      "close_windows": {
+        "name": "Ramen sluiten"
+      },
+      "vent_windows": {
+        "name": "Ramen op een kier"
+      },
+      "force_update": {
+        "name": "Geforceerde update"
+      },
+      "wake_vehicle": {
+        "name": "Voertuig wekken"
+      },
+      "query_xguard": {
+        "name": "X-Guard opvragen"
+      },
+      "open_trunk": {
+        "name": "Kofferbak openen"
+      },
+      "close_trunk": {
+        "name": "Kofferbak sluiten"
+      },
+      "start_charge": {
+        "name": "Laden starten"
+      },
+      "stop_charge": {
+        "name": "Laden stoppen"
+      },
+      "open_charge_port": {
+        "name": "Laadpoort openen"
+      },
+      "close_charge_port": {
+        "name": "Laadpoort sluiten"
+      },
+      "open_windows": {
+        "name": "Ramen openen"
+      }
+    },
+    "switch": {
+      "sentinel_switch": {
+        "name": "X-Guard"
+      },
+      "trunk_power_switch": {
+        "name": "V2L-stopcontact"
+      },
+      "defrost_switch": {
+        "name": "Voorruit ontdooien"
+      },
+      "parking_lights_switch": {
+        "name": "Parkeerlicht"
+      },
+      "auto_upgrade_switch": {
+        "name": "OTA automatisch bijwerken"
+      },
+      "charging": {
+        "name": "Laden"
+      },
+      "climate_max_heating": {
+        "name": "Maximaal verwarmen"
+      },
+      "climate_max_cooling": {
+        "name": "Maximaal koelen"
+      },
+      "climate_refresh": {
+        "name": "Vernieuwen"
+      },
+      "climate_sterilisation": {
+        "name": "Sterilisatie"
+      },
+      "climate_ac_cleaning": {
+        "name": "A/C-reiniging"
+      },
+      "climate_rear_defrost": {
+        "name": "Achterruitverwarming"
+      },
+      "climate_pet_mode": {
+        "name": "Huisdierenmodus"
+      }
+    },
+    "number": {
+      "sentinel_sensitivity_control": {
+        "name": "Sentinel-gevoeligheid"
+      },
+      "trunk_power_timer_control": {
+        "name": "V2L-uitschakeltimer"
+      },
+      "charge_limit_control": {
+        "name": "Laadlimiet"
+      },
+      "fan_speed_control": {
+        "name": "Ventilatorsnelheid"
+      }
+    },
+    "climate": {
+      "cabin_climate": {
+        "name": "Klimaat"
+      }
+    },
+    "lock": {
+      "door_lock": {
+        "name": "Deurvergrendeling"
+      }
+    },
+    "select": {
+      "driver_seat_heat_select": {
+        "name": "Stoelverwarming bestuurder"
+      },
+      "passenger_seat_heat_select": {
+        "name": "Stoelverwarming passagier"
+      },
+      "steering_wheel_heat_select": {
+        "name": "Stuurwielverwarming"
+      },
+      "driver_seat_ventilation_select": {
+        "name": "Stoelventilatie bestuurder"
+      },
+      "passenger_seat_ventilation_select": {
+        "name": "Stoelventilatie passagier"
+      },
+      "left_rear_seat_heat_select": {
+        "name": "Stoelverwarming linksachter"
+      },
+      "right_rear_seat_heat_select": {
+        "name": "Stoelverwarming rechtsachter"
+      },
+      "left_rear_seat_ventilation_select": {
+        "name": "Stoelventilatie linksachter"
+      },
+      "right_rear_seat_ventilation_select": {
+        "name": "Stoelventilatie rechtsachter"
+      }
+    },
+    "image": {
+      "vehicle_picture": {
+        "name": "Voertuigafbeelding"
+      }
+    },
+    "cover": {
+      "trunk": {
+        "name": "Kofferbak"
+      },
+      "windows": {
+        "name": "Ramen"
+      },
+      "charge_port": {
+        "name": "Laadpoort"
+      }
+    }
+  },
+  "issues": {
+    "login_expired": {
+      "title": "XPENG-login verlopen voor {entry} (VIN {vin})",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "XPENG-tokens opnieuw importeren",
+            "description": "De XPENG-inloggegevens voor **{entry}** (VIN `{vin}`) zijn verlopen en konden niet automatisch worden vernieuwd, dus de voertuigentiteiten zijn gestopt met bijwerken.\n\nHome Assistant kan niet zelf inloggen: XPENG schermt het inloggen af met een schuifcaptcha die alleen een mens kan oplossen door hem in een echte browser te verslepen.\n\n**1.** Voer op een computer de onboardingtool opnieuw uit:\n\n```\npython3 tools/onboard_email_login.py \\\n    --email YOUR_EMAIL --password 'YOUR_PASSWORD' \\\n    --save --mqtt\n```\n\nVersleep de schuif één keer wanneer de browser opent.\n\n**2.** Plak hieronder de twee bestanden die de tool heeft geschreven en dien in. Beide zijn nodig: de tenant bevat de apparaatidentiteit waaraan de tokens waren gekoppeld.\n\nVolledige handleiding: https://github.com/xpengtoolkit/xpengtoolkit#setup",
+            "data": {
+              "tokens_json": "inhoud van xpeng_tokens.json",
+              "tokens_path": "…of het pad daarvan op de Home Assistant-host",
+              "tenant_json": "inhoud van xpeng_tenant.json",
+              "tenant_path": "…of het pad daarvan op de Home Assistant-host"
+            },
+            "data_description": {
+              "tokens_json": "Plak het hele bestand, inclusief de JSON-wrapper.",
+              "tenant_json": "Plak het hele bestand. Het moet uit dezelfde run als de tokens komen."
+            }
+          }
+        },
+        "abort": {
+          "entry_gone": "Deze integratievermelding bestaat niet meer, dus er viel niets te repareren."
+        }
+      }
+    },
+    "credentials_rejected": {
+      "title": "XPENG-inloggegevens geweigerd voor {entry} (VIN {vin})",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "XPENG-tokens opnieuw importeren",
+            "description": "XPENG heeft de opgeslagen inloggegevens voor **{entry}** (VIN `{vin}`) geweigerd, en ze konden niet automatisch worden vernieuwd.\n\nDit betekent meestal dat het paar niet langer geldig is, of dat de tokens en de tenant uit verschillende onboardingruns komen - ze moeten samen worden geïmporteerd, omdat de tenant de apparaatidentiteit vastlegt waaraan de tokens waren gekoppeld.\n\nVoer `tools/onboard_email_login.py` opnieuw uit en plak hieronder het verse paar. Zie https://github.com/xpengtoolkit/xpengtoolkit#setup",
+            "data": {
+              "tokens_json": "inhoud van xpeng_tokens.json",
+              "tokens_path": "…of het pad daarvan op de Home Assistant-host",
+              "tenant_json": "inhoud van xpeng_tenant.json",
+              "tenant_path": "…of het pad daarvan op de Home Assistant-host"
+            },
+            "data_description": {
+              "tokens_json": "Plak het hele bestand, inclusief de JSON-wrapper.",
+              "tenant_json": "Plak het hele bestand. Het moet uit dezelfde run als de tokens komen."
+            }
+          }
+        },
+        "abort": {
+          "entry_gone": "Deze integratievermelding bestaat niet meer, dus er viel niets te repareren."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "command_not_sent": {
+      "message": "Het commando is niet verstuurd omdat de XPENG MQTT-verbinding niet beschikbaar is. Controleer MQTT verbonden en probeer het opnieuw."
+    },
+    "invalid_seat_option": {
+      "message": "De stoelinstelling \"{option}\" wordt niet ondersteund door deze bediening."
+    },
+    "charge_port_control_disabled": {
+      "message": "Bediening van de laadpoort op afstand is uitgeschakeld voor dit voertuig. Schakel de bediening van een gemotoriseerde laadpoort alleen in als het voertuig die ondersteunt."
+    },
+    "invalid_climate_option": {
+      "message": "Niet-ondersteunde klimaatinstelling: {option}."
+    },
+    "pet_mode_rear_seat_reminder": {
+      "message": "Huisdierenmodus kan niet op afstand worden ingeschakeld terwijl de achterbankherinnering in het voertuig is ingeschakeld (code {code})."
+    },
+    "vehicle_command_rejected": {
+      "message": "Het voertuig heeft het commando geweigerd (code {code}). Controleer de voertuigstatus en de commando-feedback voor meer informatie."
+    },
+    "command_not_confirmed": {
+      "message": "Het voertuig heeft het commando niet bevestigd. Controleer de verbinding en de huidige voertuigstatus voordat je het opnieuw probeert."
+    },
+    "command_response_invalid": {
+      "message": "Het voertuig gaf een onverwachte reactie op het commando. Controleer de commando-feedback voor meer informatie."
+    },
+    "charging_start_rejected": {
+      "message": "Laden kon niet worden gestart (voertuigcode {code}). Controleer of de kabel is aangesloten en het laadstation gereed is."
+    },
+    "fan_speed_unverified": {
+      "message": "Bediening van de ventilatorsnelheid op afstand is niet geverifieerd voor dit voertuig."
+    },
+    "climate_mode_unavailable": {
+      "message": "{mode} is niet bevestigd als ondersteund door dit voertuig."
+    },
+    "climate_start_partial": {
+      "message": "De doeltemperatuur is bijgewerkt, maar de A/C-voeding kon niet worden bevestigd: {error}. Controleer de voertuigstatus voordat je het opnieuw probeert."
+    }
+  }
+}

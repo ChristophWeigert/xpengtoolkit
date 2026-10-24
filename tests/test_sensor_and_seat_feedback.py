@@ -63,7 +63,7 @@ class SeatPublication(unittest.IsolatedAsyncioTestCase):
             return results.pop(0)
         cls = load_class("XPengSeatSelect", "select.py")
         entity = cls(SimpleNamespace(), SimpleNamespace(send_command=send),
-                     "driver_seat_heat_select", "Driver seat heating", "mdi:car-seat-heater",
+                     "driver_seat_heat_select", "mdi:car-seat-heater",
                      1, "seat", ["Off", "Heat 3"], {"Off": (0, 1), "Heat 3": (3, 1)})
         async def executor(fn, *args):
             return fn(*args)

@@ -62,7 +62,7 @@ class XPengSentinelSensitivity(XPengEntity, NumberEntity):
     """Number to set sentinel mode sensitivity level."""
 
     _policy_group = GROUP_SECURING
-    _attr_name = "Sentinel sensitivity"
+    _attr_translation_key = "sentinel_sensitivity_control"
     _attr_icon = "mdi:cctv"
     _attr_native_min_value = 1
     _attr_native_max_value = 3
@@ -109,7 +109,7 @@ class XPengTrunkPowerTimer(XPengEntity, NumberEntity):
     """Number to set trunk power auto-off timer."""
 
     _policy_group = GROUP_POWER
-    _attr_name = "Trunk power timer"
+    _attr_translation_key = "trunk_power_timer_control"
     _attr_icon = "mdi:timer-outline"
     _attr_native_min_value = 0
     _attr_native_max_value = 1440
@@ -157,7 +157,6 @@ class XPengChargeLimit(XPengEntity, NumberEntity):
     """Number to set the charge limit (SOC %)."""
 
     _policy_group = GROUP_CHARGING
-    _attr_name = "Charge limit"
     _attr_translation_key = "charge_limit_control"
     _attr_icon = "mdi:battery-charging-100"
     _attr_native_min_value = 50
@@ -199,7 +198,7 @@ class XPengFanSpeed(XPengEntity, NumberEntity):
 
     _attr_entity_registry_enabled_default = False
     _policy_group = GROUP_COMFORT
-    _attr_name = "Fan speed"
+    _attr_translation_key = "fan_speed_control"
     _attr_icon = "mdi:fan"
     _attr_native_min_value = 1
     _attr_native_max_value = 8

@@ -106,7 +106,7 @@ class XPengSentinelSwitch(XPengEntity, SwitchEntity):
 
     _policy_group = GROUP_SECURING
     _policy_groups = (GROUP_SECURING, GROUP_ACCESS)
-    _attr_name = "X-Guard"
+    _attr_translation_key = "sentinel_switch"
     _attr_icon = "mdi:cctv"
     _attr_assumed_state = True  # optimistic — don't bounce on stale state
 
@@ -178,7 +178,7 @@ class XPengTrunkPowerSwitch(XPengEntity, SwitchEntity):
     """Switch to toggle trunk power outlet (V2L)."""
 
     _policy_group = GROUP_POWER
-    _attr_name = "Trunk power"
+    _attr_translation_key = "trunk_power_switch"
     _attr_icon = "mdi:power-plug"
     _attr_assumed_state = True
 
@@ -233,7 +233,6 @@ class XPengDefrostSwitch(XPengEntity, SwitchEntity):
     """Switch to toggle front defrost."""
 
     _policy_group = GROUP_COMFORT
-    _attr_name = "Front defrost"
     _attr_translation_key = "defrost_switch"
     _attr_icon = "mdi:car-defrost-front"
     _attr_assumed_state = False
@@ -272,7 +271,6 @@ class XPengParkingLightsSwitch(XPengEntity, SwitchEntity):
     """Switch to toggle parking lights."""
 
     _policy_group = GROUP_LIGHTS
-    _attr_name = "Parking lights"
     _attr_translation_key = "parking_lights_switch"
     _attr_icon = "mdi:car-parking-lights"
     _attr_assumed_state = True  # no state feedback from MQTT
@@ -318,7 +316,6 @@ class XPengAutoUpgradeSwitch(XPengEntity, SwitchEntity):
     """Switch to toggle OTA auto-upgrade setting via REST API."""
 
     _policy_group = GROUP_FIRMWARE
-    _attr_name = "OTA auto-upgrade"
     _attr_translation_key = "auto_upgrade_switch"
     _attr_icon = "mdi:cellphone-arrow-down"
     _attr_assumed_state = True
@@ -505,7 +502,6 @@ class XPengChargingSwitch(XPengEntity, SwitchEntity):
     """Start/stop charging, displaying measured charging activity."""
 
     _policy_group = GROUP_CHARGING
-    _attr_name = "Charging"
     _attr_translation_key = "charging"
     _attr_icon = "mdi:battery-charging"
     _attr_assumed_state = False
@@ -568,7 +564,6 @@ class XPengClimateModeSwitch(XPengEntity, SwitchEntity):
         super().__init__(coordinator)
         self._mqtt_client = mqtt_client
         self._mode = mode
-        self._attr_name = mode.name
         self._attr_translation_key = "climate_" + mode.key
         self._attr_icon = mode.icon
         self._attr_unique_id = f"xpeng_{self._vin}_climate_{mode.key}"

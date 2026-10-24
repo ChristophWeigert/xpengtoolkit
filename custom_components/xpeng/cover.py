@@ -58,11 +58,6 @@ class XPengCover(XPengEntity, CoverEntity):
         self._controls_enabled = key != "charge_port" or charge_port_controls
         self._attr_unique_id = f"xpeng_{self._vin}_{key}_cover"
         self._attr_translation_key = key
-        self._attr_name = {
-            "trunk": "Trunk",
-            "windows": "Windows",
-            "charge_port": "Charge port",
-        }[key]
         self._attr_device_class = (
             CoverDeviceClass.WINDOW if key == "windows" else CoverDeviceClass.DOOR
         )

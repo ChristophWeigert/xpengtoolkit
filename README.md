@@ -267,6 +267,19 @@ a group that is Disabled is not created at all, and one that is Read only keeps 
 state but refuses its commands. A new install starts at **Safe Plus**, so OTA, the V2L
 outlet and unlocking are absent until you widen it.
 
+### Languages
+
+The Home Assistant UI strings ship in **German, Dutch, Norwegian Bokmål, Danish,
+Swedish and French** alongside English: config flow, options, entity names, repair
+issues and error messages follow the language Home Assistant is set to (a restart
+picks up a change). Entity ids stay English in every language - a German install
+still gets `sensor.xpeng_<vehicle>_battery`, so the automations and examples in
+these docs work unchanged. Config-flow dropdown labels, free-form sensor states and
+this README are still English; see the [languages guide](https://xpengtoolkit.github.io/xpengtoolkit/guide/translations).
+Translation files live in
+[`custom_components/xpeng/translations/`](custom_components/xpeng/translations);
+`python3 tools/check_translations.py` validates them.
+
 ### Consolidated controls
 
 New entries use native covers for trunk/windows/charge port and a charging switch.
