@@ -4,6 +4,10 @@ A standalone Lovelace card for the XPENG Toolkit integration. No extra cards, de
 
 The visual direction comes from the [official XPENG app screenshots](https://play.google.com/store/apps/details?id=com.xiaopeng.globalcarinfo): pale blue vehicle backdrop, prominent range, restrained icons and green accents. This is an independent Home Assistant card.
 
+A step-by-step walkthrough - enabling the card, adding it, choosing the car,
+several vehicles, renamed entities and troubleshooting - is in the
+docs site: [Set up the XPENG Vehicle card](https://xpengtoolkit.github.io/xpengtoolkit/tutorials/vehicle-card).
+
 ## Install with the integration (0.6.26 and later)
 
 The card is bundled in the integration at

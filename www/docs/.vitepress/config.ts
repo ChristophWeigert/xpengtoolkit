@@ -16,6 +16,7 @@ export default defineConfig({
     logo: "/logo.svg",
     nav: [
       { text: "Getting started", link: "/guide/overview", activeMatch: "/guide/" },
+      { text: "Tutorials", link: "/tutorials/", activeMatch: "/tutorials/" },
       { text: "Reference", link: "/reference/options", activeMatch: "/reference/" },
       { text: "Examples", link: "/examples/overview", activeMatch: "/examples/" },
     ],
@@ -35,6 +36,13 @@ export default defineConfig({
           },
           { text: "Notifications", link: "/guide/notifications" },
           { text: "EVCC", link: "/guide/evcc" },
+        ],
+      },
+      {
+        text: "Tutorials",
+        items: [
+          { text: "Overview", link: "/tutorials/" },
+          { text: "Vehicle card", link: "/tutorials/vehicle-card" },
         ],
       },
       {

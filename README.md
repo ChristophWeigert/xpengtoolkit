@@ -288,6 +288,10 @@ migrate matching legacy local resources. Turning it off for every vehicle, or
 removing the last opted-in vehicle, removes the managed resource. Dashboard
 layouts are never edited. See the [card guide](lovelace/xpeng-vehicle-card/README.md)
 for YAML resources and manual installation. Requires Home Assistant 2024.7.
+A step-by-step
+[tutorial](https://xpengtoolkit.github.io/xpengtoolkit/tutorials/vehicle-card)
+covers enabling the card, adding it to a dashboard, choosing the car, several
+vehicles and renamed entities, and troubleshooting.
 Read the [0.6.26 upgrade and downgrade notes](docs/RELEASE_NOTES_0.6.26.md) before upgrading.
 
 ### Climate protocol and feedback

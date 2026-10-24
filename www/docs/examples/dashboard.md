@@ -4,6 +4,10 @@ Everything below uses only built-in cards, so nothing has to be installed from
 HACS first. The layout in the screenshot is a **sections** view: each section is a
 row, and the cards inside a section share the width.
 
+If you would rather use the bundled card for the vehicle panel, the
+[vehicle card tutorial](../tutorials/vehicle-card) covers enabling it and adding
+it to a dashboard; the hand-built view below still works alongside it.
+
 ![Vehicle dashboard](../images/ha-dashboard.png)
 
 ## The view
