@@ -25,11 +25,24 @@ ENV PORT=8090 \
 
 # The headless shell build is deleted: the launch names the full browser
 # explicitly (see CHROME_RELATIVES in guardian_token.mjs) and never uses it.
+# One layer per concern, so `docker history` shows which one is big. Each cleans up
+# after itself: a delete in a later layer would not shrink the image.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends python3 python3-cryptography \
- && npm install --omit=dev --no-audit --no-fund \
- && npx playwright-core install --with-deps chromium \
- && rm -rf /ms-playwright/chromium_headless_shell-* /root/.npm /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/*
+
+RUN npm install --omit=dev --no-audit --no-fund \
+ && rm -rf /root/.npm
+
+# The system libraries Chromium links against (and the fonts Playwright adds).
+RUN apt-get update \
+ && npx playwright-core install-deps chromium \
+ && rm -rf /var/lib/apt/lists/*
+
+# Only the en-US locale pack is kept; Chromium falls back to it.
+RUN npx playwright-core install chromium \
+ && rm -rf /ms-playwright/chromium_headless_shell-* /root/.npm \
+ && find /ms-playwright/chromium-*/chrome-linux*/locales -name '*.pak' ! -name 'en-US.pak' -delete
 
 COPY run.sh renew_server.py ./
 COPY vendor/ ./vendor/
