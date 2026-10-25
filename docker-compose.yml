@@ -1,0 +1,46 @@
+# Companion stack for an existing, separately deployed Home Assistant (no Supervisor).
+# Mirrors "Standalone Docker" in www/docs/guide/unattended-renewal.md.
+# Portainer: Stacks > Add stack > Web editor (every build is a git URL, so this file can live anywhere).
+#
+# Variables: XPENG_EMAIL, XPENG_PASSWORD (a dedicated account, never the phone-app one),
+# SOLVER_TOKEN, RENEW_TOKEN, HA_URL (e.g. http://192.168.1.10:8123), HA_TOKEN (admin
+# long-lived token).
+#
+# HA must mount the same volumes at the same paths (Core reads the pair itself):
+#   xpeng-credentials -> /config/xpeng-secrets    xpeng-client-certs -> /config/xpeng-certs (ro)
+# with `external: true` in its own compose. Copy the .pem files into xpeng-certs.
+services:
+  xpeng-slider-solver:
+    build: https://github.com/xpengtoolkit/slider-solver.git#:slider_solver
+    restart: unless-stopped
+    ports: ["8080:8080"]
+    environment:
+      SOLVER_TOKEN: ${SOLVER_TOKEN:?set SOLVER_TOKEN}
+
+  xpeng-renew:
+    build: https://github.com/xpengtoolkit/xpengtoolkit.git#v0.6.24:xpeng_renew
+    restart: unless-stopped
+    depends_on: [xpeng-slider-solver]
+    ports: ["8090:8090"] # POST /renew, GET /healthz
+    environment:
+      EMAIL: ${XPENG_EMAIL:?set XPENG_EMAIL}
+      PASSWORD: ${XPENG_PASSWORD:?set XPENG_PASSWORD}
+      SOLVER_URL: http://xpeng-slider-solver:8080
+      SOLVER_TOKEN: ${SOLVER_TOKEN}
+      RENEW_TOKEN: ${RENEW_TOKEN:-}
+      PAIR_DIR: /config/xpeng-secrets
+      CORE_API: ${HA_URL:?set HA_URL}/api
+      SUPERVISOR_TOKEN: ${HA_TOKEN:?set HA_TOKEN} # just the bearer; the name is the app's
+      COMMAND_MODE: ${COMMAND_MODE:-safe_plus}
+    volumes:
+      - xpeng-credentials:/config/xpeng-secrets
+      - xpeng-client-certs:/config/xpeng-certs:ro
+      - xpeng-renew-state:/data # device_id.txt: a remembered identity outlasts a fresh one
+
+volumes:
+  xpeng-renew-state:
+  # Fixed names so the HA stack can mount them as external volumes at the same paths.
+  xpeng-credentials:
+    name: xpeng-credentials
+  xpeng-client-certs:
+    name: xpeng-client-certs

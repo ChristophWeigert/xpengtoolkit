@@ -1,15 +1,10 @@
-# The Playwright image is used because it already carries Node and Chromium -
-# guardian_token.mjs needs both - and a python3. cryptography is the login
-# code's only third-party import, so the image stays close to the solver
-# add-on's.
-FROM mcr.microsoft.com/playwright:v1.49.1-jammy
+# A plain Node base plus only Chromium, instead of the full Playwright image: that one
+# also carries Firefox and WebKit, which guardian_token.mjs never launches. Node is
+# needed for the script, a python3 for the worker, and cryptography is the login
+# code's only third-party import.
+FROM node:20-bookworm-slim
 
 WORKDIR /app
-
-RUN apt-get update \
- && apt-get install -y --no-install-recommends python3-pip \
- && pip3 install --no-cache-dir cryptography \
- && rm -rf /var/lib/apt/lists/*
 
 # guardian_token.mjs runs NetEase's Guardian SDK in a real browser, so it needs
 # the playwright-core client as well as Chromium. It resolves that module from
@@ -19,19 +14,27 @@ RUN apt-get update \
 # add-on does. Without it the renewal clears the slider and then dies at
 # "guardian failed: playwright-core not found".
 #
-# Keep this version equal to the base image tag above: the client library and
-# the browser build have to match.
+# The client library and the browser build have to match: Chromium is installed
+# by the pinned client below, never by a separately versioned one.
 COPY package.json ./
-RUN npm install --omit=dev --no-audit --no-fund
+
+# The base image keeps no browsers, so say where they go. guardian_token.mjs looks
+# for a full `chromium-*` build under this path.
+ENV PORT=8090 \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
+# The headless shell build is deleted: the launch names the full browser
+# explicitly (see CHROME_RELATIVES in guardian_token.mjs) and never uses it.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends python3 python3-cryptography \
+ && npm install --omit=dev --no-audit --no-fund \
+ && npx playwright-core install --with-deps chromium \
+ && rm -rf /ms-playwright/chromium_headless_shell-* /root/.npm /var/lib/apt/lists/*
 
 COPY run.sh renew_server.py ./
 COPY vendor/ ./vendor/
 RUN chmod +x /app/run.sh
 
-# The base image keeps its browser builds here. Being explicit means the add-on
-# does not depend on that ENV surviving a base image change.
-ENV PORT=8090 \
-    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 EXPOSE 8090
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s \
