@@ -4,7 +4,7 @@
 #
 # Variables: XPENG_EMAIL, XPENG_PASSWORD (a dedicated account, never the phone-app one),
 # SOLVER_TOKEN, RENEW_TOKEN, HA_URL (e.g. http://192.168.1.10:8123), HA_TOKEN (admin
-# long-lived token), NAS_IP (TrueNAS), optional NAS_PATH (default /mnt/pool-main/docker_volumes).
+# long-lived token), NAS_IP (TrueNAS).
 #
 # Home Assistant (separate VM) must read the same files: add the xpeng-credentials NFS
 # export as network storage named "xpeng" (Usage: Share) -> /share/xpeng. Core reads the
@@ -46,10 +46,10 @@ volumes:
     driver_opts:
       type: nfs
       o: addr=${NAS_IP:?set NAS_IP},nfsvers=4,rw
-      device: ":${NAS_PATH:-/mnt/pool-main/docker_volumes}/xpeng-credentials"
+      device: ":/mnt/pool-main/docker_volumes/xpeng-credentials"
   xpeng-client-certs:
     driver: local
     driver_opts:
       type: nfs
       o: addr=${NAS_IP},nfsvers=4,ro
-      device: ":${NAS_PATH:-/mnt/pool-main/docker_volumes}/xpeng-client-certs"
+      device: ":/mnt/pool-main/docker_volumes/xpeng-client-certs"
