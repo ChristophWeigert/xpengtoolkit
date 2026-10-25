@@ -4,11 +4,11 @@
 #
 # Variables: XPENG_EMAIL, XPENG_PASSWORD (a dedicated account, never the phone-app one),
 # SOLVER_TOKEN, RENEW_TOKEN, HA_URL (e.g. http://192.168.1.10:8123), HA_TOKEN (admin
-# long-lived token).
+# long-lived token), NAS_IP (TrueNAS).
 #
-# HA must mount the same volumes at the same paths (Core reads the pair itself):
-#   xpeng-credentials -> /config/xpeng-secrets    xpeng-client-certs -> /config/xpeng-certs (ro)
-# with `external: true` in its own compose. Copy the .pem files into xpeng-certs.
+# Home Assistant (separate VM) must read the same files: add the xpeng-credentials NFS
+# export as network storage named "xpeng" (Usage: Share) -> /share/xpeng. Core reads the
+# pair itself. Put the .pem files in the xpeng-client-certs dataset.
 services:
   xpeng-slider-solver:
     build: https://github.com/xpengtoolkit/slider-solver.git#:slider_solver
@@ -18,7 +18,7 @@ services:
       SOLVER_TOKEN: ${SOLVER_TOKEN:?set SOLVER_TOKEN}
 
   xpeng-renew:
-    build: https://github.com/xpengtoolkit/xpengtoolkit.git#v0.6.24:xpeng_renew
+    build: https://github.com/ChristophWeigert/xpengtoolkit.git#slim-renew-image:xpeng_renew
     restart: unless-stopped
     depends_on: [xpeng-slider-solver]
     ports: ["8090:8090"] # POST /renew, GET /healthz
@@ -28,19 +28,28 @@ services:
       SOLVER_URL: http://xpeng-slider-solver:8080
       SOLVER_TOKEN: ${SOLVER_TOKEN}
       RENEW_TOKEN: ${RENEW_TOKEN:-}
-      PAIR_DIR: /config/xpeng-secrets
+      PAIR_DIR: /share/xpeng # must equal the path Home Assistant sees
       CORE_API: ${HA_URL:?set HA_URL}/api
       SUPERVISOR_TOKEN: ${HA_TOKEN:?set HA_TOKEN} # just the bearer; the name is the app's
       COMMAND_MODE: ${COMMAND_MODE:-safe_plus}
     volumes:
-      - xpeng-credentials:/config/xpeng-secrets
+      - xpeng-credentials:/share/xpeng
       - xpeng-client-certs:/config/xpeng-certs:ro
       - xpeng-renew-state:/data # device_id.txt: a remembered identity outlasts a fresh one
 
 volumes:
   xpeng-renew-state:
-  # Fixed names so the HA stack can mount them as external volumes at the same paths.
+  # NFS datasets on TrueNAS; Home Assistant mounts xpeng-credentials as network storage
+  # "xpeng" (Usage: Share) so it sees the same files at /share/xpeng.
   xpeng-credentials:
-    name: xpeng-credentials
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=${NAS_IP:?set NAS_IP},nfsvers=4,rw
+      device: ":/mnt/pool-main/xpeng-credentials"
   xpeng-client-certs:
-    name: xpeng-client-certs
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=${NAS_IP},nfsvers=4,ro
+      device: ":/mnt/pool-main/xpeng-client-certs"
